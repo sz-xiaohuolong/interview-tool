@@ -1,4 +1,6 @@
-# V1 架构与契约
+# 当前技术架构与契约
+
+适用当前 V1 实现；产品行为见 [SPEC.md](releases/v1/SPEC.md)，实际验收见 [VERIFICATION.md](releases/v1/VERIFICATION.md)。本文件描述已实现架构。
 
 ## 结构与数据流
 

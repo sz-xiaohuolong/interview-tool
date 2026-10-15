@@ -6,7 +6,7 @@
 
 ## 恢复入口
 
-先读根目录 `DOCUMENT_MAP.md`，按职责进入现有事实源；只维护这一份权威地图。当前 Release 为 V1，实施进度与验收证据分别由地图中登记的计划和验证记录维护。
+先读根目录 `DOCUMENT_MAP.md`，按职责进入现有事实源；只维护这一份权威地图。当前 Release 为 V1，项目定位、真实架构、当前进度与决策由 `docs/vibe/` 的对应文档维护；版本背景、完整行为、计划和验证由 `docs/vibe/releases/v1/` 维护。
 
 启动：`./scripts/dev.sh`；工程检查：`./scripts/test.sh`；浏览器验收：`bash scripts/e2e.sh`。具体环境和参数见 `README.md`。
 

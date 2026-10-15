@@ -69,7 +69,7 @@ LLM_REASONING_EFFORT=
 
 提示词独立保存在 `backend/src/main/resources/prompts/`。服务端校验模型 JSON，强制追问上限与状态规则；回答包含请求 ID 和问题 ID，避免重复提交与过期页面写入。报告保存原始对话引用，区分明确错误、没有提到、资料不足。
 
-文档统一索引见 [DOCUMENT_MAP.md](DOCUMENT_MAP.md)。V1 文档位于 `docs/vibe/releases/v1/`：[产品需求](docs/vibe/releases/v1/PRD.md)、[架构说明](docs/vibe/releases/v1/ARCHITECTURE.md)、[实施计划](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md)、[验证记录](docs/vibe/releases/v1/VERIFICATION.md)、[决策记录](docs/vibe/releases/v1/DECISIONS.md)。
+文档统一索引见 [DOCUMENT_MAP.md](DOCUMENT_MAP.md)。项目级文档包括[项目定位](docs/vibe/PROJECT.md)、[当前架构](docs/vibe/TECH_DESIGN.md)、[当前进度](docs/vibe/PROGRESS.md)与[决策记录](docs/vibe/DECISIONS.md)。V1 文档位于 `docs/vibe/releases/v1/`：[需求背景与范围](docs/vibe/releases/v1/PROJECT_BRIEF.md)、[完整产品行为与验收](docs/vibe/releases/v1/SPEC.md)、[实施计划](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md)、[实际验证记录](docs/vibe/releases/v1/VERIFICATION.md)。
 
 ## 测试
 
@@ -96,7 +96,7 @@ python3 scripts/smoke.py --output .evidence/mock-smoke.json
 python3 scripts/smoke.py --real --output .evidence/real-smoke.json
 ```
 
-HTTP 验收只创建合成资料，结束后删除自己创建的资料并保留验收会话，以便检查历史快照。真实模型的出题相关性、追问意义和评估质量需要单独核验，不能由 Mock 测试代替。当前实际证据见实施与验证记录。
+HTTP 验收只创建合成资料，结束后删除自己创建的资料并保留验收会话，以便检查历史快照。真实模型的出题相关性、追问意义和评估质量需要单独核验，不能由 Mock 测试代替。当前实际证据见 V1 验证记录。
 
 ## 已知边界
 
