@@ -259,27 +259,27 @@ onMounted(loadMaterials)
 <style scoped>
 .materials-page > .page-heading { align-items: flex-start; }
 .materials-page > .page-heading > .btn { margin-top: 18px; }
-.material-count { font-size: 11px; margin-left: 8px; opacity: .7; }
+.material-count { font-size: 11px; margin-left: 8px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .material-intro { margin-bottom: 18px; }
 .material-card-heading, .material-meta { display: flex; align-items: center; gap: 12px; }
 .material-card-heading { min-width: 0; }
 .material-card .list-body h3 { font-size: 16px; }
 .material-card .material-preview { height: 94px; }
-.material-start { margin-top: 20px; border-top: 1px solid #edf0e8; padding-top: 17px; width: 100%; }
+.material-start { margin-top: 20px; border-top: 1px solid var(--border-subtle); padding-top: 17px; width: 100%; }
 .material-start svg { margin-left: auto; }
 .card-actions, .material-meta { flex-wrap: wrap; }
 .material-reading .heading-row { margin-bottom: 13px; }
 .reading-edit { border: 0; background: transparent; padding: 4px; }
-.material-reading pre, .document-item pre { font-size: 13px; color: #52634d; overflow-wrap: anywhere; }
-.document-item { padding: 18px 0; border-bottom: 1px solid #e2e8da; }
-.document-item summary { display: flex; align-items: center; gap: 8px; color: #48623d; cursor: pointer; font-size: 13px; }
+.material-reading pre, .document-item pre { font-size: 15px; max-width: 72ch; color: var(--text-secondary); overflow-wrap: anywhere; }
+.document-item { padding: 18px 0; border-bottom: 1px solid var(--border-subtle); }
+.document-item summary { display: flex; align-items: center; gap: 8px; color: var(--accent-ink); cursor: pointer; font-size: 13px; }
 .document-item summary span { overflow-wrap: anywhere; min-width: 0; }
 .document-item summary svg { flex-shrink: 0; }
-.document-item summary small { margin-left: auto; color: #7e8b74; white-space: nowrap; }
+.document-item summary small { margin-left: auto; color: var(--text-muted); white-space: nowrap; }
 .document-item details[open] summary { margin-bottom: 15px; }
 .document-delete { margin-top: 9px; }
 .document-uploader { margin-top: 22px; }
 .pending-files { margin-top: 14px; }
-.pending-files ul { padding-left: 20px; font-size: 12px; color: #63765a; line-height: 1.8; overflow-wrap: anywhere; }
+.pending-files ul { padding-left: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
 @media (max-width: 560px) { .materials-page > .page-heading { flex-direction: column; gap: 8px; } .materials-page > .page-heading > .btn { margin-top: 5px; } .tabs { gap: 22px; } }
 </style>

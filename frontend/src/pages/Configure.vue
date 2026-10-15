@@ -56,11 +56,11 @@ async function predict() {
 }
 </script>
 <template>
-  <div class="page">
+  <div class="page configure-page">
     <div class="page-heading"><h1>{{ titles[mode] }}</h1><p>{{ notes[mode] }}</p></div>
     <Notice :message="error" kind="error" /><Notice v-if="focus" :message="`本次专项练习：${focus}`" />
     <LoadingState v-if="loading" />
-    <div v-else class="two-columns" style="grid-template-columns: minmax(0, 1.7fr) minmax(250px, 1fr)">
+    <div v-else class="two-columns configure-layout">
       <form class="panel" @submit.prevent="isResume ? predict() : start()">
         <div class="heading-row"><h2>{{ isResume ? '押题配置' : '面试配置' }}</h2><span class="badge">{{ { quick: '快速面试', resume: '简历押题', project: '项目深挖' }[mode] }}</span></div>
         <div v-if="mode !== 'quick'" class="form-field">
@@ -80,7 +80,7 @@ async function predict() {
         <div class="form-field form-section"><label for="jd">补充技术栈或岗位描述 <span class="muted" style="font-weight: 400">（选填）</span></label><select v-if="jds.length" v-model="jdId" aria-label="使用已保存的 JD" style="margin-bottom: 10px" :disabled="busy"><option value="">使用已保存的 JD…</option><option v-for="item in jds" :value="item.id" :key="item.id">{{ item.name }}</option></select><textarea id="jd" v-model="jd" maxlength="10000" placeholder="粘贴目标岗位的要求，或补充你希望重点练习的技术方向。" :disabled="busy"></textarea><p class="form-help">仅用于本次问题规划；真实模式下会发送给你配置的模型服务。</p></div>
         <button class="btn btn-primary" type="submit" :disabled="busy || !ready" style="width: 100%"><span v-if="busy" class="spinner"></span><template v-else><PhArrowClockwise v-if="isResume && prediction" :size="17" /><PhArrowRight v-else :size="17" /></template>{{ busy ? (isResume ? '正在分析简历与生成押题…' : '面试官正在准备问题…') : isResume ? (prediction ? '重新生成 10 道押题' : '生成 10 道针对性押题') : '开始面试' }}</button>
       </form>
-      <aside><div class="panel" style="background: #edf2e5"><component :is="isResume ? PhFileText : mode === 'project' ? PhStack : PhTimer" :size="29" weight="light" style="color: #6a835b; margin-bottom: 21px" /><h3>{{ isResume ? '准备有据可依的回答' : '像真实面试一样练习' }}</h3><p class="tiny muted" style="margin-top: 12px">{{ isResume ? '押题优先级是模型评估，不代表企业真实题库或命中概率。对没有充分依据的指标与职责，会提示需要补充。' : '面试官每次提出一个问题，根据你的回答继续追问。正式面试中不会展示标准答案，结束后统一复盘。' }}</p><ul class="reading-list" style="margin-top: 23px"><li>{{ isResume ? '10 道高优先级准备题' : '每道主问题最多追问两次' }}</li><li>{{ isResume ? '附简历依据、回答思路与风险点' : '自动保存对话，支持刷新后继续' }}</li><li>{{ isResume ? '选中一道问题，进入专项面试' : '四维评价与逐题改进建议' }}</li></ul></div><div v-if="mode === 'project'" class="panel" style="margin-top: 18px"><h3>从三个层次理解项目</h3><p class="tiny muted" style="margin-top: 13px">L1 · 背景、架构与个人职责<br />L2 · 实现、数据流与异常处理<br />L3 · 假设场景、挑战与技术权衡</p></div></aside>
+      <aside class="configure-aside"><div class="panel"><component :is="isResume ? PhFileText : mode === 'project' ? PhStack : PhTimer" :size="29" weight="light" style="color: var(--accent-ink); margin-bottom: 21px" /><h3>{{ isResume ? '准备有据可依的回答' : '像真实面试一样练习' }}</h3><p class="tiny muted" style="margin-top: 12px">{{ isResume ? '押题优先级是模型评估，不代表企业真实题库或命中概率。对没有充分依据的指标与职责，会提示需要补充。' : '面试官每次提出一个问题，根据你的回答继续追问。正式面试中不会展示标准答案，结束后统一复盘。' }}</p><ul class="reading-list" style="margin-top: 23px"><li>{{ isResume ? '10 道高优先级准备题' : '每道主问题最多追问两次' }}</li><li>{{ isResume ? '附简历依据、回答思路与风险点' : '自动保存对话，支持刷新后继续' }}</li><li>{{ isResume ? '选中一道问题，进入专项面试' : '四维评价与逐题改进建议' }}</li></ul></div><div v-if="mode === 'project'" class="panel" style="margin-top: 18px"><h3>从三个层次理解项目</h3><p class="tiny muted" style="margin-top: 13px">L1 · 背景、架构与个人职责<br />L2 · 实现、数据流与异常处理<br />L3 · 假设场景、挑战与技术权衡</p></div></aside>
     </div>
     <section v-if="isResume && prediction" class="section">
       <div class="heading-row"><div><h2>你的高优先级准备清单</h2><p class="tiny muted" style="margin-top: 8px">基于已保存的简历与生成时的岗位配置 · {{ prediction.role }}</p></div><span class="badge" :class="prediction.mock ? 'badge-orange' : ''">{{ prediction.mock ? 'Mock 测试结果' : '模型评估' }}</span></div>
@@ -90,6 +90,3 @@ async function predict() {
     </section>
   </div>
 </template>
-<style scoped>
-@media(max-width: 900px) { .two-columns { grid-template-columns: 1fr !important; } }
-</style>

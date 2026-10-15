@@ -17,20 +17,20 @@ onMounted(async () => {
 })
 </script>
 <template>
-  <div class="page">
+  <div class="page dashboard-page">
     <div class="page-heading"><p class="eyebrow" style="margin-top: 0">每一次练习，都是下一次的底气</p><h1>把你会的，讲得更好。</h1><p>从一道问题开始，练习技术深度、表达与临场应对。</p></div>
     <Notice :message="error" kind="error" />
     <Notice v-if="health && !health.configured" message="还没有配置模型。请填写项目根目录 .env.local 中的模型地址、密钥和模型名称，重启后端后开始练习。" kind="warning" />
     <Notice v-if="health?.provider === 'mock'" message="当前为 Mock 测试模式：可体验完整流程，题目和评分仅供功能验证。正式练习请配置真实模型。" kind="warning" />
     <LoadingState v-if="loading" />
     <template v-else>
-      <div class="stat-strip"><div class="stat"><div class="stat-value">{{ completed.length }}<span class="tiny muted" style="margin-left: 7px">场</span></div><div class="stat-label">已完成面试</div></div><div class="stat"><div class="stat-value">{{ answers }}<span class="tiny muted" style="margin-left: 7px">次</span></div><div class="stat-label">已提交回答</div></div><div class="stat"><div class="stat-value">{{ materials.length }}<span class="tiny muted" style="margin-left: 7px">份</span></div><div class="stat-label">保存的个人资料</div></div></div>
       <div class="heading-row"><h2>今天，想练哪一种？</h2><span class="tiny muted">选择你的练习方式</span></div>
       <div class="mode-grid">
         <RouterLink to="/configure/quick" class="mode-card featured"><span class="mode-number">01</span><PhLightning class="mode-icon" :size="30" weight="light" /><h3>快速岗位面试</h3><p>不用准备资料。选一个目标岗位，马上进入面试状态。</p><span class="card-arrow">开始练习 <PhArrowUpRight :size="16" /></span></RouterLink>
         <RouterLink to="/configure/resume" class="mode-card"><span class="mode-number">02</span><PhFileText class="mode-icon" :size="30" weight="light" /><h3>简历针对押题</h3><p>从真实经历出发，提前准备最值得关注的问题。</p><span class="card-arrow">分析我的简历 <PhArrowUpRight :size="16" /></span></RouterLink>
         <RouterLink to="/configure/project" class="mode-card"><span class="mode-number">03</span><PhStack class="mode-icon" :size="30" weight="light" /><h3>项目深度面试</h3><p>从整体架构到技术权衡，讲透你真正做过的项目。</p><span class="card-arrow">深入聊一个项目 <PhArrowUpRight :size="16" /></span></RouterLink>
       </div>
+      <div class="stat-strip"><div class="stat"><div class="stat-value">{{ completed.length }}<span class="tiny muted" style="margin-left: 7px">场</span></div><div class="stat-label">已完成面试</div></div><div class="stat"><div class="stat-value">{{ answers }}<span class="tiny muted" style="margin-left: 7px">次</span></div><div class="stat-label">已提交回答</div></div><div class="stat"><div class="stat-value">{{ materials.length }}<span class="tiny muted" style="margin-left: 7px">份</span></div><div class="stat-label">保存的个人资料</div></div></div>
       <div class="two-columns section">
         <section><div class="heading-row"><h2>最近的练习</h2><RouterLink to="/history" class="text-link">全部记录 <PhArrowRight :size="14" /></RouterLink></div>
           <div class="panel" style="padding-top: 4px; padding-bottom: 4px" v-if="recent.length"><RouterLink v-for="s in recent" :key="s.id" :to="s.status === 'COMPLETED' ? `/reports/${s.id}` : `/sessions/${s.id}`" class="list-row"><div class="list-icon"><PhChatsCircle :size="21" /></div><div class="list-body"><h3>{{ s.role }}</h3><p>{{ modeNames[s.mode] }} · {{ dateTime(s.createdAt) }}<span v-if="s.mock"> · 测试</span></p></div><span class="badge" :class="s.status === 'COMPLETED' ? '' : 'badge-orange'">{{ statusNames[s.status] }}</span><PhArrowUpRight :size="17" class="muted" /></RouterLink></div>

@@ -75,7 +75,7 @@ async function finish() {
 function shortcut(event: KeyboardEvent) { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.isComposing) { event.preventDefault(); void send() } }
 </script>
 <template>
-  <div class="page">
+  <div class="page session-page">
     <div class="page-heading"><h1>专注此刻，把思路讲清楚。</h1><p>不必追求一次完美回答。说出你的判断、依据，以及不确定的地方。</p></div>
     <Notice :message="error" kind="error" />
     <LoadingState v-if="loading" label="正在恢复面试记录…" />
@@ -83,7 +83,6 @@ function shortcut(event: KeyboardEvent) { if (event.key === 'Enter' && (event.ct
       <Notice v-if="session.mock" kind="warning" message="Mock 测试面试：用于验证流程，问题和评分不代表真实模型能力。" />
       <Notice v-if="session.contextTruncated" kind="warning" message="本场资料上下文已截断，模型仅使用保留部分。" />
       <div class="session-layout">
-        <aside class="session-meta"><div class="panel"><span class="badge">{{ modeNames[session.mode] }}</span><h3 style="margin-top: 17px">{{ session.role }}</h3><dl><div><dt>岗位级别</dt><dd>{{ levelNames[session.level] }}</dd></div><div><dt>面试风格</dt><dd>{{ styleNames[session.style] }}</dd></div><div><dt>当前进度</dt><dd>主问题 {{ Math.min(session.questionIndex + 1, session.totalQuestions) }} / {{ session.totalQuestions }}<br /><span class="tiny muted">本题已追问 {{ session.followUpCount }} / 2 次</span></dd></div><div><dt>考查方向</dt><dd>{{ session.currentTopic || '正在规划问题' }}</dd></div><div><dt>目标时长</dt><dd>{{ session.durationMinutes }} 分钟 · 不限时</dd></div></dl><button v-if="session.status !== 'COMPLETED'" class="btn btn-secondary btn-sm" :disabled="busy || generating" style="width: 100%" @click="endDialog = true"><PhStop :size="14" />结束并复盘</button><RouterLink v-else :to="`/reports/${id}`" class="btn btn-primary btn-sm">查看复盘 <PhArrowRight :size="14" /></RouterLink></div><p class="form-help" style="margin-top: 13px">对话自动保存。可随时离开，在面试历史中继续。</p></aside>
         <div class="chat-panel"><div class="chat-header"><span style="display: flex; align-items: center; gap: 9px; font-size: 14px"><PhChatsCircle :size="20" />面试对话</span><span class="tiny muted">{{ session.status === 'COMPLETED' ? '本场面试已结束' : '一次只讨论一个问题' }}</span></div>
           <div ref="chat" class="chat-messages" aria-live="polite" aria-label="面试对话记录"><div v-for="m in session.messages" :key="m.id" class="message" :class="{ user: m.role === 'USER' }"><div class="avatar"><PhUser v-if="m.role === 'USER'" :size="16" /><PhRobot v-else :size="17" /></div><div style="min-width: 0"><div class="message-meta"><span>{{ m.role === 'USER' ? '我的回答' : '面试官' }}</span><span v-if="m.role === 'ASSISTANT'">{{ m.followUp ? '继续追问' : `第 ${m.questionIndex + 1} 题` }}</span></div><div class="message-content">{{ m.content }}</div></div></div><div v-if="busy || generating" class="message"><div class="avatar"><PhRobot :size="17" /></div><div class="tiny muted" role="status" style="padding-top: 7px"><span class="spinner" style="width: 12px; height: 12px; margin-right: 8px"></span>正在思考与保存，请稍候…</div></div></div>
           <div class="composer">
@@ -92,6 +91,7 @@ function shortcut(event: KeyboardEvent) { if (event.key === 'Enter' && (event.ct
             <form v-else @submit.prevent="send"><label for="answer" class="sr-only">你的回答</label><textarea id="answer" v-model="draft" placeholder="在这里组织你的回答。可以分段描述背景、思路、实现和取舍…" maxlength="6000" :disabled="busy || !canAnswer" @keydown="shortcut"></textarea><div class="composer-footer"><span class="tiny muted">{{ draft.length }} / 6000 · ⌘ / Ctrl + Enter 发送<br />Enter 换行 · 面试中不展示参考答案</span><button class="btn btn-primary" type="submit" :disabled="busy || !canAnswer || !draft.trim()"><PhPaperPlaneRight :size="17" />发送回答</button></div></form>
           </div>
         </div>
+        <aside class="session-meta"><div class="panel"><span class="badge">{{ modeNames[session.mode] }}</span><h3 style="margin-top: 17px">{{ session.role }}</h3><dl><div><dt>岗位级别</dt><dd>{{ levelNames[session.level] }}</dd></div><div><dt>面试风格</dt><dd>{{ styleNames[session.style] }}</dd></div><div><dt>当前进度</dt><dd>主问题 {{ Math.min(session.questionIndex + 1, session.totalQuestions) }} / {{ session.totalQuestions }}<br /><span class="tiny muted">本题已追问 {{ session.followUpCount }} / 2 次</span></dd></div><div><dt>考查方向</dt><dd>{{ session.currentTopic || '正在规划问题' }}</dd></div><div><dt>目标时长</dt><dd>{{ session.durationMinutes }} 分钟 · 不限时</dd></div></dl><button v-if="session.status !== 'COMPLETED'" class="btn btn-secondary btn-sm" :disabled="busy || generating" style="width: 100%" @click="endDialog = true"><PhStop :size="14" />结束并复盘</button><RouterLink v-else :to="`/reports/${id}`" class="btn btn-primary btn-sm">查看复盘 <PhArrowRight :size="14" /></RouterLink></div><p class="form-help" style="margin-top: 13px">对话自动保存。可随时离开，在面试历史中继续。</p></aside>
       </div>
     </template>
     <div v-else-if="!loading" class="panel"><p class="muted">无法加载本场面试。</p><RouterLink to="/history" class="btn btn-secondary" style="margin-top: 15px">返回面试历史</RouterLink></div>
