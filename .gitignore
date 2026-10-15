@@ -1,0 +1,17 @@
+.DS_Store
+.env.local
+.env
+.env.*
+!.env.example
+data/
+backend/data/
+backend/target/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+.runtime/
+/.evidence/
+/backend/test-results/
+
+*.tsbuildinfo

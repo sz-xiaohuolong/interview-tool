@@ -1,0 +1,103 @@
+# 面试练习室 · AI 技术面试助手
+
+面向个人本地使用的文本技术面试工具。围绕 Java 后端、AI Agent 开发、自定义岗位、简历和项目进行动态追问，保存完整对话与结构化复盘。
+
+## 环境与启动
+
+需要 Java 21、Maven 3.9+、Node.js 22 LTS（22.12+）或 Node.js 24 LTS、npm。SQLite 驱动随 Maven 安装，无需单独安装数据库。
+
+```bash
+test -f .env.local || cp .env.example .env.local
+# 编辑 .env.local 后启动
+./scripts/dev.sh
+```
+
+首次启动会安装前端依赖并下载 Maven 依赖。打开 <http://127.0.0.1:5173>，后端监听 `127.0.0.1:8080`。终端 `Ctrl+C` 停止两项服务；日志在 `.runtime/backend.log` 和 `.runtime/frontend.log`。
+
+模型尚未配置时，可以先在 `.env.local` 显式设置 `LLM_PROVIDER=mock` 体验业务流程。页面、会话和报告都会标注“测试模式”。Mock 的题目、追问和评分只用于验证软件流程，不能视为能力评价。正式练习需使用 `openai` 模式。
+
+## 模型配置
+
+`.env.local` 仅用于本地，已加入 Git 忽略。启动脚本会加载它；直接使用 Maven 启动时需要自行导出环境变量。修改后重启后端。
+
+```dotenv
+LLM_PROVIDER=openai
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=你的密钥
+LLM_MODEL=gpt-4o-mini
+LLM_TIMEOUT_SECONDS=60
+LLM_REASONING_EFFORT=
+```
+
+`LLM_BASE_URL` 是包含 `/v1` 的服务根地址，应用在其后请求 `/chat/completions`。模型需要支持聊天接口与 JSON 输出；可替换成兼容服务的地址、模型与密钥。模型名称必须使用服务商 API 的完整 ID，例如本次验证的 `gpt-6.1-sol`，不能使用 `6.1sol` 这样的简称。不要在变量等号两侧加空格；含空格或 shell 特殊字符的值使用单引号包裹。`.env.local` 由 Bash 加载，只使用自己编写、可信的配置文件。
+
+资料保存在本机；开始真实面试、押题和复盘时，相关资料文本与对话会发送到你配置的模型服务。Key 只在后端读取，不进入前端代码或接口响应。默认缺少 Key 会给出配置错误，不会自动切换到 Mock。
+
+如果长对话复盘超过默认的 60 秒，可将 `LLM_TIMEOUT_SECONDS` 调整为 `180` 后重启。本次真实模型配置使用 180 秒；报告超时后可直接重试生成，已保存的回答无需重新提交。
+
+`LLM_REASONING_EFFORT=high` 会向聊天接口传入 `reasoning_effort: "high"`，适用于支持该参数的推理模型；留空使用服务端默认值。当前本地 `gpt-6.1-sol` 已配置为 `high`，统一用于规划、出题、押题与复盘，修改后需重启后端。
+
+## 使用流程
+
+- **快速面试**：选择岗位、级别、目标时长和风格，直接开始。默认 Agent 开发、初级、10 分钟、常规面试。每次提交一段回答，面试官最多连续追问两次。
+- **简历押题**：在资料库上传 PDF、DOCX 或 Markdown 简历，再生成 10 道带依据与准备思路的题目。可以重新生成，或者选择一道题进行逐题模拟。
+- **项目面试**：创建项目并填写背景、技术栈、个人职责，附加设计文档。面试覆盖整体理解、实现细节与假设场景权衡。
+- **复盘**：主动结束或完成规划后查看四维评价、逐题分析、原始对话与薄弱项；可从薄弱项重新开始练习。
+- **继续练习**：首页和历史保留进行中的会话，刷新后从服务端恢复。模型失败时保留已提交回答，使用“重试”继续。
+
+5 / 10 / 20 分钟是目标时长，分别约 3 / 5 / 8 道主问题，并非强制倒计时。压力模式仍要求专业、克制，不进行人身评价。
+
+## 资料与数据
+
+- SQLite 文件：`data/interview.db`；上传文件：`data/uploads/`。使用 `DATA_DIR` 可指定其他目录。
+- 默认单文件最大 5 MiB；支持文本 PDF、DOCX、Markdown、TXT，简历上传限制为 PDF/DOCX/Markdown。
+- 单份提取文本最多保留 24000 字符，进入模型的材料上下文最多 30000 字符；超长资料会显示截断提示。
+- 扫描图片 PDF 暂不提供 OCR，需要先转成可提取文本的文件。
+- 修改或删除资料不会改变已开始面试的资料快照与历史报告。
+- 备份时先停止服务，再备份整个 `data/` 目录；恢复时同样先停止服务。不要把含个人资料的数据库或上传目录提交到 Git。
+
+## 架构
+
+```text
+浏览器 Vue 3 / TypeScript / Vue Router / Tailwind
+  └─ 同源 /api → Spring Boot 3 / Java 21
+       ├─ Controller：输入与 HTTP 交互
+       ├─ Service：资料解析、规划、面试状态、押题、复盘
+       ├─ Repository：SQLite 与资料快照
+       └─ LLM 客户端：OpenAI 兼容 HTTP / 显式 Mock
+```
+
+提示词独立保存在 `backend/src/main/resources/prompts/`。服务端校验模型 JSON，强制追问上限与状态规则；回答包含请求 ID 和问题 ID，避免重复提交与过期页面写入。报告保存原始对话引用，区分明确错误、没有提到、资料不足。
+
+文档统一索引见 [DOCUMENT_MAP.md](DOCUMENT_MAP.md)。V1 文档位于 `docs/vibe/releases/v1/`：[产品需求](docs/vibe/releases/v1/PRD.md)、[架构说明](docs/vibe/releases/v1/ARCHITECTURE.md)、[实施计划](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md)、[验证记录](docs/vibe/releases/v1/VERIFICATION.md)、[决策记录](docs/vibe/releases/v1/DECISIONS.md)。
+
+## 测试
+
+```bash
+# 后端测试、前端测试与生产构建
+./scripts/test.sh
+
+# 分开执行
+mvn -f backend/pom.xml test
+npm --prefix frontend test
+npm --prefix frontend run build
+```
+
+浏览器验收使用独立临时数据库与明确标识的 Mock Provider，自动启动 4173 / 18080 两个测试服务，结束后关闭并清理临时数据，不读取 `.env.local`。首次会安装 Chromium。
+
+```bash
+# 浏览器端到端：三种业务流程、刷新、快捷发送、报告与 390px 响应式
+bash scripts/e2e.sh
+
+# 对已启动的 Mock 后端做 HTTP 验收（新增合成测试会话）
+python3 scripts/smoke.py --output .evidence/mock-smoke.json
+
+# 对已配置并启动的真实模型做相同验收；结果需额外判读语义质量
+python3 scripts/smoke.py --real --output .evidence/real-smoke.json
+```
+
+HTTP 验收只创建合成资料，结束后删除自己创建的资料并保留验收会话，以便检查历史快照。真实模型的出题相关性、追问意义和评估质量需要单独核验，不能由 Mock 测试代替。当前实际证据见实施与验证记录。
+
+## 已知边界
+
+仅面向本机单人使用，不包含登录、语音视频、云端部署、向量检索或 GitHub 扫码。请保持回环地址绑定。LLM 会受到服务商限流、超时与输出格式支持程度影响；失败会明确显示并保留可恢复状态。模型评价是练习参考，引用资料不能保证模型的每条技术判断都正确。没有足够回答时报告会说明样本不足，不凭空推断能力。

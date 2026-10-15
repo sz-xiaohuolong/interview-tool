@@ -1,0 +1,13 @@
+{
+  "启动方式": "./scripts/dev.sh",
+  "日常数据库存在": true,
+  "健康": {
+    "model": "gpt-6.1-sol",
+    "status": "ok",
+    "provider": "openai",
+    "configured": true
+  },
+  "首页HTTP状态": 200,
+  "日常会话数量": 0,
+  "验收数据独立保留": true
+}

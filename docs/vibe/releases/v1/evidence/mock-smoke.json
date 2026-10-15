@@ -1,0 +1,572 @@
+{
+  "运行标识": "20261015T055950Z-d73733",
+  "真实模型模式": false,
+  "合成资料": [
+    {
+      "id": "eaf8f9f7-3bcf-4c35-a24f-a960b3ee70ae",
+      "kind": "JD",
+      "name": "验收用岗位描述 20261015T055950Z-d73733",
+      "content": "验收合成岗位：初级 Java 与 AI Agent 开发，使用 Spring Boot、HTTP API、SQLite，关注幂等、超时和错误处理。",
+      "createdAt": "2026-10-15T05:59:50.477927Z",
+      "updatedAt": "2026-10-15T05:59:50.477927Z",
+      "documents": []
+    },
+    {
+      "id": "9791e670-1a3c-4505-adc0-c400d1215f69",
+      "kind": "RESUME",
+      "name": "验收用合成简历 20261015T055950Z-d73733",
+      "content": "",
+      "createdAt": "2026-10-15T05:59:50.547801Z",
+      "updatedAt": "2026-10-15T05:59:50.547801Z",
+      "documents": [
+        {
+          "id": "e152247e-a988-4baa-b368-2cb11db4b316",
+          "name": "acceptance-resume.md",
+          "text": "# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring Boot、SQLite、HTTP。\n项目：本地学习问答工具。负责 HTTP 接口、请求幂等、错误提示与 SQLite 持久化。\n未提供上线规模、性能指标、企业经历或获奖事实；这些内容需要补充。",
+          "truncated": false,
+          "createdAt": "2026-10-15T05:59:50.549202Z"
+        }
+      ]
+    },
+    {
+      "id": "d02715f2-6327-44dc-a415-2e0a195f0a79",
+      "kind": "PROJECT",
+      "name": "验收用本地问答练习器 20261015T055950Z-d73733",
+      "content": "验收合成项目：本地问答练习器。Java 21、Spring Boot、SQLite。个人负责 Controller、服务编排与数据库持久化。普通 HTTP 调用 OpenAI 兼容模型，未采用 SSE、Redis 或消息队列。",
+      "createdAt": "2026-10-15T05:59:50.574962Z",
+      "updatedAt": "2026-10-15T05:59:50.579381Z",
+      "documents": [
+        {
+          "id": "04b8e465-a58a-42b6-ab80-d66acd9f8980",
+          "name": "acceptance-design.txt",
+          "text": "验收合成设计资料：收到回答后先保存消息，再调用外部模型。使用 requestId 防重复提交；模型超时后保留原回答并允许重试。SQLite 保存会话；尚未进行并发性能测试。",
+          "truncated": false,
+          "createdAt": "2026-10-15T05:59:50.579306Z"
+        }
+      ]
+    }
+  ],
+  "会话": {
+    "e38b1846-ff2b-4bc1-96e0-a603cf89b790": {
+      "最新会话": {
+        "id": "e38b1846-ff2b-4bc1-96e0-a603cf89b790",
+        "status": "COMPLETED",
+        "mode": "QUICK",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "createdAt": "2026-10-15T05:59:50.491566Z",
+        "updatedAt": "2026-10-15T05:59:50.527822Z",
+        "endedAt": "2026-10-15T05:59:50.523004Z",
+        "questionIndex": 1,
+        "followUpCount": 0,
+        "totalQuestions": 3,
+        "currentTopic": "实现细节",
+        "messages": [
+          {
+            "id": "f7114065-0cd1-49ac-922c-1047de994fc8",
+            "role": "ASSISTANT",
+            "content": "针对大模型应用 / Agent 开发工程师岗位，请用一个具体例子说明你对整体设计的理解？",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.494451Z"
+          },
+          {
+            "id": "085b2c95-23f5-4baf-8b0a-7c8c17a16464",
+            "role": "USER",
+            "content": "我会用 requestId 标识请求，在 SQLite 中保存状态并避免重复处理。\n外部模型可能超时，因此响应前先保存用户回答。",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.499433Z"
+          },
+          {
+            "id": "3ceb9c5c-bb56-4694-99c0-d06a0b59d59d",
+            "role": "ASSISTANT",
+            "content": "你提到“我会用 requestId 标识请求，在 SQLite 中保存状态并避”，能用一个具体实现或验证过程说明吗？",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.500759Z"
+          },
+          {
+            "id": "47f47941-9351-4b00-86cc-ac553a217ee0",
+            "role": "USER",
+            "content": "客户端断开并不代表上游调用已经取消。我会标记取消状态，设置超时，并在结果返回时校验会话状态；不确定底层 SDK 是否支持取消。",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.510829Z"
+          },
+          {
+            "id": "de8a2c6e-d8e7-405b-8b96-ba277a53da4d",
+            "role": "ASSISTANT",
+            "content": "假设你刚才描述的方案执行失败，你会怎样定位原因并保证资源或数据得到正确处理？",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.512051Z"
+          },
+          {
+            "id": "39c13989-9f9e-48d5-a078-8899701714f7",
+            "role": "USER",
+            "content": "我会用事务约束状态更新，并通过同一请求 ID 重试获取已有结果。没有做过性能压测，不能给出吞吐指标。",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.516849Z"
+          },
+          {
+            "id": "392f0066-ddb8-4bc1-8780-0be258df11b8",
+            "role": "ASSISTANT",
+            "content": "针对大模型应用 / Agent 开发工程师岗位，请用一个具体例子说明你对实现细节的理解？",
+            "questionIndex": 1,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.518126Z"
+          }
+        ],
+        "mock": true,
+        "error": "",
+        "pendingAction": "",
+        "reportStatus": "READY",
+        "contextTruncated": false
+      },
+      "创建参数": {
+        "mode": "QUICK",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "jd": "验收合成岗位：初级 Java 与 AI Agent 开发，使用 Spring Boot、HTTP API、SQLite，关注幂等、超时和错误处理。"
+      },
+      "报告": {
+        "summary": "【Mock 测试报告】已完成问答流程。本报告只验证展示和持久化，不用于判断真实面试能力。",
+        "dimensions": [
+          {
+            "name": "技术准确性",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "理解深度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "表达清晰度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "追问应对能力",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          }
+        ],
+        "questions": [
+          {
+            "questionIndex": 0,
+            "question": "针对大模型应用 / Agent 开发工程师岗位，请用一个具体例子说明你对整体设计的理解？",
+            "answerOutline": "先说明问题背景，再讲个人做法、验证依据和方案限制。",
+            "knowledgeExplanation": "测试模式没有执行真实知识判断，请在真实模型模式下复盘。",
+            "correct": [],
+            "incorrect": [],
+            "missing": [
+              "可以补充可验证的实现细节与边界条件。"
+            ],
+            "uncertain": [
+              "Mock 无法判断技术准确性。"
+            ],
+            "evidence": []
+          }
+        ],
+        "weaknesses": [
+          "使用具体案例阐述实现与验证过程"
+        ],
+        "suggestions": [
+          "配置真实模型后围绕相同问题重新练习，并对照原始回答检查评价。"
+        ],
+        "sessionId": "e38b1846-ff2b-4bc1-96e0-a603cf89b790",
+        "mock": true,
+        "createdAt": "2026-10-15T05:59:50.525417Z"
+      }
+    },
+    "e33133e6-8fda-4046-8ff2-719e12190712": {
+      "最新会话": {
+        "id": "e33133e6-8fda-4046-8ff2-719e12190712",
+        "status": "COMPLETED",
+        "mode": "RESUME",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "createdAt": "2026-10-15T05:59:50.559695Z",
+        "updatedAt": "2026-10-15T05:59:50.569761Z",
+        "endedAt": "2026-10-15T05:59:50.567686Z",
+        "questionIndex": 0,
+        "followUpCount": 1,
+        "totalQuestions": 1,
+        "currentTopic": "项目职责",
+        "messages": [
+          {
+            "id": "bfdf4366-041e-4388-83ca-71adcefb852d",
+            "role": "ASSISTANT",
+            "content": "请结合简历中你的实际工作，说明项目职责，并提供可以核实的细节？",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.560564Z"
+          },
+          {
+            "id": "8af59567-3052-46be-8c0d-00b361a75410",
+            "role": "USER",
+            "content": "我在合成项目中负责接口和幂等处理，使用请求 ID 避免重复写入；尚未提供部署和压测依据。",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.563059Z"
+          },
+          {
+            "id": "136d38c6-e86b-44d6-ac01-4ebdbff96fa6",
+            "role": "ASSISTANT",
+            "content": "你提到“我在合成项目中负责接口和幂等处理，使用请求 ID 避免重复写入；尚未提”，能用一个具体实现或验证过程说明吗？",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.563899Z"
+          }
+        ],
+        "mock": true,
+        "error": "",
+        "pendingAction": "",
+        "reportStatus": "READY",
+        "contextTruncated": false
+      },
+      "创建参数": {
+        "mode": "RESUME",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "materialId": "9791e670-1a3c-4505-adc0-c400d1215f69",
+        "predictionId": "a4848f92-ba3d-4c12-a39d-9515904aad77",
+        "questionId": "b5d2a327-f187-416e-a622-8ac706a7ebc9"
+      },
+      "报告": {
+        "summary": "【Mock 测试报告】已完成问答流程。本报告只验证展示和持久化，不用于判断真实面试能力。",
+        "dimensions": [
+          {
+            "name": "技术准确性",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "理解深度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "表达清晰度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "追问应对能力",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          }
+        ],
+        "questions": [
+          {
+            "questionIndex": 0,
+            "question": "请结合简历中你的实际工作，说明项目职责，并提供可以核实的细节？",
+            "answerOutline": "先说明问题背景，再讲个人做法、验证依据和方案限制。",
+            "knowledgeExplanation": "测试模式没有执行真实知识判断，请在真实模型模式下复盘。",
+            "correct": [],
+            "incorrect": [],
+            "missing": [
+              "可以补充可验证的实现细节与边界条件。"
+            ],
+            "uncertain": [
+              "Mock 无法判断技术准确性。"
+            ],
+            "evidence": []
+          }
+        ],
+        "weaknesses": [
+          "使用具体案例阐述实现与验证过程"
+        ],
+        "suggestions": [
+          "配置真实模型后围绕相同问题重新练习，并对照原始回答检查评价。"
+        ],
+        "sessionId": "e33133e6-8fda-4046-8ff2-719e12190712",
+        "mock": true,
+        "createdAt": "2026-10-15T05:59:50.569296Z"
+      }
+    },
+    "e425cc43-bede-410e-9d70-34edfe4f7084": {
+      "最新会话": {
+        "id": "e425cc43-bede-410e-9d70-34edfe4f7084",
+        "status": "COMPLETED",
+        "mode": "PROJECT",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "createdAt": "2026-10-15T05:59:50.583593Z",
+        "updatedAt": "2026-10-15T05:59:50.594454Z",
+        "endedAt": "2026-10-15T05:59:50.591949Z",
+        "questionIndex": 0,
+        "followUpCount": 1,
+        "totalQuestions": 3,
+        "currentTopic": "整体设计",
+        "messages": [
+          {
+            "id": "508879a8-521b-4d37-b2ed-fd05a33b8583",
+            "role": "ASSISTANT",
+            "content": "请结合项目资料，说明项目解决的问题、整体架构以及你负责的部分？",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.584698Z"
+          },
+          {
+            "id": "346a2e78-347f-413d-8914-f92e46f52641",
+            "role": "USER",
+            "content": "我负责接口、服务编排和持久化。请求先保存到 SQLite，再调用模型，超时保留原回答。requestId 用来防止重复提交；当前没有压测数据。",
+            "questionIndex": 0,
+            "followUp": false,
+            "createdAt": "2026-10-15T05:59:50.587105Z"
+          },
+          {
+            "id": "965e3b66-5df0-4cb4-af8d-9701546cdd9b",
+            "role": "ASSISTANT",
+            "content": "你提到“我负责接口、服务编排和持久化。请求先保存到 SQLite，再调用模型，”，能用一个具体实现或验证过程说明吗？",
+            "questionIndex": 0,
+            "followUp": true,
+            "createdAt": "2026-10-15T05:59:50.587924Z"
+          }
+        ],
+        "mock": true,
+        "error": "",
+        "pendingAction": "",
+        "reportStatus": "READY",
+        "contextTruncated": false
+      },
+      "创建参数": {
+        "mode": "PROJECT",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "durationMinutes": 5,
+        "style": "NORMAL",
+        "materialId": "d02715f2-6327-44dc-a415-2e0a195f0a79"
+      },
+      "报告": {
+        "summary": "【Mock 测试报告】已完成问答流程。本报告只验证展示和持久化，不用于判断真实面试能力。",
+        "dimensions": [
+          {
+            "name": "技术准确性",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "理解深度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "表达清晰度",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          },
+          {
+            "name": "追问应对能力",
+            "score": 2,
+            "reason": "测试示意分数，不代表真实能力；请配置真实模型获得评估。"
+          }
+        ],
+        "questions": [
+          {
+            "questionIndex": 0,
+            "question": "请结合项目资料，说明项目解决的问题、整体架构以及你负责的部分？",
+            "answerOutline": "先说明问题背景，再讲个人做法、验证依据和方案限制。",
+            "knowledgeExplanation": "测试模式没有执行真实知识判断，请在真实模型模式下复盘。",
+            "correct": [],
+            "incorrect": [],
+            "missing": [
+              "可以补充可验证的实现细节与边界条件。"
+            ],
+            "uncertain": [
+              "Mock 无法判断技术准确性。"
+            ],
+            "evidence": []
+          }
+        ],
+        "weaknesses": [
+          "使用具体案例阐述实现与验证过程"
+        ],
+        "suggestions": [
+          "配置真实模型后围绕相同问题重新练习，并对照原始回答检查评价。"
+        ],
+        "sessionId": "e425cc43-bede-410e-9d70-34edfe4f7084",
+        "mock": true,
+        "createdAt": "2026-10-15T05:59:50.593937Z"
+      }
+    }
+  },
+  "押题": [
+    {
+      "questions": [
+        {
+          "question": "请结合简历中你的实际工作，说明项目职责，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "项目职责",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "b5d2a327-f187-416e-a622-8ac706a7ebc9"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明整体架构，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "整体架构",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "b48f73dc-98d5-4900-b654-c608280cee05"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明技术选型，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "技术选型",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "9749342c-9b74-48cd-866d-2f9dfb42eb06"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明核心流程，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "核心流程",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "4041881b-7096-4fce-9657-3f24c432de64"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明数据一致性，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "数据一致性",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "d66b98d0-e5fb-4894-820a-3c7a9e51f431"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明异常处理，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "异常处理",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "34b020fb-5a2b-4bda-8543-ea696ffb2f47"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明性能指标，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "性能指标",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "6d43b4ba-0491-4bab-8a20-9277212784ce"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明测试验证，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "测试验证",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "4eb79799-ac6b-40b4-b84a-1cd9044baa71"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明方案权衡，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "方案权衡",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "8a654188-048b-4f0d-a17d-bf7e28de137d"
+        },
+        {
+          "question": "请结合简历中你的实际工作，说明项目改进，并提供可以核实的细节？",
+          "evidence": "资料名称：验收用合成简历 20261015T055950Z-d73733\n手动资料：\n\n文档：acceptance-resume.md\n# 验收合成简历\n\n目标：初级 Java / AI Agent 工程师。\n技能：Java、Spring ",
+          "knowledgePoint": "项目改进",
+          "priority": "高",
+          "answerOutline": "测试示意：说明背景、个人职责、实现过程、证据与局限；未记录的信息标记需要补充。",
+          "followUps": [
+            "你的具体职责是什么？",
+            "如何验证该结论？"
+          ],
+          "id": "7e1dd723-f8aa-4c6d-a29e-3d56c3ba56b4"
+        }
+      ],
+      "risks": [
+        "测试模式不进行真实风险分析；项目指标、职责与成果需要本人确认。"
+      ],
+      "id": "a4848f92-ba3d-4c12-a39d-9515904aad77",
+      "resumeId": "9791e670-1a3c-4505-adc0-c400d1215f69",
+      "role": "Java 后端工程师",
+      "createdAt": "2026-10-15T05:59:50.552501Z",
+      "mock": true,
+      "contextTruncated": false
+    }
+  ],
+  "健康": {
+    "configured": true,
+    "model": "明确标识的测试模型",
+    "status": "ok",
+    "provider": "mock"
+  },
+  "总结": {
+    "结果": "通过",
+    "运行标识": "20261015T055950Z-d73733",
+    "模型模式": "Mock",
+    "通过检查": [
+      "健康检查与模型模式标识",
+      "重复回答请求幂等",
+      "快速面试三次回答与追问上限",
+      "主动结束、四维报告、原始问答与终态保护",
+      "Markdown 简历上传、十道押题、押题历史与选题练习",
+      "项目资料、TXT 附件与项目面试报告",
+      "删除本次合成资料后历史问答与报告仍可重新读取"
+    ],
+    "保留的验收会话": [
+      "e38b1846-ff2b-4bc1-96e0-a603cf89b790",
+      "e33133e6-8fda-4046-8ff2-719e12190712",
+      "e425cc43-bede-410e-9d70-34edfe4f7084"
+    ],
+    "未清理的验收资料": [],
+    "说明": "本次新增的验收会话保留在历史中；仅删除本次创建的合成资料。",
+    "验证边界": "Mock 仅验证 HTTP 业务链路，不代表真实模型质量；未验证服务重启和浏览器交互。"
+  }
+}
