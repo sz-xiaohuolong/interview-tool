@@ -94,7 +94,7 @@ GET `/health` 返回 `{status,provider,configured,model}`，不包含密钥（Ke
 
 ## 6. V2 新增接入（已实现，整体验证 PARTIAL）
 
-V2 使用 `V2_ENABLED=true`（或 `app.v2.enabled=true`）启用，默认关闭。启动在 Store 实例化及 WAL/恢复写入前执行 `V2SchemaPreflight` 的只读检查；未迁移、未知结构或校验和异常拒绝启动。独立 `scripts/migrate-v2.py` 仅在明确维护参数和显式数据目录/备份目录下迁移，增加14张表而不批量回写旧记录。迁移只在合成临时目录演练，用户数据尚未迁移。
+V2 使用 `V2_ENABLED=true`（或 `app.v2.enabled=true`）启用，默认关闭。启动在 Store 实例化及 WAL/恢复写入前执行 `V2SchemaPreflight` 的只读检查；未迁移、未知结构或校验和异常拒绝启动。独立 `scripts/migrate-v2.py` 仅在明确维护参数和显式数据目录/备份目录下迁移，增加14张表而不批量回写旧记录。早期迁移在合成临时目录演练；2026-10-16用户追加授权后，已对原data执行完整备份、显式迁移并开启V2，原五表及附件不变。
 
 原有源码不改。`V2BootstrapConfiguration` 将唯一 interviewService 的 BeanDefinition 指向同包 `TrainingLinkedInterviewService` 子类；无 trainingLinkId 时直接调用原 super.create。有关联时 `TrainingLinkService` 原子预留旧会话与侧表，并复用原规划器。旧接口、Session schemaVersion=1、三模式及报告仍沿用原实现。
 
@@ -104,4 +104,4 @@ V2 使用 `V2_ENABLED=true`（或 `app.v2.enabled=true`）启用，默认关闭�
 
 前端新增 `vite.config.js` 合并原 `.ts` 配置，以 HTML 入口扩展加载 `src/v2/main.ts`。状态关闭、旧后端或离线时回原 main；开启时注册独立路由并使用 V2App 包装原 AppLayout 和旧页面。五项训练导航、报告工具和来源配置均为新增组件，原 CSS 与原页面保持字节不变，新增样式只作用于 V2 类名。
 
-工程、恢复、合成迁移及浏览器证据见 [V2 验证记录](releases/v2/VERIFICATION.md)。Mock 仅验证软件流程；六类新增任务已有合成真实模型通过样本，故事和阶段编号两次历史结构失败经提示词澄清后复验，失败记录保留。KNOWLEDGE_AGENT 五阶段按记录版本核对，ORDER_SERVICE 建议质量未校准；内置浏览器另通过一条无资料 JD 真实链路。个人库尚未迁移，V1 既有真实证据不扩大为 V2 结论。
+工程、恢复、合成迁移及浏览器证据见 [V2 验证记录](releases/v2/VERIFICATION.md)。Mock 仅验证软件流程；六类新增任务已有合成真实模型通过样本，故事和阶段编号两次历史结构失败经提示词澄清后复验，失败记录保留。KNOWLEDGE_AGENT 五阶段按记录版本核对，ORDER_SERVICE 建议质量未校准；内置浏览器另通过一条无资料 JD 真实链路。原库已另获授权完成迁移，日常5173/8080使用原data并启用V2，独立测试监听已关闭；本次未新增模型调用，V1既有真实证据不扩大为V2结论。
