@@ -1,0 +1,64 @@
+/* V2 局部扩展，继承现有表面与 Tokens。 */
+.v2-subnav { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) 36px; border-bottom: 1px solid var(--border-subtle); background: var(--surface); }
+.v2-subnav a { min-height: 44px; padding: 10px 14px; border-radius: var(--radius-control); color: var(--text-secondary); }
+.v2-subnav a:hover, .v2-subnav .router-link-active { color: var(--accent-ink); background: var(--accent-soft); }
+.v2-page .btn, .v2-page summary, .v2-context-tools .btn { min-height: 44px; }
+.v2-page .text-link { display: inline-flex; align-items: center; min-height: 44px; }
+.v2-page .notice { margin-bottom: var(--space-4); }
+.v2-reading-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(240px, 1fr); gap: var(--space-6); align-items: start; }
+.v2-flow { display: flex; flex-direction: column; gap: var(--space-6); }
+.v2-flow h2 + p { margin-top: var(--space-2); }
+.v2-flow h3 { margin-bottom: var(--space-2); }
+.v2-quote { padding: var(--space-4) 0; border-bottom: 1px solid var(--border-subtle); overflow-wrap: anywhere; }
+.v2-quote strong { color: var(--text-secondary); font-size: 13px; }
+.v2-quote pre { margin-top: var(--space-2); max-width: 75ch; }
+.v2-finding { padding: var(--space-4) 0; border-bottom: 1px solid var(--border-subtle); }
+.v2-finding p { margin-top: var(--space-2); }
+.v2-checks { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin: var(--space-3) 0; }
+.v2-checks label { display: inline-flex; gap: var(--space-2); align-items: center; min-height: 44px; font-weight: 400; margin: 0; }
+.v2-checks input { width: 18px; height: 18px; accent-color: var(--accent); }
+.v2-list { padding-top: 0; padding-bottom: 0; }
+.v2-list-row, .v2-skill-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-6); padding: var(--space-6) 0; border-bottom: 1px solid var(--border-subtle); align-items: start; }
+.v2-list-row:last-child, .v2-skill-row:last-child { border-bottom: 0; }
+.v2-list-row h2 { margin: var(--space-3) 0 var(--space-2); font-size: 17px; }
+.v2-skill-row > :last-child { width: 200px; }
+.v2-skill-row .btn { margin-top: var(--space-3); }
+.v2-toolbar { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }
+.v2-toolbar label { margin: 0; flex-shrink: 0; }
+.v2-toolbar select { max-width: 240px; }
+.v2-empty { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-4); padding: 40px; }
+.v2-context-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); margin: var(--space-5) 36px 0; padding: var(--space-4) var(--space-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface); }
+.v2-context-tools > .notice, .v2-context-results { flex-basis: 100%; }
+.v2-context-results { display: flex; flex-wrap: wrap; gap: var(--space-4); }
+.v2-form { max-width: 760px; display: flex; flex-direction: column; gap: var(--space-5); }
+.v2-form > .btn { align-self: flex-start; }
+.v2-page .badge { margin-right: var(--space-2); }
+@media (max-width: 900px) { .v2-reading-layout { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 600px) { .v2-subnav { padding: var(--space-2) var(--space-3); gap: var(--space-1); } .v2-subnav a { padding: 10px; } .v2-context-tools { margin: var(--space-4) 16px 0; } .v2-list-row, .v2-skill-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); } .v2-skill-row > :last-child { width: 100%; } .v2-empty { padding: 24px; } }
+.v2-section { margin-top: var(--space-6); }
+.v2-compare-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-6); }
+.v2-page pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.v2-page textarea { min-width: 0; }
+.v2-page .panel { min-width: 0; }
+@media (max-width: 700px) { .v2-compare-grid { grid-template-columns: minmax(0,1fr); } .v2-toolbar { flex-wrap: wrap; } }
+.v2-fieldset { border: 0; padding: 0; min-width: 0; }
+.v2-fieldset legend { font-weight: 600; margin-bottom: var(--space-2); }
+.v2-inline-check { display: flex; align-items: flex-start; gap: var(--space-2); font-weight: 400; min-height: 44px; padding-block: var(--space-2); }
+.v2-inline-check input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 4px; accent-color: var(--accent); }
+.v2-preview { border-top: 1px solid var(--border-subtle); padding-top: var(--space-5); }
+.v2-preview details { margin-block: var(--space-3); }
+.v2-preview pre { max-height: 420px; overflow: auto; padding: var(--space-3); background: var(--surface-soft); border-radius: var(--radius-control); }
+.v2-action-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-4); }
+.v2-evidence-columns { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: var(--space-6); margin-block: var(--space-4); }
+.v2-evidence-columns > section { min-width: 0; }
+.v2-story-field { border-bottom: 1px solid var(--border-subtle); padding-bottom: var(--space-5); }
+.v2-stages { list-style: none; display: flex; flex-wrap: wrap; padding: 0; gap: var(--space-2); margin-block: var(--space-6); }
+.v2-stages li { flex: 1 1 150px; }
+.v2-stages button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; min-height: 76px; padding: var(--space-3); border: 1px solid var(--border-subtle); border-radius: var(--radius-control); background: var(--surface); color: var(--text-secondary); text-align: left; }
+.v2-stages button[aria-current] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+.v2-stages small { font-size: 12px; margin-top: var(--space-1); }
+.v2-intro { max-width: 75ch; }
+.v2-page p, .v2-page h2, .v2-page h3 { overflow-wrap: anywhere; }
+.v2-page select { max-width: 100%; }
+.v2-page input:focus-visible, .v2-page textarea:focus-visible, .v2-page button:focus-visible, .v2-page a:focus-visible, .v2-page summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media(max-width:900px) { .v2-evidence-columns { grid-template-columns: minmax(0,1fr); } }

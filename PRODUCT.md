@@ -13,6 +13,6 @@ web
 - 当前定位以 [docs/vibe/PROJECT.md](docs/vibe/PROJECT.md) 为准。
 - 完整产品行为以 [V1 SPEC.md](docs/vibe/releases/v1/SPEC.md) 为准。
 - 文档职责以 [DOCUMENT_MAP.md](DOCUMENT_MAP.md) 为准。
-- 本次只做表现层重构，保留全部产品内容、逻辑、数据流、路由、绑定、原生控件和测试属性。
-- 用户选择 Comp-led，并已明确以提供的截图作为本次重构基准。设计不得引入参考图片中本产品不存在的账户、会员、搜索、图表或虚构评分。
-- 默认简体中文；键盘操作与 WCAG AA 对比度属于本次要求。
+- 当前生效的视觉规范见根目录 [DESIGN.md](DESIGN.md)。
+- V1 本次表现层重构的范围、Comp-led 参考图取舍与页面方案见 [V1 界面设计记录](docs/vibe/releases/v1/UI_DESIGN.md)。
+- 默认简体中文；界面遵循键盘操作与 WCAG AA 对比度要求。

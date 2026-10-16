@@ -1,0 +1,17 @@
+{
+  "version": "1",
+  "skills": [
+    {"id":"JAVA.TRANSACTIONS","name":"Java 事务","aliases":["事务","事务回滚","transaction"],"scope":"原子提交、隔离与回滚","excludes":"仅提及数据库，不涉及事务行为","example":"订单与库存更新失败时整体回滚"},
+    {"id":"JAVA.CONCURRENCY","name":"Java 并发","aliases":["并发","线程安全"],"scope":"线程协作与共享状态","excludes":"只讨论流量大小","example":"锁与可见性"},
+    {"id":"CACHE.CONSISTENCY","name":"缓存一致性","aliases":["缓存一致性"],"scope":"缓存与权威数据的同步","excludes":"纯缓存容量","example":"写入后失效和竞态"},
+    {"id":"API.CONTRACTS","name":"API 接口约定","aliases":["API","接口约定"],"scope":"输入输出、幂等和错误契约","excludes":"仅列框架名称","example":"重复提交返回相同结果"},
+    {"id":"DATA.MODELING","name":"数据建模","aliases":["数据模型"],"scope":"实体、关联和约束","excludes":"纯存储品牌选择","example":"唯一约束和关联"},
+    {"id":"SYSTEM.RELIABILITY","name":"系统可靠性","aliases":["可靠性","异常处理"],"scope":"故障、恢复与可观测性","excludes":"只给理想流程","example":"中断后恢复状态"},
+    {"id":"SYSTEM.TRADEOFFS","name":"系统方案取舍","aliases":["方案权衡"],"scope":"对约束比较替代方案","excludes":"只复述固定模板","example":"一致性与延迟取舍"},
+    {"id":"AGENT.RETRIEVAL","name":"Agent 检索","aliases":["RAG","检索"],"scope":"检索、证据和上下文","excludes":"仅调用模型","example":"引用可回到原资料"},
+    {"id":"AGENT.EVALUATION","name":"Agent 评估","aliases":["评估","模型评估"],"scope":"评估样本、指标与反例","excludes":"主观体验声明","example":"固定样本比较错误"},
+    {"id":"AGENT.TOOL_BOUNDARIES","name":"Agent 工具边界","aliases":["工具权限"],"scope":"工具权限和不可信输入","excludes":"只列工具名","example":"资料指令不能授权执行"},
+    {"id":"AGENT.STATE_RECOVERY","name":"Agent 状态恢复","aliases":["状态恢复"],"scope":"任务状态、幂等和恢复","excludes":"无持久化的重试","example":"重启不重复提交"},
+    {"id":"COMMUNICATION.STRUCTURE","name":"表达结构","aliases":["表达","STAR"],"scope":"背景、个人行动、证据与局限","excludes":"口头语速或语气","example":"区分个人与团队成果"}
+  ]
+}

@@ -71,6 +71,14 @@ LLM_REASONING_EFFORT=
 
 文档统一索引见 [DOCUMENT_MAP.md](DOCUMENT_MAP.md)。项目级文档包括[项目定位](docs/vibe/PROJECT.md)、[当前架构](docs/vibe/TECH_DESIGN.md)、[当前进度](docs/vibe/PROGRESS.md)与[决策记录](docs/vibe/DECISIONS.md)。V1 文档位于 `docs/vibe/releases/v1/`：[需求背景与范围](docs/vibe/releases/v1/PROJECT_BRIEF.md)、[完整产品行为与验收](docs/vibe/releases/v1/SPEC.md)、[实施计划](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md)、[实际验证记录](docs/vibe/releases/v1/VERIFICATION.md)。
 
+## V2 人工验收与启用
+
+V2 已新增五项训练功能：错题复习与能力档案、同题二答、JD 差距与短冲刺清单、自我介绍与 STAR 故事库、五阶段系统与 Agent 设计训练。当前正式版本仍是 V1；V2 验证范围和已知缺口见 [V2 验证记录](docs/vibe/releases/v2/VERIFICATION.md)。
+
+V2 默认关闭，启用前需要显式迁移所选目录。建议先用全新的本地验收目录，保留原 `data/`；具体迁移、启动及关闭步骤见 [V2 启用说明](docs/vibe/releases/v2/TECH_DESIGN.md#83-实际启用与关闭入口)。迁移前停止该目录的写入进程并保留完整备份；不要对运行中的个人库执行迁移。
+
+开启后在“持续训练”导航进入新功能。JD 和故事在模型调用前先展示本次发送的快照；阶段反馈不会自动推进；同题重答会保留原回答。真实练习使用本机配置的模型，测试记录明确标注 Mock。
+
 ## 测试
 
 ```bash
@@ -89,6 +97,9 @@ npm --prefix frontend run build
 # 浏览器端到端：三种业务流程、刷新、快捷发送、报告与 390px 响应式
 bash scripts/e2e.sh
 
+# V2 浏览器验收：显式 Mock、独立临时库
+bash scripts/e2e.sh --config=playwright.v2.config.ts
+
 # 对已启动的 Mock 后端做 HTTP 验收（新增合成测试会话）
 python3 scripts/smoke.py --output .evidence/mock-smoke.json
 
@@ -96,7 +107,7 @@ python3 scripts/smoke.py --output .evidence/mock-smoke.json
 python3 scripts/smoke.py --real --output .evidence/real-smoke.json
 ```
 
-HTTP 验收只创建合成资料，结束后删除自己创建的资料并保留验收会话，以便检查历史快照。真实模型的出题相关性、追问意义和评估质量需要单独核验，不能由 Mock 测试代替。当前实际证据见 V1 验证记录。
+HTTP 验收只创建合成资料，结束后删除自己创建的资料并保留验收会话，以便检查历史快照。真实模型的出题相关性、追问意义和评估质量需要单独核验，不能由 Mock 测试代替。当前实际证据见 [V1 验证记录](docs/vibe/releases/v1/VERIFICATION.md) 和 [V2 验证记录](docs/vibe/releases/v2/VERIFICATION.md)，两者各自保留适用输入与配置边界。
 
 ## 已知边界
 

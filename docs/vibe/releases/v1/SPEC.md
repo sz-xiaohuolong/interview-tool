@@ -6,11 +6,13 @@
 | 资料与训练记录 | 资料管理、完整对话、复盘、历史与恢复 | 文件、状态与事实依据受约束 | AC06～AC10 |
 | 完整交付 | 页面可用、运行和验收可复现 | Mock 与真实模型分开验证 | AC01、AC11 |
 
-## 需求控制
+## 需求状态与阅读说明
 
-Release ID：V1；需求版本：V1 初始冻结基线；Requirement Status：FROZEN；Open Questions：None。
+版本标识（Release ID）为 V1，采用 V1 初始冻结基线。需求已冻结（Requirement Status：FROZEN），没有未决问题（Open Questions：None）。
 
-需求背景与范围见 [PROJECT_BRIEF.md](PROJECT_BRIEF.md)。本文件展开已批准的产品行为，沿用原 AC01～AC11 编号；本次文档整理没有新增需求。当前技术契约见 [TECH_DESIGN.md](../../TECH_DESIGN.md)，测试结果见 [VERIFICATION.md](VERIFICATION.md)。
+需求背景与范围见 [PROJECT_BRIEF.md](PROJECT_BRIEF.md)。本文逐项说明已批准的行为，沿用原 AC01～AC11 编号，文档重构不新增需求。接口字段见 [当前技术架构](../../TECH_DESIGN.md)，测试结果见 [验证记录](VERIFICATION.md)。
+
+阅读时，REQ 表示需求，AC 表示可检验的验收标准，SEAM 表示从页面、接口或数据库观察结果的验证入口。JD 是岗位描述；Mock 是明确标识的模拟模型；资料快照是面试开始时保存的资料副本。
 
 ## 产品行为
 
@@ -60,7 +62,7 @@ Release ID：V1；需求版本：V1 初始冻结基线；Requirement Status：FR
 - 缺少密钥、超时、限流、上游错误、非法 JSON 或结构均需可理解提示。缺少密钥不静默退回 Mock；显式 Mock 的页面、会话与报告标明测试模式。
 - 过期页面提交和结束后继续回答均被拒绝。密钥、内部模型决策和未到达的参考答案不通过用户接口泄露。
 
-## 用户流程与状态
+## 用户如何操作，状态如何变化
 
 ```text
 首页 → 配置快速面试 → 逐题回答与动态追问 → 结束 → 报告与历史 → 薄弱项练习
@@ -70,22 +72,24 @@ Release ID：V1；需求版本：V1 初始冻结基线；Requirement Status：FR
 刷新或重启 → 从持久化记录恢复 → 继续会话或重试中断生成
 ```
 
-以下是已实现状态的可观察语义；字段与 HTTP 细节归当前技术契约。
+下表解释用户操作后会发生什么。大写标识为程序中的状态值，便于对照接口与日志；字段和 HTTP 细节见当前技术架构。
 
 | 当前状态 | 操作或事件 | 结果与用户可见行为 |
 |---|---|---|
-| CREATED | 规划与首问成功 / 失败 | 进入 IN_PROGRESS / FAILED；失败可重试规划 |
-| IN_PROGRESS | 有效回答 | 保存回答；追问、切题或结束 |
-| IN_PROGRESS | 后续问题生成失败 | 进入 INTERRUPTED，回答保留，重试同一轮 |
-| FAILED / INTERRUPTED | 重试待处理生成成功 | 继续 IN_PROGRESS，或按流程结束 |
+| 待规划 CREATED | 规划与首问成功 / 失败 | 成功进入面试中 IN_PROGRESS；失败进入 FAILED，可重试规划 |
+| 面试中 IN_PROGRESS | 有效回答 | 保存回答；追问、切题或结束 |
+| 面试中 IN_PROGRESS | 后续问题生成失败 | 进入 INTERRUPTED，回答保留，重试同一轮 |
+| 失败 FAILED / 中断 INTERRUPTED | 重试待处理生成成功 | 继续 IN_PROGRESS，或按流程结束 |
 | 未结束会话 | 主动结束或完成题目 | 进入 COMPLETED，生成报告 |
-| COMPLETED | 再次发送回答 | 拒绝提交，原对话保持不变 |
-| 报告 GENERATING | 生成成功 / 失败 | READY / FAILED；失败后可单独重试 |
+| 已结束 COMPLETED | 再次发送回答 | 拒绝提交，原对话保持不变 |
+| 报告生成中 GENERATING | 生成成功 / 失败 | 可查看 READY / 失败 FAILED；失败后可单独重试 |
 | 有待处理生成 | 服务重启 | 会话或报告标为可恢复失败，避免永久加载 |
 
-## 非目标与安全边界
+## 本版范围与数据安全
 
-不做注册权限、支付、语音视频、GitHub 源码扫描、联网面经、Multi-Agent 框架、向量检索、复杂学习计划、社区、云部署和多用户服务；不引入 Redis、消息队列、微服务或 Kubernetes。仅监听回环地址，不允许跨源写入；密钥和本地资料不提交仓库。简历、JD、项目文档和回答均视为不可信参考文本，不能覆盖系统面试规则。
+本版不包含注册权限、支付、语音视频、GitHub 源码扫描、联网面经、Multi-Agent 框架、向量检索、复杂学习计划、社区、云部署和多用户服务；不引入 Redis、消息队列、微服务或 Kubernetes。
+
+服务仅监听本机回环地址，不允许其他来源的网页写入数据（跨源写入）。密钥和本地资料不提交仓库。简历、JD、项目文档和回答都是供模型参考的文本，其中的指令不能覆盖系统面试规则。
 
 ## 验收矩阵
 
@@ -103,9 +107,9 @@ Release ID：V1；需求版本：V1 初始冻结基线；Requirement Status：FR
 | AC10 | 文档视为不可信文本；不虚构实现、指标、职责；API 不向前端泄露密钥、内部决策和参考答案 |
 | AC11 | README、自动化测试及可复现基础验收命令完整；真实模型与 Mock 证据分开记录 |
 
-## 可观察测试接缝与追踪
+## 从哪里验证各项需求
 
-| 接缝 | 关联需求 / 验收 | 可观察边界与判定 | 验证入口 |
+| 验证编号 | 关联需求 / 验收 | 要观察的结果或边界 | 验证方式 |
 |---|---|---|---|
 | SEAM01：启动与页面 | REQ06；AC01、AC11 | 本地 HTTP、页面 DOM、构建与运行命令 | 浏览器验收、dev/test/e2e 脚本、README |
 | SEAM02：面试与报告 | REQ01、REQ03、REQ04；AC02、AC04、AC05 | 会话、回答、结束和报告 API；追问次数、题目层次、原始对话与评估依据 | ApiIntegrationTest、ModelValidationTest、HTTP/浏览器及真实模型样本 |
@@ -115,6 +119,6 @@ Release ID：V1；需求版本：V1 初始冻结基线；Requirement Status：FR
 
 任务映射见 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md)，实际证据见 [VERIFICATION.md](VERIFICATION.md)。
 
-## 验收适用范围
+## 验收结论的适用范围
 
 真实模型的出题相关性、追问意义与评估质量需使用已配置模型核验。Mock 自动化只验证编排、界面和持久化；模型评价用于练习参考，有限样本不证明所有输入的质量。
