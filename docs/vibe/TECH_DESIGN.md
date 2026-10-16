@@ -7,12 +7,16 @@
 | 位置或模块 | 职责 |
 |---|---|
 | `frontend/` | Vue 页面、API 客户端和样式；页面业务状态以服务端数据为准 |
-| `backend/` | 按 Controller → Service → Repository 分层：接收请求、处理业务、读写数据 |
+| `backend/` | 按 `controller` → `service` → `mapper` 分包：接收请求、处理业务、读写数据；根包只保留 `Application` |
 | `MaterialService` | 提取并保存上传资料 |
 | `InterviewService` | 管理面试会话、回答和状态变化 |
 | `LlmClient` | 统一调用大语言模型（LLM） |
 | 独立提示词 | 分别用于规划、提问、评估和押题 |
 | SQLite 与本地文件 | 数据库保存资料和完整会话快照；上传文件以 UUID 文件名存入本地 data/uploads |
+
+`mapper` 中的 `Store`、`V2Store` 沿用原 JDBC 实现，负责 SQL、事务与持久化；Controller 通过 Service 获取业务结果。资料和文档对象位于 `entity`，资料上下文位于 `dto`；模型调用、模型输出校验、Spring 配置、异常处理和通用工具分别位于 `client`、`validation`、`config`、`exception`、`common`。测试按被测职责分包，JDBC 和 Mock 的跨包测试访问由测试夹具提供，不开放生产字段。
+
+现有服务没有需要多实现切换的业务接口，因此保留具体 Service 类；暂未单独建立 ServiceImpl 和 VO 层，避免为目录完整而增加空层。HTTP 路径、JSON 字段、SQLite 结构及提示词继续沿用现有约定。
 
 模型参数由后端环境变量加载。可选 `LLM_REASONING_EFFORT` 有值时，后端将其作为 `reasoning_effort` 传给规划、面试官、押题和评估四类任务；留空则使用模型服务默认值。前端弹窗使用 Reka UI。
 
@@ -96,7 +100,7 @@ GET `/health` 返回 `{status,provider,configured,model}`，不包含密钥（Ke
 
 V2 使用 `V2_ENABLED=true`（或 `app.v2.enabled=true`）启用，默认关闭。启动在 Store 实例化及 WAL/恢复写入前执行 `V2SchemaPreflight` 的只读检查；未迁移、未知结构或校验和异常拒绝启动。独立 `scripts/migrate-v2.py` 仅在明确维护参数和显式数据目录/备份目录下迁移，增加14张表而不批量回写旧记录。早期迁移在合成临时目录演练；2026-10-16用户追加授权后，已对原data执行完整备份、显式迁移并开启V2，原五表及附件不变。
 
-原有源码不改。`V2BootstrapConfiguration` 将唯一 interviewService 的 BeanDefinition 指向同包 `TrainingLinkedInterviewService` 子类；无 trainingLinkId 时直接调用原 super.create。有关联时 `TrainingLinkService` 原子预留旧会话与侧表，并复用原规划器。旧接口、Session schemaVersion=1、三模式及报告仍沿用原实现。
+V2 最初通过新增源码增量接入；2026-10-16 后端目录整理后，配置位于 `config`，业务服务位于 `service`。`V2BootstrapConfiguration` 将唯一 interviewService 的 BeanDefinition 指向 `TrainingLinkedInterviewService` 子类，使用类引用取得完整类名；无 trainingLinkId 时直接调用原 super.create。有关联时 `TrainingLinkService` 原子预留旧会话与侧表，并复用原规划器。旧接口、Session schemaVersion=1、三模式及报告仍沿用原实现。
 
 新增 Review/Practice/Jd/Story/DesignPractice 五个业务服务，共用 `V2Store`、`V2Operations`、`V2InputPreparations`、`V2ModelRunner`、`V2LlmClient` 和 `V2OutputValidator`。短事务保存 revision、requestId、generation 与输入快照，网络等待在事务外；失败明确保存 operation/resource 指针，重启转 INTERRUPTED，只有用户显式重试才再次调用。新代次执行期间，旧 HTTP 成功或失败均拒绝写回，并向旧请求返回 V2_OPERATION_SUPERSEDED。六个固定任务共用1个并发名额，读取中限制模型响应为2000000字节，单记录上限2 MiB。
 

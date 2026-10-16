@@ -14,6 +14,8 @@ test -f .env.local || cp .env.example .env.local
 
 首次启动会安装前端依赖并下载 Maven 依赖。打开 <http://127.0.0.1:5173>，后端监听 `127.0.0.1:8080`。终端 `Ctrl+C` 停止两项服务；日志在 `.runtime/backend.log` 和 `.runtime/frontend.log`。
 
+调整 Java 包结构后，先停止开发服务，再执行 `mvn -f backend/pom.xml clean` 清除旧 class，然后重新启动，避免旧包中的类残留并参与 Spring 扫描。
+
 模型尚未配置时，可以先在 `.env.local` 显式设置 `LLM_PROVIDER=mock` 体验业务流程。页面、会话和报告都会标注“测试模式”。Mock 的题目、追问和评分只用于验证软件流程，不能视为能力评价。正式练习需使用 `openai` 模式。
 
 ## 模型配置
@@ -65,9 +67,28 @@ LLM_REASONING_EFFORT=
   └─ 同源 /api → Spring Boot 3 / Java 21
        ├─ Controller：输入与 HTTP 交互
        ├─ Service：资料解析、规划、面试状态、押题、复盘
-       ├─ Repository：SQLite 与资料快照
+       ├─ Mapper：SQLite 与资料快照
        └─ LLM 客户端：OpenAI 兼容 HTTP / 显式 Mock
 ```
+
+后端根包 `cn.interview` 只保留启动类，其他代码按职责组织：
+
+```text
+backend/src/main/java/cn/interview/
+  ├─ Application.java
+  ├─ controller/   请求接收与 HTTP 响应
+  ├─ service/      业务规则、状态流转与模型任务协调
+  ├─ mapper/       SQLite 访问与启动前结构检查
+  ├─ entity/       资料和文档数据对象
+  ├─ dto/          层间传递的资料上下文
+  ├─ client/       模型调用、显式 Mock 与并发限制
+  ├─ validation/   模型输出校验
+  ├─ config/       Spring 配置与请求边界
+  ├─ exception/    业务异常与统一错误响应
+  └─ common/       参数工具、标识和内容摘要
+```
+
+现有服务直接使用具体类，暂不拆分 Service 接口与 ServiceImpl；JSON 接口沿用现有格式，后续出现独立响应对象时再建立 VO。测试按被测职责放入对应包，跨包测试夹具只保存在测试源码中。
 
 提示词独立保存在 `backend/src/main/resources/prompts/`。服务端校验模型 JSON，强制追问上限与状态规则；回答包含请求 ID 和问题 ID，避免重复提交与过期页面写入。报告保存原始对话引用，区分明确错误、没有提到、资料不足。
 

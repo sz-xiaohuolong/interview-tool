@@ -61,3 +61,13 @@
 - 服务端负责状态约束、资料边界、模型输出验证与回答幂等。
 - 行为先写失败测试，按实际风险验证。以真实命令结果记录证据，Mock 不能替代真实模型质量验证。
 - `.runtime/`、`.evidence/`、`backend/test-results/` 保存本地原始记录，不提交；公开归档只包含已检查的合成样本、必要摘要和源文件摘要。
+
+## Spring Boot 工程规范
+
+1. 编码前先检查项目现有目录结构、包命名和技术栈，优先遵循已有约定，不得随意重构。
+2. 新建 Spring Boot 项目时，默认使用 Controller、Service、ServiceImpl、Mapper、Entity、DTO、VO、Config、Exception 分层结构。
+3. Java 类必须放在对应职责的 package 中，不得将业务代码全部放在根包或项目根目录。
+4. Controller 只负责参数接收、校验和响应；Service 负责业务逻辑；Mapper 负责数据库访问。
+5. 根据职责创建类，不为简单需求机械增加不必要的抽象层。
+6. 新增文件必须使用与目录匹配的 package 声明，检查 Spring Bean 扫描范围及依赖注入。
+7. 实现完成后检查目录结构、执行项目构建和相关测试，修复发现的问题。

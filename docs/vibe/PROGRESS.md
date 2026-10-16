@@ -5,6 +5,7 @@
 | 正式版本 V1 | 已本地交付，当前正式版本仍为 V1 | 验证结论有明确的输入与配置范围 | 按后续使用需求维护 |
 | V2 开发 | 用户已明确批准四文档及评审建议并授权实施；VERIFYING / WAITING_HUMAN / PARTIAL | 本机原库已获追加授权升级并启用V2；真实测试及提交推送已授权 | 五项已实现；真实六类固定任务完成本轮校准，19次中17次通过、2次历史结构失败及修正；按授权同步代码供人工验收 |
 | V1 界面设计归档 | 全局规范与 V1 任务记录已分开 | 文档检查通过；产品代码未变 | 后续按职责维护 |
+| 后端包结构整理 | 2026-10-16 已补充 7 条 Spring Boot 规范；完成职责分包、SQL 收拢及控制器业务下移 | 后端 103 项、前端 38 项及构建通过；本机旧服务尚未重启 | 切换到新代码前停止旧服务、清理旧 class，再按 README 启动 |
 
 ## 1. 先看哪些文件
 
@@ -175,3 +176,19 @@ S7 已按2026-10-16批准的 [受限校准计划](releases/v2/MODEL_CALIBRATION_
 本机`.env.local`已固定原data绝对路径、V2_ENABLED=true、PORT=8080、API_PROXY_TARGET指向8080，模型配置原值保持；使用`./scripts/dev.sh`重启。5173代理的V2状态为true、健康为ok、9个相关只读接口返回200、V2资料选择器可读原4份资料。内置浏览器确认原简历/JD/项目数量与全部V2导航同时出现。仅保留5173/8080日常服务，测试4173/18080已停止，测试库文件保留且未合并到原库。本次0次模型调用、无业务源码修改；保留用户POM和IDE本地改动。原始本机检查在`.runtime/v2-original-upgrade/`，不提交个人数据、备份或配置。
 
 以后从项目根目录运行`./scripts/dev.sh`，统一使用原资料与V2。正式Release标签仍为V1，V2继续等待用户人工验收，不能把本次迁移和只读检查扩大为全部真实业务质量结论。
+
+### 后端职责分包整理（2026-10-16）
+
+用户明确要求将 7 条 Spring Boot 工程规范写入根目录 `AGENTS.md`，并按规范整理现有后端。此次仅调整内部结构：`cn.interview` 根包保留 `Application`，其余源码分入 `controller`、`service`、`mapper`、`entity`、`dto`、`client`、`validation`、`config`、`exception`、`common`。Controller 中的查询、业务组装和字段裁剪移入 Service，SQL 与 JDBC 访问集中到 Mapper；沿用 `Store`、`V2Store` 的实现和事务边界。资料、文档和上下文 record 从通用工具中拆出；模型任务处理接口单独成文件。现有服务无需多实现切换，因此未机械新增 ServiceImpl 或 VO 空层。
+
+测试也按被测职责分包；跨包 JDBC 和 Mock 样本访问仅通过测试源码中的夹具提供，未开放相应生产字段。`Application` 仍扫描所有子包，V2 会话扩展继续使用类引用获取完整类名。README 和当前技术架构已同步；历史版本记录保留当时事实。
+
+实际验证结果：
+
+- 重构前 `mvn -f backend/pom.xml test`：103 项通过。
+- 重构后 Maven `verify`：103 项通过，失败、错误、跳过均为 0；可执行 Spring Boot JAR 打包成功。为避免运行中的本地服务和旧 class 影响验证，使用 `.runtime/backend-package-refactor/pom.xml` 输出到独立目录；它沿用当前 POM 的依赖、版本和编译属性，仅调整构建路径、资源路径与测试工作目录。
+- `npm --prefix frontend test`：38 项通过；`npm --prefix frontend run build`：TypeScript 检查与生产构建通过。
+- 结构检查：47 个生产文件和 23 个测试/夹具文件的 package 与目录匹配；SQL/JDBC 仅在 Mapper，Controller 不访问 Mapper 或 Service 内部依赖；10 个 Controller 的路由注解及 3 个拆分 record 的字段、类型、顺序保持一致。
+- 原有 21 个测试源码文件的输入与断言保持，仅调整 package、导入和跨包访问。用户原有 `backend/pom.xml` 修改的文件摘要一致；前端源码、Schema 和提示词未变；`git diff --check` 通过。
+
+原始日志、构建配置和结构检查在本机忽略目录 `.runtime/backend-package-refactor/`。本次未执行浏览器验收或新增真实模型调用，不扩大已有模型质量结论；V2 仍待人工验收。目录整理阶段未提交、推送、部署或重启日常服务；用户随后明确授权将本次代码与文档提交并同步至 `origin/main`，同步结果以 Git 记录为准。用户原有 POM 与 IDE 修改保留在本地，不纳入本次提交。由于本地旧服务仍使用旧包中的 class，切换到本次代码前应先停止服务，执行 `mvn -f backend/pom.xml clean`，再运行 `./scripts/dev.sh`。
