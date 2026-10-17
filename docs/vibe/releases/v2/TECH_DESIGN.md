@@ -1,5 +1,8 @@
 # V2 技术设计与实施对应
 
+> **2026-10-17 UI 补充**：用户批准导航方案 2、四字入口及复盘可读性调整，允许修改对应前端壳与视图；“原有源码字节不变”保留为初始 V2 实施边界，本次前端展示改造是明确授权的例外，后端不改。版本设计与实际验证见 [UI_DESIGN.md](UI_DESIGN.md)、[VERIFICATION.md](VERIFICATION.md)。本轮已授权提交并同步 `origin/main`，不包含部署、PR、Tag 或 Release。
+
+
 > **生效基线（2026-10-15）**：用户已批准四份 V2 文档及 REVIEW.md 推荐修改，D01～D08、R01～R04、D-T01、E1～E8 已采纳，并已授权实施。原有源码保持字节不变，功能通过新增文件接入。五项功能已实现，软件验证与真实模型质量分开记录，详见 [VERIFICATION.md](VERIFICATION.md)。当前正式交付仍为 V1；V2 开发与本轮验证已完成，待用户人工验收，整体证据为 PARTIAL。2026-10-16 用户已授权测试所需真实模型调用及提交、推送；用户随后明确授权原资料库备份、增量升级并统一在5173启用V2，已执行且旧记录保持；部署、PR、Tag和GitHub Release不在本次范围。
 
 
@@ -62,7 +65,7 @@ flowchart LR
 
 ## 3. 页面与交互
 
-继续使用 [DESIGN.md](../../../../DESIGN.md)、[style.css](../../../../frontend/src/style.css) 和 [.impeccable/design.json](../../../../.impeccable/design.json) 的 Tokens 与组件表现。新增功能页沿用 AppLayout，原四个导航入口保留，在原内容区增加五项训练导航；JD、故事和阶段训练可直接进入并从来源返回，不改造全站信息架构。
+继续使用 [DESIGN.md](../../../../DESIGN.md)、[style.css](../../../../frontend/src/style.css) 和 [.impeccable/design.json](../../../../.impeccable/design.json) 的 Tokens 与组件表现。新增功能页沿用 AppLayout。2026-10-17 按用户批准方案 2，主导航增加“专项训练”，六个工具仅在专项模块中显示；列表、详情和来源返回沿用既有路由。完整结构见 [UI_DESIGN.md](UI_DESIGN.md)，接入见第 12 节。
 
 | 页面 / 入口 | 主要内容与操作 | 空态、错误与恢复 |
 |---|---|---|
@@ -521,6 +524,7 @@ INTERVIEW_JAVA21_HOME="$(/usr/libexec/java_home -v 21)"
 | V2-REQ-04 | 第 3、4.2、5～7 节 | V2-AC-401～406 | S4 |
 | V2-REQ-05 | 第 3、4.2、5～7 节 | V2-AC-501～507 | S5 |
 | V2-REQ-06 | 第 2、4～9 节 | V2-AC-601～608 | S0、S6、S7 |
+| V2-REQ-07 | 第12节、UI_DESIGN | V2-AC-701～706 | S8 |
 
 合成库已执行迁移、事务中断与完整备份恢复演练；软件检查见验证记录。六类固定任务的真实服务支持和合成语义核对见验证记录；不外推全部输入稳定性、ORDER_SERVICE 建议质量、个人数据规模或迁移耗时。D01～D08 已批准；本轮真实测试及提交推送已授权，个人真实库迁移仍未执行。
 
@@ -539,3 +543,13 @@ V2 模型共用 Semaphore(1)；非阻塞 tryAcquire 在答案封存前；所有�
 V2 错误扩展为 code/message/resourceId/operationId/currentRevision/retryable/nextAction/helpKey/details；nextAction 限 LOAD_LATEST、WAIT_OPERATION、EDIT_INPUT、RETRY_OPERATION、RETRY_REQUEST、CREATE_EVALUATION_GROUP、CHECK_STORAGE、CHECK_CONFIGURATION、NONE；details 不含正文、路径、服务地址或原响应。
 
 技术依据：2026-10-15 已通过 Context7 查询 Spring Framework 6.2、Vue Router 4、Vite 6 官方文档。项目锁定 Vue Router 4.6.4、Vite 6.4.4；不因查询而升级依赖。联网搜索与原文读取结果及实际验证已在 VERIFICATION 中如实记录，不能把文档查询作为实现证据。
+
+## 12. 导航与复盘 UI 的展示接入（2026-10-17）
+
+本节覆盖 V2-REQ-07、V2-AC-701～706，对应 S8 / V2-T11。原“零原源码改动”是第 11 节初始实现的历史结论；本次前端例外已获用户批准，不能继续把它作为当前前端摘要不变的声明。
+
+共享 `frontend/src/navigation.ts` 仅从当前路径计算一级归属、专项工具和面包屑。使用段边界匹配，`/sprints/:id` 归岗位诊断；判断前规范化大小写与末尾斜杠，实际 URL/Query 不变。不增加存储、接口或业务状态。
+
+AppLayout 保留原 Props 和默认插槽，通过命名插槽 `training-navigation` 在“开始面试”后接收专项入口；V1 App 不提供插槽，所以仍有四项导航。V2App 提供该入口，并根据共享映射条件渲染二级导航。链接保留 href 与 Vue Router navigate，当前模块补充 aria-current；面包屑父级使用既有 RouterLink。原健康读取、来源配置分支和报告工具插槽保留。
+
+复盘原有业务脚本、报告获取及工具事件保持，仅重排视图与新增局部阅读样式。`report.css` 随 Report 页面加载；全局仅补应用壳规则，其他页面不套用报告的 20px 正文。响应式与批准稿取舍见 UI_DESIGN。后端、数据迁移、模型提示词和客户端不在本轮改动范围。

@@ -1,0 +1,144 @@
+/* 复盘阅读表面，沿用全局色板与原生交互。 */
+.report-page, .v2-route-surface:has(> .report-page) {
+  --report-body-size: 20px;
+  --report-label-size: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-rows: repeat(4, max-content) minmax(0, 1fr);
+  column-gap: 32px;
+  align-items: start;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 28px 36px 56px;
+}
+.v2-route-surface > .report-page { display: contents; }
+.report-reading { grid-column: 1; grid-row: 1 / 6; min-width: 0; }
+.report-overview { grid-column: 2; grid-row: 1; }
+.report-collect-tools { grid-column: 2; grid-row: 2; }
+.report-practice-tools { grid-column: 2; grid-row: 3; }
+.report-transcript { grid-column: 2; grid-row: 4; }
+.report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript {
+  min-width: 0; margin: 0; padding: 0 0 28px 24px;
+  border: 0; border-left: 1px solid var(--border-subtle); border-radius: 0;
+  background: transparent; font-size: var(--report-label-size); line-height: 1.8; overflow-wrap: anywhere;
+}
+.report-page .report-heading { margin-bottom: 36px; }
+.report-page .report-back { display: inline-flex; align-items: center; min-height: 44px; font-size: 16px; margin-bottom: 8px; }
+.report-page .report-heading h1 { font-size: 32px; line-height: 1.4; letter-spacing: -.025em; }
+.report-page .report-heading p { margin-top: 8px; font-size: 16px; line-height: 1.8; }
+.report-page .report-section-heading { font-size: 18px; font-weight: 500; color: var(--text-muted); margin-bottom: 24px; }
+.report-page .report-empty { font-size: 16px; line-height: 1.8; margin: 16px 0 32px; }
+.report-page .report-reading .notice, .report-page .report-reading .loading-state { font-size: 16px; }
+.report-page .report-status { padding: 24px; font-size: 20px; }
+.report-page .report-status p { margin-top: 12px; }
+.report-page .report-status .btn { margin-top: 20px; }
+.report-page .question-analysis { padding: 0 0 40px; margin: 0 0 40px; border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
+.report-page .prediction-question { align-items: baseline; gap: 16px; margin-bottom: 16px; }
+.report-page .prediction-question h3 { font-size: 24px; line-height: 1.6; letter-spacing: -.02em; }
+.report-page .question-number { font-size: 24px; line-height: 1.6; color: var(--accent-ink); font-weight: 600; margin: 0; }
+.report-page .question-analysis summary { min-height: 44px; padding: 8px 0; font-size: 16px; line-height: 1.8; }
+.report-page .question-analysis .raw-dialogue { padding: 0; margin-top: 12px; border: 0; }
+.report-page .report-utterance { padding: 16px 20px; margin-bottom: 12px; border-radius: var(--radius-control); background: var(--surface-soft); }
+.report-page .question-analysis .raw-dialogue strong { display: block; font-size: 16px; line-height: 1.8; }
+.report-page .question-analysis pre, .report-page .question-analysis .tiny { max-width: 72ch; font-size: var(--report-body-size); line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-page .report-utterance pre { margin-top: 8px; color: var(--text-primary); }
+.report-page .analysis-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 28px; margin-top: 28px; }
+.report-page .analysis-block h4 { display: flex; align-items: baseline; gap: 12px; font-size: 18px; line-height: 1.7; margin-bottom: 10px; }
+.report-page .analysis-block h4::before { content: ""; flex: 0 0 10px; width: 10px; height: 10px; border-radius: 50%; background: var(--text-muted); }
+.report-page .analysis-block-correct h4::before { background: var(--success); }
+.report-page .analysis-block-incorrect h4::before { background: var(--danger); }
+.report-page .analysis-block-missing h4::before { background: var(--warning); }
+.report-page .analysis-block ul { font-size: var(--report-body-size); line-height: 1.8; padding-left: 22px; color: var(--text-secondary); }
+.report-page .analysis-block li + li { margin-top: 12px; }
+.report-page .analysis-block > .tiny { font-size: 16px; }
+.report-page .report-explanation { padding: 0; margin-top: 32px; border: 0; }
+.report-page .question-analysis .report-explanation h3 { font-size: 18px; line-height: 1.7; margin-bottom: 12px; }
+.report-page .report-answer-outline { padding: 20px 24px; background: var(--accent-soft); color: var(--accent-ink); border-radius: var(--radius-control); }
+.report-page .report-answer-outline pre { color: inherit; }
+.report-page .report-knowledge { margin-top: 32px; }
+.report-page .question-analysis .evidence { font-size: 16px; line-height: 1.8; margin-top: 24px; }
+.report-page .evidence p { margin-top: 8px; white-space: pre-wrap; }
+.report-page .report-next-steps { grid-template-columns: minmax(0, 1fr); gap: 36px; margin-top: 0; }
+.report-page .report-next-steps .panel { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.report-page .report-next-steps h2 { font-size: 24px; }
+.report-page .report-next-steps .list-body { min-width: 0; }
+.report-page .report-next-steps .list-row { align-items: flex-start; flex-wrap: wrap; padding-block: 20px; }
+.report-page .report-next-steps .list-body p, .report-page .report-next-steps .reading-list { margin: 0; font-size: var(--report-body-size); line-height: 1.8; color: var(--text-secondary); }
+.report-page .report-next-steps .tiny { font-size: 16px; margin-top: 16px; }
+.report-page .report-next-steps .reading-list { margin-top: 16px; }
+.report-page .report-next-steps .reading-list li + li { margin-top: 12px; }
+.report-next-icon { color: var(--accent-ink); margin-bottom: 12px; }
+.report-page .report-intro { padding: 0 0 24px; margin: 0 0 24px; border: 0; border-bottom: 1px solid var(--border-subtle); border-radius: 0; background: transparent; }
+.report-page .report-intro h2 { font-size: 24px; line-height: 1.6; }
+.report-page .report-intro h3 { font-size: 18px; margin-top: 24px; }
+.report-page .report-intro p { margin-top: 10px; font-size: 16px; line-height: 1.8; white-space: pre-wrap; }
+.report-metadata { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.report-page .report-metadata .badge { padding: 0; background: transparent; color: var(--text-muted); border-radius: 0; font-size: 16px; font-weight: 400; line-height: 1.8; white-space: normal; }
+.report-page .report-dimensions-heading h2 { font-size: 18px; }
+.report-page .report-dimensions-heading p { font-size: 16px; margin-top: 6px; }
+.report-page .dimension-grid { display: block; margin: 16px 0 8px; border: 0; background: transparent; }
+.report-page .dimension { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding: 16px 0; border: 0; border-bottom: 1px solid var(--border-subtle); }
+.report-page .dimension h3 { font-size: 16px; line-height: 1.8; }
+.report-page .dimension strong { display: block; font-size: 20px; line-height: 1.44; letter-spacing: 0; margin: 0; }
+.report-page .dimension strong small { font-size: 16px; }
+.report-page .dimension p { grid-column: 1 / -1; margin-top: 8px; font-size: 16px; line-height: 1.8; color: var(--text-secondary); }
+.report-page .report-score-guide { font-size: 16px; line-height: 1.8; }
+.report-page .report-score-guide summary { min-height: 44px; padding-block: 8px; }
+.report-page .report-score-guide p { margin-top: 8px; }
+.v2-route-surface:has(> .report-page) .v2-context-tools { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border-subtle); }
+.v2-route-surface:has(> .report-page) .v2-context-tools h2 { font-size: 18px; }
+.v2-route-surface:has(> .report-page) .v2-context-tools p { margin-top: 8px; font-size: 16px; line-height: 1.8; }
+.v2-route-surface:has(> .report-page) .v2-context-tools label { margin: 0; font-size: 16px; }
+.v2-route-surface:has(> .report-page) .v2-context-tools select { font-size: 16px; min-height: 48px; }
+.v2-route-surface:has(> .report-page) .v2-context-results { flex-direction: column; align-items: flex-start; gap: 12px; }
+.v2-route-surface:has(> .report-page) .v2-context-results .text-link { font-size: 16px; min-height: 44px; }
+.v2-route-surface:has(> .report-page) .v2-context-tools .notice { flex-basis: auto; font-size: 16px; margin: 0; }
+.report-page .btn, .v2-route-surface:has(> .report-page) .v2-context-tools .btn { min-height: 44px; font-size: 16px; line-height: 1.6; }
+.v2-route-surface:has(> .report-page) .v2-context-tools .btn { width: 100%; white-space: normal; text-align: center; }
+.report-page .report-transcript { padding-top: 24px; border-top: 1px solid var(--border-subtle); }
+.report-page .report-transcript summary { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding-block: 8px; font-size: 16px; line-height: 1.8; font-weight: 600; }
+.report-page .report-transcript summary svg { margin-top: 4px; }
+.report-transcript-body { margin-top: 20px; }
+.report-transcript-message + .report-transcript-message { border-top: 1px solid var(--border-subtle); padding-top: 20px; margin-top: 20px; }
+.report-page .report-transcript .badge { font-size: 16px; white-space: normal; }
+.report-page .report-transcript pre { font-size: 20px; line-height: 1.8; margin-top: 12px; }
+.report-page .report-transcript .tiny { font-size: 16px; }
+@media (max-width: 1280px) {
+  .report-page, .v2-route-surface:has(> .report-page) { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 24px; padding-inline: 26px; }
+  .report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript { padding-left: 20px; }
+}
+@media (max-width: 1100px) {
+  .report-page, .v2-route-surface:has(> .report-page) { display: flex; flex-direction: column; gap: 32px; }
+  .v2-route-surface > .report-page { display: contents; }
+  .report-reading { order: 0; width: 100%; }
+  .report-overview { order: 1; width: 100%; }
+  .report-collect-tools { order: 2; width: 100%; }
+  .report-practice-tools { order: 3; width: 100%; }
+  .report-transcript { order: 4; width: 100%; }
+  .report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript { padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--border-subtle); }
+  .report-page .report-transcript pre { max-width: 72ch; }
+}
+@media (max-width: 600px) {
+  .app-shell:has(.report-page) .sidebar { padding: 8px 16px 0; gap: 4px; }
+  .app-shell:has(.report-page) .brand { min-height: 44px; }
+  .app-shell:has(.report-page) .brand small { margin-top: 0; }
+  .app-shell:has(.report-page) .sidebar .nav-link { min-height: 44px; }
+  .app-shell:has(.report-page) .topbar { min-height: 44px; padding-block: 8px; }
+  .report-page, .v2-route-surface:has(> .report-page) { padding: 12px 16px 40px; gap: 28px; }
+  .report-page .report-heading { margin-bottom: 16px; }
+  .report-page .report-back { margin-bottom: 4px; }
+  .report-page .report-heading h1 { font-size: 30px; }
+  .report-page .report-reading > .notice { padding: 12px; }
+  .report-page .report-section-heading { font-size: 16px; margin-bottom: 12px; }
+  .report-page .prediction-question { gap: 12px; }
+  .report-page .prediction-question h3, .report-page .question-number { font-size: 24px; }
+  .report-page .report-utterance { padding: 16px; }
+  .report-page .report-answer-outline { padding: 18px 16px; }
+  .report-page .analysis-grid { gap: 24px; }
+  .report-page .report-next-steps .list-row { flex-direction: column; align-items: stretch; gap: 12px; }
+  .report-page .report-next-steps .btn { align-self: flex-start; }
+  .report-page .report-next-steps h2 { font-size: 22px; }
+}
+@media (max-width: 360px) {
+  .report-page, .v2-route-surface:has(> .report-page) { padding-inline: 12px; }
+}

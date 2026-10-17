@@ -95,7 +95,7 @@ summary::marker { color: var(--text-muted); }
 .brand strong { font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
 .brand small { display: block; color: var(--text-muted); font-size: 10px; margin-top: 4px; }
 .nav-label { color: var(--text-muted); font-size: 12px; margin: 0 14px 12px; }
-.nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 46px; border-radius: var(--radius-control); color: var(--text-secondary); font-size: 14px; margin-bottom: 6px; transition: background var(--duration-ui) var(--ease-ui), color var(--duration-ui) var(--ease-ui); }
+.nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 48px; border-radius: var(--radius-control); color: var(--text-secondary); font-size: 16px; margin-bottom: 6px; transition: background var(--duration-ui) var(--ease-ui), color var(--duration-ui) var(--ease-ui); }
 .nav-link:hover { background: var(--surface-soft); color: var(--accent-ink); }
 .nav-link.router-link-active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .sidebar-bottom { margin-top: auto; border-top: 1px solid var(--border-subtle); padding: 22px 10px 0; font-size: 12px; line-height: 1.85; color: var(--text-muted); }
@@ -104,7 +104,11 @@ summary::marker { color: var(--text-muted); }
 .main-area { min-width: 0; }
 .topbar { min-height: 64px; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 36px; background: var(--surface); font-size: 12px; color: var(--text-muted); }
 .topbar-path, .topbar-meta { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.topbar-path { flex-shrink: 0; }
+.topbar-path { font-size: 14px; }
+.topbar-path ol { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; list-style: none; margin: 0; padding: 0; }
+.topbar-path li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar-path a { color: var(--accent-ink); min-height: 32px; display: inline-flex; align-items: center; }
+.topbar-path a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .topbar-path span:last-child { color: var(--text-primary); font-weight: 500; }
 .topbar-meta .badge { white-space: normal; overflow-wrap: anywhere; }
 .topbar-date { white-space: nowrap; }
@@ -325,7 +329,7 @@ a.list-row:hover { background: #f7f9fe; }
   .sidebar .nav-label, .sidebar-bottom { display: none; }
   .brand strong { font-size: 17px; }
   .brand small { font-size: 11px; }
-  .nav-link { white-space: nowrap; gap: 7px; padding: 10px 12px; font-size: 13px; margin-bottom: 0; min-height: 42px; }
+  .nav-link { white-space: nowrap; flex: 0 0 auto; gap: 7px; padding: 10px 12px; font-size: 14px; margin-bottom: 0; min-height: 44px; }
   .nav-link svg { width: 18px; }
   .topbar { padding: 12px 22px; min-height: 54px; }
   .page { padding: 28px 22px 40px; }
@@ -343,8 +347,9 @@ a.list-row:hover { background: #f7f9fe; }
 @media (max-width: 600px) {
   .sidebar { padding: 18px 16px 0; gap: 18px; }
   .page { padding: 24px 16px 36px; }
-  .topbar { padding-inline: 16px; gap: 12px; }
-  .topbar-path span:first-child, .topbar-path > svg, .topbar-date { display: none; }
+  .topbar { padding-inline: 16px; gap: 4px 12px; flex-wrap: wrap; }
+  .topbar-meta { margin-left: auto; max-width: 100%; }
+  .topbar-date { display: none; }
   .topbar-meta .badge { font-size: 11px; }
   h1, .dashboard-page h1 { font-size: 25px; }
   h2 { font-size: 18px; }

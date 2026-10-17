@@ -1,7 +1,10 @@
 /* V2 局部扩展，继承现有表面与 Tokens。 */
-.v2-subnav { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3) 36px; border-bottom: 1px solid var(--border-subtle); background: var(--surface); }
-.v2-subnav a { min-height: 44px; padding: 10px 14px; border-radius: var(--radius-control); color: var(--text-secondary); }
-.v2-subnav a:hover, .v2-subnav .router-link-active { color: var(--accent-ink); background: var(--accent-soft); }
+.v2-training-navigation { max-width: 1320px; margin: 0 auto; padding: 24px 36px 0; }
+.v2-training-navigation h2 { font-size: 20px; margin-bottom: 12px; }
+.v2-subnav { display: flex; flex-wrap: nowrap; gap: 24px; overflow-x: auto; border-bottom: 1px solid var(--border-subtle); scrollbar-width: thin; scrollbar-color: var(--border-control) transparent; }
+.v2-subnav a { display: inline-flex; flex: 0 0 auto; align-items: center; min-height: 48px; padding: 10px 2px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 16px; white-space: nowrap; }
+.v2-subnav a:hover { color: var(--accent-ink); background: var(--surface-soft); }
+.v2-subnav .router-link-active { color: var(--accent-ink); border-bottom-color: var(--accent); font-weight: 600; }
 .v2-page .btn, .v2-page summary, .v2-context-tools .btn { min-height: 44px; }
 .v2-page .text-link { display: inline-flex; align-items: center; min-height: 44px; }
 .v2-page .notice { margin-bottom: var(--space-4); }
@@ -34,7 +37,9 @@
 .v2-form > .btn { align-self: flex-start; }
 .v2-page .badge { margin-right: var(--space-2); }
 @media (max-width: 900px) { .v2-reading-layout { grid-template-columns: minmax(0, 1fr); } }
-@media (max-width: 600px) { .v2-subnav { padding: var(--space-2) var(--space-3); gap: var(--space-1); } .v2-subnav a { padding: 10px; } .v2-context-tools { margin: var(--space-4) 16px 0; } .v2-list-row, .v2-skill-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); } .v2-skill-row > :last-child { width: 100%; } .v2-empty { padding: 24px; } }
+@media (max-width: 1180px) { .v2-training-navigation { padding-inline: 26px; } }
+@media (max-width: 820px) { .v2-training-navigation { padding-inline: 22px; } }
+@media (max-width: 600px) { .v2-training-navigation { padding: 20px 16px 0; } .v2-subnav { gap: 20px; } .v2-subnav a { min-height: 44px; } .v2-context-tools { margin: var(--space-4) 16px 0; } .v2-list-row, .v2-skill-row { grid-template-columns: minmax(0, 1fr); gap: var(--space-3); } .v2-skill-row > :last-child { width: 100%; } .v2-empty { padding: 24px; } }
 .v2-section { margin-top: var(--space-6); }
 .v2-compare-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-6); }
 .v2-page pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }

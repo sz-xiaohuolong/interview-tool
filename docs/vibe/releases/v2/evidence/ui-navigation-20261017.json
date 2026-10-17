@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-17",
+  "task": "S8 / V2-T11 导航方案2与复盘展示",
+  "baselineCommit": "e922153",
+  "scope": "前端UI、导航展示计算、测试及文档；后端不改",
+  "verification": {
+    "command": "JAVA_HOME=$(/usr/libexec/java_home -v 21) ./scripts/test.sh",
+    "java": "21.0.8",
+    "backendTests": 103,
+    "frontendTests": 62,
+    "navigationTests": 24,
+    "typecheck": "通过",
+    "productionBuild": "通过",
+    "backendScope": "本轮前即存在的本机后端工作树；既有后端差异排除提交",
+    "initialRed": {
+      "failed": 21,
+      "passed": 1
+    },
+    "routeVariantsRed": {
+      "failed": 2,
+      "passed": 22
+    }
+  },
+  "boundary": {
+    "backendFilesUnchangedSinceStart": 85,
+    "lockedFrontendFilesUnchanged": [
+      "frontend/src/api.ts",
+      "frontend/src/v2/api.ts",
+      "frontend/src/router.ts",
+      "frontend/src/pages/Configure.vue",
+      "frontend/src/pages/Session.vue",
+      "frontend/src/v2/main.ts"
+    ],
+    "businessScriptsIdenticalToHead": [
+      "frontend/src/pages/Report.vue",
+      "frontend/src/v2/ReportTools.vue",
+      "frontend/src/v2/SessionPracticeTools.vue",
+      "frontend/src/v2/ReviewPage.vue",
+      "frontend/src/v2/SkillsPage.vue",
+      "frontend/src/v2/PracticePage.vue"
+    ],
+    "originalAcceptanceRowsUnchanged": 42,
+    "acceptanceRowsAfterApprovedUiSupplement": 48
+  },
+  "browser": {
+    "data": "隔离合成夹具，显式Mock，拒绝写请求，不读个人库、不调用外部模型",
+    "viewports": [
+      [
+        1440,
+        1000
+      ],
+      [
+        390,
+        844
+      ],
+      [
+        320,
+        740
+      ]
+    ],
+    "checks": [
+      "普通页面无专项工具栏",
+      "六工具列表主次高亮",
+      "复习详情面包屑返回与浏览器后退",
+      "窄屏导航局部横向滚动",
+      "长题与长标识符无整页横向溢出",
+      "复盘正文20px/36px、评分说明16px",
+      "原有报告工具与原生details保留",
+      "报告空态、错误、加载与生成中条件",
+      "V2关闭四项主入口"
+    ],
+    "notClaimed": [
+      "完整业务写入端到端复测",
+      "新标签修饰键实操",
+      "读屏与真实缩放",
+      "模型质量",
+      "Comp-led像素门禁通过"
+    ]
+  },
+  "codeReview": {
+    "critical": 0,
+    "important": 0,
+    "minor": "展示判断兼容大小写与尾斜杠，修正已复判resolved"
+  },
+  "detector": {
+    "scope": [
+      "AppLayout.vue",
+      "V2App.vue",
+      "style.css",
+      "v2.css",
+      "report.css"
+    ],
+    "warnings": 2,
+    "disposition": "HEAD已有静态加载骨架条的上下边框，保留原呈现；不作为本轮新增缺陷"
+  },
+  "sourceSha256": {
+    "frontend/src/navigation.ts": "50a0ae64ce42e6cf09fd4dd69d31c5c830686ed5ce744f89a1c5a76f1761fb64",
+    "frontend/src/Navigation.test.ts": "47e4cf1796e14d729d9efac149e9cfe214312de267f4df4eeeb683d886b3f1f6",
+    "frontend/src/components/AppLayout.vue": "7c444e13e069865cc31fdc5dda378779ca060700c260cc7d309416e760e9bcbe",
+    "frontend/src/pages/Report.vue": "a17b5c76d0e97e84fb89ceab8631f9a18b5a2de4803ebb341d908ac26f7f590b",
+    "frontend/src/style.css": "5389090497143f15a8f2cf079aa4196de0713215ce1e9d3cc5eb9df3c43583b6",
+    "frontend/src/styles/report.css": "e2d9213b5f3eb494d1fe116a7e66ed1d22257f0914d1b2417b1e914b0be33ec6",
+    "frontend/src/v2/V2App.vue": "bd4f53f377969b3cefe11d59a2c2c303c3585d2bcccb83bcf3c9be0380113260",
+    "frontend/src/v2/v2.css": "2f761a32569b38ea1bfdc5b6c135f57ea02105db694ee6b86d03c384cb2dee86",
+    "frontend/src/v2/ReportTools.vue": "8151afa71a4e68c8ec61deefcf660a59d019a688e0d93dec82f1ac44e620d908",
+    "frontend/src/v2/SessionPracticeTools.vue": "43b2825709423fcde413df7b1f73e02355a8102aacbf4ac03318e813362ec8d0",
+    "frontend/src/v2/ReviewPage.vue": "be4f0f07acd6621b38ee13caa406a88372ae0fb25ed607193ad8c205aec76883",
+    "frontend/src/v2/PracticePage.vue": "928be470c70a2f51e7ce1a18cfc4f8183ab597d83580827ba9e7e9f9fb35aa19",
+    "frontend/src/v2/SkillsPage.vue": "e8886371f01ad47d52ac90c091ff236f5390a81f52d16a1134da88bee18b16ac",
+    "frontend/src/v2/routes.ts": "c6fe34f70294d365fcd5eed5008a1d6acb34fd19a761cda8f544595e698b5c72"
+  },
+  "evidencePolicy": "仅合成摘要与源码摘要；原始日志、图片、个人资料、密钥及生成状态不提交",
+  "visualReview": {
+    "disposition": "ship",
+    "scope": "本轮导航壳及报告撤去全局训练栏后的表现",
+    "screenshotsViewed": 7,
+    "approvedReferencesViewed": 2,
+    "materialFixes": 0,
+    "compGate": "原报告C的hero65.71%、final64.25%未通过，保持原事实"
+  }
+}

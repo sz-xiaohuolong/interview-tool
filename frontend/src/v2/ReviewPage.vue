@@ -51,7 +51,7 @@ onMounted(() => load())
 
 <template>
   <div class="page v2-page">
-    <div class="page-heading heading-row"><div><h1>{{ id ? '回到问题，安排下一次练习。' : '把报告，变成下一次练习。' }}</h1><p>原始证据、模型观察与自己的判断，分别保留。</p></div><RouterLink v-if="id" to="/review" class="text-link">返回队列</RouterLink></div>
+    <div class="page-heading heading-row"><div><h1>{{ id ? '回到问题，安排下一次练习。' : '把报告，变成下一次练习。' }}</h1><p>原始证据、模型观察与自己的判断，分别保留。</p></div><RouterLink v-if="id" to="/review" class="text-link">返回错题复习</RouterLink></div>
     <Notice :message="error" kind="error" /><Notice :message="message" />
     <button v-if="error" class="btn btn-secondary" data-action="reload" :disabled="loading" @click="load()"><PhArrowClockwise :size="16" />重新读取服务端记录</button>
     <LoadingState v-if="loading" label="正在读取本机复习记录…" />
@@ -77,7 +77,7 @@ onMounted(() => load())
         <button v-if="item.status === 'IN_PROGRESS'" class="btn btn-secondary" :disabled="busy" @click="action('RETURN')">返回待复习，保留进度</button>
         <template v-if="item.status === 'IN_PROGRESS' && item.lastEvidence"><button class="btn btn-secondary" :disabled="busy" @click="action('RESCHEDULE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId), intervalDays: 1 })">明日继续</button><button class="btn btn-secondary" :disabled="busy" @click="action('RESCHEDULE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId), intervalDays: 3 })">3 天后再练</button><button class="btn btn-secondary" :disabled="busy" @click="action('RESOLVE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId) })">结束本轮</button></template>
         <p class="tiny muted">有效练习与反馈保存后，才可结束或安排下次。完成不表示能力提升。</p>
-        <RouterLink to="/skills" class="text-link">查看能力证据与自评</RouterLink>
+        <RouterLink to="/skills" class="text-link">查看能力看板</RouterLink>
         <button class="btn btn-ghost" :disabled="busy" @click="action(item.status === 'ARCHIVED' ? 'RESTORE' : 'ARCHIVE')">{{ item.status === 'ARCHIVED' ? '恢复归档项' : '归档（保留原文）' }}</button>
       </aside>
     </div>
