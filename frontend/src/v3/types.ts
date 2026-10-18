@@ -63,11 +63,23 @@ export interface ReviewFinding {
 
 export interface InterviewReport {
   version?: number
+  detailedAssessment?: {
+    version: 1
+    overall: AssessmentParagraph
+    strengths: AssessmentParagraph[]
+    improvements: AssessmentParagraph[]
+    nextSteps: AssessmentParagraph[]
+  }
   overview?: { answeredCount: number; mainQuestionCount: number; followUpCount: number; endReason: string }
   summary: string
   findings: ReviewFinding[]
   stages?: InterviewStage[]
   matrix?: ProjectEvidenceMatrix
+}
+
+export interface AssessmentParagraph {
+  text: string
+  questionIds: string[]
 }
 
 export interface InterviewStage {

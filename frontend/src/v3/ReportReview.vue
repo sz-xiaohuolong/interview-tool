@@ -12,6 +12,11 @@ const router = useRouter(), container = ref<HTMLElement | null>(null), expanded 
 interface Gap { questionId: string; caseId: string; status: string; operationId?: string; latestAttempt?: { id: string; status: string } }
 const gaps = ref<Gap[]>([]), busy = ref(''), error = ref(''), recovery = ref<V2Error | null>(null)
 const report = computed(() => props.session.report!)
+const assessment = computed(() => report.value.detailedAssessment)
+const assessmentSections = computed(() => assessment.value ? [
+  { title: '亮点分析', items: assessment.value.strengths, empty: '尚无足够证据提炼亮点，可结合后续回答继续验证。' },
+  { title: '可提升空间', items: assessment.value.improvements, empty: '暂无可确认的改进项，未覆盖内容仍需后续验证。' },
+] : [])
 const findings = computed(() => report.value.findings || [])
 const strengths = computed(() => findings.value.filter(f => f.answerStatus === 'CLEAR' && f.answerQuote).slice(0, 3))
 const improvements = computed(() => findings.value.filter(f => f.answerStatus === 'PARTIAL' && f.answerQuote).sort((a, b) => (a.priority || 3) - (b.priority || 3)).slice(0, 3))
@@ -74,8 +79,25 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
 <template>
   <div ref="container" class="review-reading">
     <section class="panel" data-overview aria-labelledby="review-overview-title">
-      <h2 id="review-overview-title">本场面试摘要</h2>
-      <p>{{ report.summary }}</p>
+      <h2 id="review-overview-title">详细评估</h2>
+      <div v-if="assessment" data-detailed-assessment class="detailed-assessment">
+        <section>
+          <h3>整体印象</h3><p>{{ assessment.overall.text }}</p>
+          <div v-if="assessment.overall.questionIds.length" class="review-actions"><button v-for="(qid, index) in assessment.overall.questionIds" :key="qid" class="text-link" :data-assessment-locate="qid" @click="locate(qid)">查看依据 {{ index + 1 }}</button></div>
+        </section>
+        <section v-for="section in assessmentSections" :key="section.title">
+          <h3>{{ section.title }}</h3>
+          <article v-for="(item, index) in section.items" :key="index" class="assessment-paragraph">
+            <p>{{ item.text }}</p><div class="review-actions"><button v-for="(qid, evidenceIndex) in item.questionIds" :key="qid" class="text-link" :data-assessment-locate="qid" @click="locate(qid)">查看依据 {{ evidenceIndex + 1 }}</button></div>
+          </article><p v-if="!section.items.length" class="review-help">{{ section.empty }}</p>
+        </section>
+        <section>
+          <h3>下一步行动</h3>
+          <ol v-if="assessment.nextSteps.length" class="assessment-actions"><li v-for="(item, index) in assessment.nextSteps" :key="index"><p>{{ item.text }}</p><div class="review-actions"><button v-for="(qid, evidenceIndex) in item.questionIds" :key="qid" class="text-link" :data-assessment-locate="qid" @click="locate(qid)">查看依据 {{ evidenceIndex + 1 }}</button></div></li></ol>
+          <p v-else class="review-help">本场尚无证据充分的定向行动，可继续作答后再复盘。</p>
+        </section>
+      </div>
+      <p v-else class="review-assessment-body">{{ report.summary }}</p>
       <p v-if="report.overview" class="review-meta">{{ report.overview.answeredCount }} 次作答 · {{ report.overview.mainQuestionCount }} 道主问题、{{ report.overview.followUpCount }} 次追问 · {{ endLabels[report.overview.endReason] || '结束原因未记录' }}<span v-if="session.plannedQuestionCount"> · 原计划 {{ session.plannedQuestionCount }} 道主问题</span></p>
       <ol class="review-stages" aria-label="本场四阶段完成情况"><li v-for="stage in report.stages || []" :key="stage.id"><strong>{{ stage.label }}</strong><span>{{ stageLabels[stage.status] }} · {{ stage.answeredCount }} 次作答</span></li></ol>
       <p class="review-help">未进行或未作答表示本场尚未验证，不算答错。以下仅评价已提交文字；引用不代表经历真实性认证。</p>
@@ -134,6 +156,12 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
 </template>
 
 <style scoped>
+.detailed-assessment { display: grid; gap: 26px; }
+.assessment-paragraph + .assessment-paragraph { margin-top: 18px; }
+.assessment-actions { list-style: decimal; padding-left: 24px; }
+.assessment-actions li + li { margin-top: 16px; }
+.detailed-assessment .review-actions { margin-top: 8px; }
+
 .review-reading { min-width: 0; }
 .review-reading :is(p, blockquote, dd) { font-size: 20px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 14px; }
 .review-reading h2 { margin-bottom: 16px; }

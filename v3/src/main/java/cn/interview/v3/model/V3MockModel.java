@@ -162,6 +162,21 @@ final class V3MockModel {
             .put("priority", 1).putArray("terms");
       }
     }
+    if (input.path("assessmentVersion").asInt() == 1) {
+      var detail = result.putObject("detailedAssessment").put("version", 1);
+      detail.putObject("overall").put("text", "合成复盘：本场已保存回答；Mock只验证四部分展示，不能评价真实面试质量。")
+          .putArray("questionIds");
+      detail.putArray("strengths");
+      var improvements = detail.putArray("improvements");
+      var actions = detail.putArray("nextSteps");
+      if (!result.path("findings").isEmpty()) {
+        String qid = result.path("findings").get(0).path("questionId").asText();
+        improvements.addObject().put("text", "合成内容观察：请结合完整原答检查验证边界；此文字不代表真实质量判断。")
+            .putArray("questionIds").add(qid);
+        actions.addObject().put("text", "合成行动：列出异常恢复步骤，整理为状态图，并通过一次重复请求测试核对结果。")
+            .putArray("questionIds").add(qid);
+      }
+    }
     if (input.path("experienceVersion").asInt() == 1 && !input.path("mainProject").path("hypothetical").asBoolean()
         && !input.path("mainProject").path("brief").asText().isBlank()) {
       ArrayNode items = result.putObject("matrix").putArray("items");

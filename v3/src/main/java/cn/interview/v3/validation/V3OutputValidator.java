@@ -248,6 +248,53 @@ public class V3OutputValidator {
       for (var term : candidate.path("terms")) terms.addObject().put("term", text(term.path("term"), 80))
           .put("explanation", text(term.path("explanation"), 250));
     }
+    if (raw.has("detailedAssessment"))
+      out.set("detailedAssessment", detailedAssessment(raw.path("detailedAssessment"), out.path("findings")));
+    return out;
+  }
+
+  /** 综合段落仅引用已校验的逐题观察，避免把未作答或尚未验证的题目变成短板。 */
+  private ObjectNode detailedAssessment(JsonNode raw, JsonNode findings) {
+    if (!raw.isObject() || !raw.path("version").isIntegralNumber() || raw.path("version").asInt() != 1)
+      throw invalid("详细评估版本无效");
+    var out = json.createObjectNode().put("version", 1);
+    out.set("overall", assessmentParagraph(raw.path("overall"), findings, "overall"));
+    for (String section : List.of("strengths", "improvements", "nextSteps")) {
+      var paragraphs = raw.path(section);
+      if (!paragraphs.isArray() || paragraphs.size() > 3) throw invalid("详细评估段落缺失或过多");
+      var clean = out.putArray(section);
+      for (var paragraph : paragraphs) clean.add(assessmentParagraph(paragraph, findings, section));
+    }
+    var improvementIds = new HashSet<String>();
+    for (var paragraph : out.path("improvements"))
+      for (var id : paragraph.path("questionIds")) improvementIds.add(id.asText());
+    for (var paragraph : out.path("nextSteps"))
+      for (var id : paragraph.path("questionIds"))
+        if (!improvementIds.contains(id.asText())) throw invalid("行动未关联本场已确认改进项");
+    return out;
+  }
+
+  private ObjectNode assessmentParagraph(JsonNode raw, JsonNode findings, String section) {
+    if (!raw.isObject()) throw invalid("详细评估段落格式不合法");
+    var out = json.createObjectNode().put("text", text(raw.path("text"), section.equals("overall") ? 700 : 650));
+    var refs = raw.path("questionIds");
+    if (!refs.isArray() || refs.size() > 6 || (!section.equals("overall") && refs.isEmpty()))
+      throw invalid("详细评估缺少原答关联");
+    var seen = new HashSet<String>();
+    var clean = out.putArray("questionIds");
+    for (var ref : refs) {
+      String id = text(ref, 100);
+      if (!seen.add(id)) throw invalid("详细评估重复引用题号");
+      JsonNode finding = null;
+      for (var item : findings) if (item.path("questionId").asText().equals(id)) finding = item;
+      if (finding == null) throw invalid("详细评估引用未作答题目");
+      if (!section.equals("overall")) {
+        String required = section.equals("strengths") ? "CLEAR" : "PARTIAL";
+        if (!finding.path("answerStatus").asText().equals(required) || finding.path("answerQuote").asText().isBlank())
+          throw invalid("详细评估与原答观察不一致");
+      }
+      clean.add(id);
+    }
     return out;
   }
 

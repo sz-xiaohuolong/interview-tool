@@ -47,6 +47,11 @@ class KnowledgeEvidenceFlowTest {
                 result.put("action", "NEXT").putArray("sourceIds");
             } else if (stage.equals("REVIEW")) {
                 result.put("summary", "合成复盘，仅验证片段保存。").putArray("findings");
+                if (input.path("assessmentVersion").asInt() == 1) {
+                    var detail = result.putObject("detailedAssessment").put("version", 1);
+                    detail.putObject("overall").put("text", "合成来源测试，样本不足，不形成内容判断。").putArray("questionIds");
+                    detail.putArray("strengths");detail.putArray("improvements");detail.putArray("nextSteps");
+                }
             }
             return result;
         };
@@ -62,6 +67,8 @@ class KnowledgeEvidenceFlowTest {
             assertVisible(completed, seen.get("PLAN"));assertVisible(completed, seen.get("FOLLOWUP"));
             assertThat(seen.get("FOLLOWUP").path("sources").get(0).path("excerpt")).isNotEqualTo(seen.get("PLAN").path("sources").get(0).path("excerpt"));
             service.action(id, "finish", action(completed));var reviewed = waitFor(service, id, "REPORT_READY");
+            assertThat(seen.get("REVIEW").path("assessmentVersion").asInt()).isEqualTo(1);
+            assertThat(reviewed.path("report").path("detailedAssessment").path("strengths")).isEmpty();
             assertVisible(reviewed, seen.get("PLAN"));assertVisible(reviewed, seen.get("FOLLOWUP"));assertVisible(reviewed, seen.get("REVIEW"));
         } finally { service.shutdown();knowledge.close(); }
     }

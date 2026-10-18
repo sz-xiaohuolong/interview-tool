@@ -43,7 +43,7 @@ import org.springframework.web.client.RestClient;
 public class V3SpringAiModelGateway implements V3ModelGateway {
   private static final int RESPONSE_LIMIT = 2_000_000;
   private static final Map<String, Integer> OUTPUT_LIMITS =
-      Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 6500);
+      Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 10000);
   private final ObjectMapper json;
   private final java.util.function.Supplier<ModelSettings> connections;
 

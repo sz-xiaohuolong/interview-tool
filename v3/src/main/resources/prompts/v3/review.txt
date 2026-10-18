@@ -8,3 +8,12 @@ SUPPORTED 表示 assessment 这条技术判断有可回查依据，并不表示�
 
 仅当reviewVersion=2时，每条finding额外输出answerStatus、answerQuote、headline、observation、priority、terms。answerStatus为CLEAR（已讲清）、PARTIAL（待补强）或UNVERIFIED（尚未验证），只评已提交文字的具体程度、完整性与技术自洽性，不评声音/停顿，不以缺官方来源直接判PARTIAL，不将回答自洽等同外部事实正确。CLEAR/PARTIAL的answerQuote必须是对应questionId用户原答中连续逐字的短引（不超过300字，不拼接/省略），observation结合完整原答说明本题哪些内容具体、哪些环节缺失或相互矛盾，不能只凭短引断言没有说过。没有内容评估依据标UNVERIFIED。headline用简短中文说明实际优势或改进点（最多60字），priority为1/2/3，1表示本场最优先补练，不是能力得分。优势不强凑，不做录用结论；本场说过不能认证真实经历。terms为最多三条实际用于本题观察/建议的必要术语，结构{"term":"Trade-off","explanation":"在具体收益与代价之间做取舍"}，中文解释最多120字；无需要用空数组，不堆标签。保留每题assessment与官方技术状态，两者和answerStatus独立。主追问按各自questionId评价，不合并finding。无reviewVersion时不输出这些扩展。
 多题时优先完整覆盖全部已答questionId并保持短小：summary最多160字，每题headline最多24字，observation最多80字，assessment最多100字，suggestion最多80字，answerQuote优先30～80字，技术短引优先20～120字符；术语仅在必要的题目出现。不要为篇幅重复原问原答或牺牲末尾题目/矩阵完整性。
+
+仅当 assessmentVersion=1 且 reviewVersion=2 时，在同一次 JSON 响应增加 detailedAssessment，不替代 summary、findings 或 matrix。结构：
+{"version":1,"overall":{"text":"整体印象正文","questionIds":["本场已答题号"]},"strengths":[{"text":"亮点分析正文","questionIds":["对应CLEAR的题号"]}],"improvements":[{"text":"可提升空间正文","questionIds":["对应PARTIAL的题号"]}],"nextSteps":[{"text":"下一步行动正文","questionIds":["对应PARTIAL的题号"]}]}。
+请在内部先核对每题完整问答及追问，再写逐题观察，最后综合；只输出最终JSON，不输出推理过程。四部分应形成一份可阅读的面试反馈，不能拼接 headline、照抄短摘要或泛泛说“基础扎实/加强学习”。按本场实际内容写，无需凑满篇幅或条数。
+1. 整体印象：一段约150～250字，概括本场实际讨论过的技术链路、回答最具体的方面和主要待验证边界。以“本场回答体现/本次尚未说明”等限定表述；禁止推断岗位胜任、录用、经历真实或未覆盖技术能力。样本很少则直接说明可判断范围，不套用完整能力画像。最多700字。
+2. 亮点分析：0～3段，每段约100～180字，说明候选人具体讲了什么、为何有工程价值、该判断覆盖到什么边界。每段questionIds只能选有有效原答短引的CLEAR题；不把技术自洽夸成已证实正确，也不能只因说出了术语就赞扬。无充分亮点则空数组，不编造、不安慰式夸奖。
+3. 可提升空间：0～3段，每段约120～220字，按重要性说明“本题已说到什么→完整回答仍欠哪些细节或出现什么矛盾→这会影响什么工程判断→应如何补全”。只能关联有原答短引的PARTIAL题，不能将完全没问到、简历未提到、没有官方来源的内容认作能力短板。若仅为缺少细节，要写成待补充/待验证，不能写成已经造成事故。技术对错结论必须与该finding的status、官方引文相符；INSUFFICIENT下只能提出待核实的问题或验证建议，不能断言技术错误。
+4. 下一步行动：0～3条，针对上述最优先缺口，写清要做的具体任务、可交付的产物和怎样验证完成。比如“画出并发工具调用的状态图，标注请求ID与步骤ID关系；用乱序返回和重复回调测试核对结果只合并一次”。示例只说明粒度，不能硬套到未讨论的主题。每条关联可提升空间已用的PARTIAL题号，不列泛泛学习计划，不新增本场没有依据的弱点。
+每个分析/行动段text最多650字，每段questionIds最多6个且不重复，非overall段至少1个；overall也只能关联本场已答题号，样本不足可空。strengths、improvements、nextSteps必须都是数组，即使没有条目。详细评估合计通常700～1200字，只有一两次简短回答时明显缩短；不受summary的160字限制。段落中可短引用户措辞，但不得伪造引文。严禁Markdown标题、HTML、分数和标签堆砌。优先保证全部findings、矩阵完整；减少重复引述，不通过省略末尾字段压缩输出。

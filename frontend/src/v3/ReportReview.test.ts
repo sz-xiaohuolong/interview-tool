@@ -75,3 +75,30 @@ it('切换失败补练后不沿用上一题的重试按钮', async () => {
   expect(wrapper.text()).not.toContain('确认重试未完成的评估')
   expect(writes).toHaveLength(2)
 })
+
+it('详细评估展示四部分正文与行动，并能定位关联原答', async () => {
+  const value: any = fixture()
+  value.report.detailedAssessment = { version: 1,
+    overall: { text: '已给出防重复措施，超时恢复仍需补充。', questionIds: ['q1', 'q2'] },
+    strengths: [{ text: '用唯一键约束重复写入，让幂等措施落到了数据库层。', questionIds: ['q2'] }],
+    improvements: [{ text: '未说明超时后哪些操作允许重试，无法判断恢复边界。', questionIds: ['q1'] }],
+    nextSteps: [{ text: '绘制恢复状态图，并用重复请求测试确认只写入一次。', questionIds: ['q1'] }] }
+  await show(value)
+  const detail=wrapper.get('[data-detailed-assessment]')
+  expect(detail.findAll('h3').map(item => item.text())).toEqual(['整体印象', '亮点分析', '可提升空间', '下一步行动'])
+  expect(detail.get('ol').text()).toContain('恢复状态图')
+  expect(detail.text()).toContain('数据库层')
+  await detail.get('[data-assessment-locate="q1"]').trigger('click')
+  expect(wrapper.get('[data-question-group]').attributes('open')).toBeDefined()
+  expect(wrapper.get('[data-answer="q1"]').text()).toContain('数据库超时后返回错误')
+})
+it('旧报告保留摘要，无观察时展示克制的空态', async () => {
+  await show()
+  expect(wrapper.find('[data-detailed-assessment]').exists()).toBe(false)
+  expect(wrapper.get('[data-overview]').text()).toContain('本场回答保存完整')
+  const value: any=fixture()
+  value.report.detailedAssessment={version:1,overall:{text:'样本不足，仅能确认本场已作答。',questionIds:[]},strengths:[],improvements:[],nextSteps:[]}
+  await wrapper.setProps({session:value})
+  expect(wrapper.get('[data-detailed-assessment]').text()).toContain('尚无足够证据提炼亮点')
+  expect(wrapper.get('[data-detailed-assessment]').text()).toContain('暂无可确认的改进项')
+})

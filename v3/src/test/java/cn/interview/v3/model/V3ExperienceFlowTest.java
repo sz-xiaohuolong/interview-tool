@@ -39,7 +39,7 @@ class V3ExperienceFlowTest {
     @Autowired V3InterviewService service; @Autowired V3Store store; @Autowired ObjectMapper json;
     @Autowired cn.interview.service.MaterialService materials;
     @Autowired MutableClock clock; @Autowired ControlledModel model;
-    @AfterEach void cleanup(){model.release.countDown();model.completeStage=false;for(var s:store.list())if(!List.of("REPORT_READY","CANCELLED").contains(s.path("status").asText()))service.action(s.path("id").asText(),"cancel",action(service.get(s.path("id").asText())));}
+    @AfterEach void cleanup(){model.release.countDown();model.completeStage=false;model.omitDetail=false;for(var s:store.list())if(!List.of("REPORT_READY","CANCELLED").contains(s.path("status").asText()))service.action(s.path("id").asText(),"cancel",action(service.get(s.path("id").asText())));}
     ObjectNode body(){return json.createObjectNode().put("requestId",UUID.randomUUID().toString()).put("role","Java 后端").put("level","JUNIOR");}
     ObjectNode action(JsonNode s){return json.createObjectNode().put("requestId",UUID.randomUUID().toString()).put("expectedRevision",s.path("revision").asInt());}
     ObjectNode ready(ObjectNode config)throws Exception{return await(service.create(config),"READY");}
@@ -61,12 +61,32 @@ class V3ExperienceFlowTest {
         assertThat(report.path("overview").path("followUpCount").asInt()).isEqualTo(1);
         assertThat(report.path("overview").path("endReason").asText()).isEqualTo("USER_FINISHED");
         assertThat(report.path("findings")).hasSize(2);
+        assertThat(report.path("detailedAssessment").path("version").asInt()).isEqualTo(1);
+        assertThat(report.path("detailedAssessment").path("nextSteps")).hasSize(1);
+        String persisted=store.get(id).toString();service.get(id);
+        assertThat(store.get(id).toString()).isEqualTo(persisted);
     }
     @Test void 旧报告读取与显式复盘不自动升级()throws Exception{
-        var s=start(body());String id=s.path("id").asText();var stored=store.get(id);stored.remove("reviewVersion");store.save(stored);
+        var s=start(body());String id=s.path("id").asText();var stored=store.get(id);stored.remove(java.util.List.of("reviewVersion", "assessmentVersion"));store.save(stored);
         answer(s);s=await(s,"IN_PROGRESS");s=service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
         assertThat(s.path("report").has("version")).isFalse();String before=store.get(id).toString();service.get(id);
         assertThat(store.get(id).toString()).isEqualTo(before);
+    }
+    @Test void 新报告缺详细评估时保留回答并等待显式重试()throws Exception{
+        var s=start(body());String id=s.path("id").asText();answer(s);s=await(s,"IN_PROGRESS");
+        model.omitDetail=true;s=service.action(id,"finish",action(s));s=await(s,"FAILED");
+        assertThat(s.has("report")).isFalse();
+        assertThat(s.path("messages").findValuesAsText("role")).contains("USER");
+        assertThat(store.get(id).path("pendingStage").asText()).isEqualTo("REVIEW");
+        assertThat(s.path("allowedActions").toString()).contains("retry");
+        int calls=s.path("usage").path("calls").asInt();service.get(id);
+        assertThat(service.get(id).path("usage").path("calls").asInt()).isEqualTo(calls);
+    }
+    @Test void 旧版二报告首次复盘仍保留原结构()throws Exception{
+        var s=start(body());String id=s.path("id").asText();var stored=store.get(id);stored.remove("assessmentVersion");store.save(stored);
+        answer(s);s=await(s,"IN_PROGRESS");s=service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
+        assertThat(s.path("report").path("version").asInt()).isEqualTo(2);
+        assertThat(s.path("report").has("detailedAssessment")).isFalse();
     }
     @Test void 两种模式按同一计划题量准备且默认八题()throws Exception{
         for(String mode:List.of("TRAINING","TIMED"))for(int count:List.of(8,12)){
@@ -315,8 +335,8 @@ class V3ExperienceFlowTest {
         public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId zone){return this;}public Instant instant(){return Instant.ofEpochMilli(value);}
     }
     static final class ControlledModel implements V3ModelGateway{
-        final V3MockModel delegate;volatile boolean block,completeStage;volatile CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+        final V3MockModel delegate;volatile boolean block,completeStage,omitDetail;volatile CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
         ControlledModel(ObjectMapper json){delegate=new V3MockModel(json);}
-        public ObjectNode call(String stage,ObjectNode input,int timeout){if(stage.equals("FOLLOWUP")&&block){entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}}var result=delegate.call(stage,input);if(stage.equals("FOLLOWUP")&&completeStage)result.put("action","NEXT").put("stageComplete",true);return result;}
+        public ObjectNode call(String stage,ObjectNode input,int timeout){if(stage.equals("FOLLOWUP")&&block){entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}}var result=delegate.call(stage,input);if(stage.equals("REVIEW")&&omitDetail)result.remove("detailedAssessment");if(stage.equals("FOLLOWUP")&&completeStage)result.put("action","NEXT").put("stageComplete",true);return result;}
     }
 }

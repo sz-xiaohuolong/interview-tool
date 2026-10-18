@@ -67,7 +67,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
   private static final int MAX_CALLS = 128;
   private static final int MAX_DECLARED_OUTPUT = 400_000;
   private static final Map<String, Integer> TOKENS =
-      Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 6500);
+      Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 10000);
 
   public V3InterviewService(
       V3Store store,
@@ -421,6 +421,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
             .put("revision", 0)
             .put("experienceVersion", 1)
             .put("reviewVersion", 2)
+            .put("assessmentVersion", 1)
             .put("plannedQuestionCount", 8)
             .put("mock", health().get("provider").equals("mock"));
     configure(s, body);
@@ -1019,6 +1020,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
       for (String k : List.of("role", "level", "summary", "messages")) input.set(k, s.path(k));
       if (V3InterviewProgress.enabled(s)) { input.put("experienceVersion", 1); input.set("mainProject", s.path("mainProject")); }
       if (s.path("reviewVersion").asInt() == 2) input.put("reviewVersion", 2);
+      if (s.path("assessmentVersion").asInt() == 1) input.put("assessmentVersion", 1);
       input.set("sources", selected);
       input
           .put("resume", s.path("input").path("resume").asText())
@@ -1026,6 +1028,8 @@ public class V3InterviewService implements ProjectEvidenceSource {
       boolean answered = false;
       for (var m : s.path("messages")) if (m.path("role").asText().equals("USER")) answered = true;
       ObjectNode rawReport = answered ? invoke(id, generation, "REVIEW", input, 150) : null;
+      if (answered && s.path("assessmentVersion").asInt() == 1 && !rawReport.has("detailedAssessment"))
+        throw V3OutputValidator.invalid();
       ObjectNode report = answered ? (s.path("reviewVersion").asInt() == 2
           ? validator.reportV2(rawReport, s.path("messages"), selected) : validator.report(rawReport, s.path("messages"), selected))
           : json.createObjectNode().put("summary", "本场尚无已提交回答，样本不足，无法评价能力");
