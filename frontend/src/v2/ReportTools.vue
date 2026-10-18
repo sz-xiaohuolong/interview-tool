@@ -22,6 +22,6 @@ async function collect() {
     <button class="btn btn-primary" :disabled="busy" @click="collect">{{ busy ? '正在整理…' : '整理为复习项' }}</button>
     <RouterLink v-for="link in links" :key="link.id" :to="link.sourceKind === 'REVIEW' ? { path: `/review/${link.sourceId}`, query: { trainingLinkId: link.id } } : link.sprintId ? { path: `/sprints/${link.sprintId}`, query: { trainingLinkId: link.id, actionId: link.actionId } } : `/jd-diagnostics/${link.sourceId}`" class="btn btn-primary">返回训练来源，核对本次报告证据</RouterLink>
     <Notice :message="error" kind="error" />
-    <div v-if="items.length" class="v2-context-results"><RouterLink v-for="item in items" :key="item.id" :to="`/review/${item.id}`" class="text-link">第 {{ item.questionIndex + 1 }} 题：核对来源并确认</RouterLink></div>
+    <div v-if="items.length" class="v2-context-results"><RouterLink to="/review" class="btn btn-secondary">已加入复习本，去练习</RouterLink><RouterLink v-for="item in items" :key="item.id" :to="`/review/${item.id}`" class="text-link">第 {{ item.questionIndex + 1 }} 题：查看待练内容</RouterLink></div>
   </section>
 </template>

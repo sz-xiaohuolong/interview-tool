@@ -27,5 +27,6 @@
 | V2 方案评审与修改建议 | [REVIEW.md](docs/vibe/releases/v2/REVIEW.md) | APPROVED / 历史评审 | 8 项工程建议已采纳；16 项任务、28 组测试分支为评审安排，不声称全部已实测 |
 | V2 实际软件验证与缺口 | [VERIFICATION.md](docs/vibe/releases/v2/VERIFICATION.md) | PARTIAL | 本轮UI为103后端、62前端及构建，导航与响应式浏览器检查；原15项浏览器和19次模型调用保留适用范围 |
 | V2 受限模型校准计划 | [MODEL_CALIBRATION_PLAN.md](docs/vibe/releases/v2/MODEL_CALIBRATION_PLAN.md) | AUTHORIZED / 本轮完成 | 原批及后续停止记录保留；修正后两条阶段复验及内置真实链路完成，无自动重试 |
+| V3 错题复习与原题重练修复 | [修复记录](docs/vibe/releases/v3/REVIEW_PRACTICE_FIX.md) | 局部软件验收通过 | 原题案例、零创建恢复、自动草稿/对比及本次前端验证；不代表V3整体验收 |
 
 本文件仅作导航，正文事实由对应 owner 维护。后续版本按实际 Release 建立目录；V1 历史验收保留当时输入与配置边界。目标方案、前版变化和独立复盘按需创建，本次未建立空白文件。

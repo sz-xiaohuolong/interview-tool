@@ -67,7 +67,6 @@ it('同题页查询成功操作后刷新当前回答的评估详情', async () =
     return new Response(JSON.stringify(response))
   })
   const wrapper = await show(PracticePage, '/practice/c')
-  await wrapper.get('[data-attempt="a"]').trigger('click'); await flushPromises()
   await wrapper.findAll('button').find(b => b.text() === '查看本次操作')!.trigger('click'); await flushPromises()
   expect(wrapper.text()).toContain('恢复后可见建议')
 })

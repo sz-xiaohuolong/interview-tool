@@ -25,7 +25,7 @@ async function reflowEvidence(page: Page, name: string) {
 }
 test.use({ viewport: { width: 720, height: 500 } })
 
-test('V2 键盘新建独立作答、Enter 换行和 Space 保存后可刷新', async ({ page, request }) => {
+test('V2 自动准备作答后键盘 Enter 换行和 Space 保存可刷新', async ({ page, request }) => {
   const source = await post(request, '/sessions', { durationMinutes: 5 })
   await post(request, `/sessions/${source.id}/answers`, { requestId: crypto.randomUUID(), expectedMessageId: source.messages[0].id, content: '合成原回答：本地事务负责原子提交。' })
   await post(request, `/sessions/${source.id}/finish`, {})
@@ -33,7 +33,6 @@ test('V2 键盘新建独立作答、Enter 换行和 Space 保存后可刷新', a
   const writes: { path: string; body: any }[] = []
   page.on('request', req => { if (['POST', 'PUT'].includes(req.method()) && req.url().includes('/api/v2/')) writes.push({ path: new URL(req.url()).pathname, body: req.postDataJSON() }) })
   await page.goto(`/practice/${c.id}`)
-  await tabTo(page, page.getByRole('button', { name: '新建独立作答', exact: true })); await page.keyboard.press('Enter')
   const answer = page.getByLabel('我的新回答', { exact: true })
   await tabTo(page, answer); await page.keyboard.insertText('合成第一段：事务保证本地原子性。'); await page.keyboard.press('Enter'); await page.keyboard.insertText('合成第二段：外部支付仍需幂等。')
   expect(writes.filter(w => /\/(draft|submit)$/.test(w.path))).toHaveLength(0)
@@ -44,8 +43,9 @@ test('V2 键盘新建独立作答、Enter 换行和 Space 保存后可刷新', a
   const draft = writes.find(w => w.path.endsWith('/draft'))!
   expect(draft.body.answer).toBe('合成第一段：事务保证本地原子性。\n合成第二段：外部支付仍需幂等。')
   await expect(save).toBeFocused(); await reflowEvidence(page, 'practice')
-  await page.reload(); await tabTo(page, page.getByRole('button', { name: /第 1 次新作答/ })); await page.keyboard.press('Enter')
+  await page.reload()
   await expect(answer).toHaveValue(draft.body.answer)
+  expect(writes.filter(w => w.path.endsWith('/attempts'))).toHaveLength(1)
 })
 
 test('V2 JD 用键盘选择材料、只预览快照并展开来源', async ({ page, request }) => {
