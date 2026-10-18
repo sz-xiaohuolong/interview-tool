@@ -6,11 +6,11 @@ import type { Material } from '../types'
 import Notice from '../components/Notice.vue'
 import ConfigurationFields from './ConfigurationFields.vue'
 import { createSession, displayDate, getV3Status, levelLabels, listSessions, requestId, statusLabels } from './api'
-import type { InterviewConfig, InterviewSession, V3Status } from './types'
+import type { InterviewConfig, InterviewSessionSummary, V3Status } from './types'
 
 const route = useRoute(), router = useRouter()
 const config = ref<InterviewConfig>({ role: String(route.query.role || ''), level: String(route.query.level || ''), resumeId: '', jdId: '', jd: '', plannedQuestionCount: 8, interviewMode: 'TRAINING', timeLimitMinutes: 30, projectId: '', projectBrief: '' })
-const materials = ref<Material[]>([]), sessions = ref<InterviewSession[]>([]), health = ref<V3Status | null>(null)
+const materials = ref<Material[]>([]), sessions = ref<InterviewSessionSummary[]>([]), health = ref<V3Status | null>(null)
 const state = reactive({ busy: false, loading: true, error: '', historyError: '', materialError: '' })
 const valid = computed(() => !!config.value.role.trim() && ['INTERN', 'JUNIOR', 'SENIOR'].includes(config.value.level))
 const generic = computed(() => !config.value.resumeId && !config.value.jdId && !config.value.jd.trim() && !config.value.projectId && !config.value.projectBrief?.trim())

@@ -123,5 +123,6 @@ export interface InterviewSession {
 }
 
 export interface V3Status { enabled: boolean; provider: string; configured: boolean; model?: string }
+export type InterviewSessionSummary = Pick<InterviewSession, 'id' | 'status' | 'phase' | 'role' | 'level' | 'createdAt' | 'updatedAt' | 'mock' | 'resumeId' | 'jdId'>
 export interface MutationBody { requestId: string; expectedRevision: number; [key: string]: unknown }
 export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume'

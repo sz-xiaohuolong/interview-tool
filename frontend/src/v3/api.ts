@@ -1,9 +1,9 @@
 import { request } from '../api'
-import type { InterviewConfig, InterviewSession, MutationBody, SessionAction, V3Status } from './types'
+import type { InterviewConfig, InterviewSession, InterviewSessionSummary, MutationBody, SessionAction, V3Status } from './types'
 
 export function requestId() { return crypto.randomUUID() }
 export const getV3Status = () => request<V3Status>('/v3/status')
-export const listSessions = () => request<InterviewSession[]>('/v3/sessions')
+export const listSessions = () => request<InterviewSessionSummary[]>('/v3/sessions')
 export const getSession = (id: string) => request<InterviewSession>(`/v3/sessions/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(2000) })
 
 export function createSession(config: InterviewConfig, id: string) {
