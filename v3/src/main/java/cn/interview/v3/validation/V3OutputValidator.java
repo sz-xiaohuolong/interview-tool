@@ -32,6 +32,10 @@ public class V3OutputValidator {
     return new ApiException(502, "V3_MODEL_INVALID", "模型输出结构或依据不合法，输入已保存；可显式重试");
   }
 
+  private static ApiException invalid(String reason) {
+    return new ApiException(502, "V3_MODEL_INVALID", "模型输出结构或依据不合法：" + reason + "；输入已保存，可显式重试");
+  }
+
   public String text(JsonNode n, int max) {
     if (n == null || !n.isTextual() || n.asText().isBlank() || n.asText().length() > max)
       throw invalid();
@@ -79,51 +83,68 @@ public class V3OutputValidator {
 
   public ArrayNode questions(JsonNode raw, JsonNode sources, String resume, String jd, int count) {
     var list = raw.path("questions");
-    if (!list.isArray() || list.isEmpty() || list.size() > count) throw invalid();
+    if (!list.isArray() || list.isEmpty() || list.size() > count) throw invalid("主问题数量不符合本场规划");
     var out = json.createArrayNode();
     for (var q : list) {
       var clean = out.addObject();
       clean
           .put("id", UUID.randomUUID().toString())
-          .put("question", text(q.path("question"), 2000))
-          .put("topic", text(q.path("topic"), 150));
-      String evidence = text(q.path("evidence"), 1000);
+          .put("question", planText(q.path("question"), 2000, out.size(), "题干"))
+          .put("topic", planText(q.path("topic"), 150, out.size(), "技术主题"));
+      String evidence = planText(q.path("evidence"), 1000, out.size(), "资料引用");
       boolean literal =
           (!resume.isBlank() && resume.contains(evidence))
               || (!jd.isBlank() && jd.contains(evidence));
-      if (!literal && !Set.of("通用岗位知识", "通用基准摸底", "岗位要求").contains(evidence)) throw invalid();
+      if (!literal && !Set.of("通用岗位知识", "通用基准摸底", "岗位要求").contains(evidence))
+        throw invalid("第" + out.size() + "道主问题的资料引用未逐字匹配当前资料原文");
       clean.put("evidence", evidence);
       clean
           .put("personalized", literal)
           .put("resumeBased", !resume.isBlank() && resume.contains(evidence));
-      clean.set("sourceIds", references(q.path("sourceIds"), sources));
+      clean.set("sourceIds", planReferences(q.path("sourceIds"), sources, out.size()));
       var backups = clean.putArray("backups");
-      if (!q.path("backups").isArray() || q.path("backups").size() > 3) throw invalid();
+      if (!q.path("backups").isArray() || q.path("backups").size() > 3)
+        throw invalid("第" + out.size() + "道主问题的备用追问数量或格式不合法");
       for (var b : q.path("backups")) {
         var backup = backups.addObject();
-        backup.put("question", text(b.path("question"), 1500));
-        backup.set("sourceIds", references(b.path("sourceIds"), sources));
+        backup.put("question", planText(b.path("question"), 1500, out.size(), "备用追问"));
+        backup.set("sourceIds", planReferences(b.path("sourceIds"), sources, out.size()));
       }
     }
     // 有资料的面试必须至少有一道问题以当前资料原文为依据。
     if (!resume.isBlank()
         && java.util.stream.StreamSupport.stream(out.spliterator(), false)
-            .noneMatch(q -> q.path("resumeBased").asBoolean())) throw invalid();
+            .noneMatch(q -> q.path("resumeBased").asBoolean())) throw invalid("有简历时至少一道主问题须引用简历原文");
     return out;
+  }
+
+  private String planText(JsonNode value, int max, int number, String field) {
+    if (!value.isTextual() || value.asText().isBlank() || value.asText().length() > max)
+      throw invalid("第" + number + "道主问题的" + field + "缺失、格式错误或超过长度限制");
+    return value.asText().strip();
+  }
+
+  private ArrayNode planReferences(JsonNode refs, JsonNode sources, int number) {
+    try {
+      return references(refs, sources);
+    } catch (ApiException error) {
+      throw invalid("第" + number + "道主问题或备用追问的公开来源引用不合法");
+    }
   }
 
   /** 新场次题目必须按四阶段排列，不能用三道短题伪装完整轮次。 */
   public ArrayNode stageQuestions(JsonNode raw, ArrayNode clean, JsonNode input) {
     List<String> stages = List.of("INTRO", "PROJECT", "TECHNICAL", "QUESTIONS");
-    if (clean.size() < 4) throw invalid();
+    if (clean.size() < 4) throw invalid("主问题未覆盖完整的四个面试阶段");
     int previous = -1; Set<String> seen = new HashSet<>();
     for (int i = 0; i < clean.size(); i++) {
       String stage = raw.path("questions").get(i).path("stage").asText();
       int current = stages.indexOf(stage);
-      if (current < 0 || current < previous) throw invalid();
+      if (current < 0) throw invalid("第" + (i + 1) + "道主问题的面试阶段缺失或无效");
+      if (current < previous) throw invalid("第" + (i + 1) + "道主问题的阶段顺序不符合四阶段规划");
       previous = current; seen.add(stage); ((ObjectNode) clean.get(i)).put("stage", stage);
     }
-    if (seen.size() != 4) throw invalid();
+    if (seen.size() != 4) throw invalid("主问题未覆盖完整的四个面试阶段");
     return clean;
   }
 

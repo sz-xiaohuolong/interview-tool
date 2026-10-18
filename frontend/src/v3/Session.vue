@@ -238,7 +238,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
         <div class="v3-actions"><RouterLink to="/interview-v3" class="btn btn-secondary">返回记录，稍后再看</RouterLink><button class="btn btn-ghost" :disabled="!!state.busy" @click="mutate('cancel')">取消本场任务</button></div>
       </section>
 
-      <section v-if="session.summary && editable" class="panel v3-summary" aria-labelledby="v3-summary-title">
+      <section v-if="session.summary && Object.keys(session.summary).length > 0 && editable" class="panel v3-summary" aria-labelledby="v3-summary-title">
         <div class="heading-row"><h2 id="v3-summary-title">开考前，确认我们理解了你。</h2><span class="badge">仅用于本场</span></div>
         <p class="muted">重点确认个人职责与待澄清点；这里不会提前展示面试题和参考答案。</p>
         <div v-if="enhanced && session.mainProject" class="v3-main-project"><h3>本场主项目：{{ session.mainProject.name }}</h3><p>{{ session.mainProject.brief || '尚未提供真实项目，可在下方补充后重新准备。' }}</p><p v-if="session.mainProject.hypothetical" class="form-help">本场暂用假设场景；没有真实项目时不生成经历证据矩阵。</p></div>

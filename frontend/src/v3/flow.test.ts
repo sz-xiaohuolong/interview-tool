@@ -102,6 +102,26 @@ it('准备摘要允许纠偏，本场更正携带版本且不会直接开考', a
   expect(wrapper.text()).toContain('排队')
 })
 
+it('首次准备失败且摘要尚未生成时不把初始假设项目当成分析结论', async () => {
+  const writes: string[] = []
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (options?.method === 'POST') writes.push(url)
+    if (url === '/api/materials') return new Response('[]')
+    return new Response(JSON.stringify(session({
+      experienceVersion: 1, status: 'FAILED', phase: '处理失败，可显式重试', summary: {},
+      mainProject: { id: 'brief:v3-test', name: '假设场景，尚未提供真实项目', brief: '', hypothetical: true },
+      error: '第2道主问题的资料引用未逐字匹配当前资料原文', allowedActions: ['retry', 'corrections', 'cancel'],
+    })))
+  })
+  const { wrapper } = await show(Session, '/interview-v3/v3-test')
+  expect(wrapper.text()).toContain('资料引用未逐字匹配')
+  expect(wrapper.find('.v3-summary').exists()).toBe(false)
+  expect(wrapper.text()).not.toContain('本场暂用假设场景')
+  expect(wrapper.find('[data-action="retry"]').exists()).toBe(true)
+  expect(wrapper.find('[data-action="correct"]').exists()).toBe(true)
+  expect(writes).toEqual([])
+})
+
 it('答案提交同步显示思考状态，网络失败保留草稿并使用同一请求重试', async () => {
   const writes: any[] = []
   let answerResolve: ((response: Response) => void) | undefined
