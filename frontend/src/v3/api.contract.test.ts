@@ -36,7 +36,7 @@ describe('V3 面试客户端接口归属', () => {
 
   const actions = {
     confirm: 'confirm', corrections: 'corrections', answers: 'answers', next: 'next', retry: 'retry',
-    cancel: 'cancel', finish: 'finish', refresh: 'refresh',
+    cancel: 'cancel', finish: 'finish', refresh: 'refresh', 'skip-stage': 'skip-stage',
     'transcription-wait': 'transcription-wait', 'transcription-resume': 'transcription-resume',
   } satisfies Record<SessionAction, string>
   it.each(Object.entries(actions))('%s 操作绑定 V3 场次，不因 ID 同名进入旧接口', async (action, suffix) => {

@@ -33,7 +33,7 @@ const clockLabel = computed(() => {
   const seconds = Math.ceil(remainingMs.value / 1000)
   return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
 })
-const stageStatus = { NOT_STARTED: '未进行', IN_PROGRESS: '进行中', COMPLETED: '已完成' }
+const stageStatus = { NOT_STARTED: '未进行', IN_PROGRESS: '进行中', COMPLETED: '已完成', SKIPPED: '已跳过' }
 const messages = computed(() => session.value?.messages || [])
 const sources = computed(() => session.value?.sources || [])
 const currentQuestion = computed(() => [...messages.value].reverse().find(message => message.role === 'ASSISTANT' && message.kind !== 'REPLY'))
@@ -47,6 +47,12 @@ const reviewRunning = computed(() => session.value?.status === 'REPORTING')
 const working = computed(() => preparing.value || thinking.value || reviewRunning.value)
 const canAnswer = computed(() => session.value?.status === 'IN_PROGRESS' && !!currentQuestion.value?.questionId && !!answer.value.trim() && !state.busy)
 const canSkip = computed(() => session.value?.status === 'INTERRUPTED' && session.value.allowedActions?.includes('next') === true)
+const canSkipStage = computed(() => enhanced.value && !expired.value && session.value?.allowedActions?.includes('skip-stage') === true)
+const nextStage = computed(() => {
+  const stages = session.value?.stages || []
+  const index = stages.findIndex(stage => stage.id === session.value?.stage)
+  return index >= 0 ? stages[index + 1] : undefined
+})
 const canFinish = computed(() => hasStarted.value && (session.value?.allowedActions ? session.value.allowedActions.includes('finish') : ['IN_PROGRESS', 'COMPLETED'].includes(session.value?.status || '')))
 const canRetry = computed(() => session.value?.allowedActions ? session.value.allowedActions.includes('retry') : ['FAILED', 'INTERRUPTED'].includes(session.value?.status || ''))
 const summarySections = computed(() => [
@@ -64,6 +70,8 @@ const stageIndex = computed(() => {
 })
 const stageLabel = computed(() => reviewRunning.value ? '核对问答与来源，生成逐题复盘' : ['排队等待', '分析简历与岗位', '检索相关知识', '准备本场题目'][stageIndex.value])
 const callCount = computed(() => session.value?.usage?.calls ?? session.value?.usage?.attempts)
+const hasTokenUsage = computed(() => typeof session.value?.usage?.promptTokens === 'number' || typeof session.value?.usage?.completionTokens === 'number')
+const tokenCount = (value: number | undefined) => typeof value === 'number' ? value.toLocaleString('zh-CN') : '未返回'
 
 let disposed = false, polling = false, pollTimer: ReturnType<typeof setTimeout> | undefined, clockTimer: ReturnType<typeof setInterval> | undefined
 const pendingKey = `interview-v3:pending:${id}`, draftKey = `interview-v3:draft:${id}`
@@ -135,9 +143,20 @@ async function mutate(action: SessionAction, extra: Record<string, unknown> = {}
   if (disposed) return
   const body = intent(action, extra)
   try {
-    setSession(await mutateSession(id, action, body))
+    let result: InterviewSession
+    try { result = await mutateSession(id, action, body) }
+    catch (error) {
+      if (action !== 'skip-stage' || !(error instanceof ApiError) || error.status !== 409) throw error
+      const latest = await getSession(id)
+      setSession(latest)
+      // 追问和用量可能刚更新版本；只重试原阶段一次，绝不顺带跳过新阶段。
+      if (session.value?.stage !== extra.expectedStage || !session.value?.allowedActions?.includes('skip-stage')) throw error
+      pending = null; store(pendingKey, null)
+      result = await mutateSession(id, action, intent(action, extra))
+    }
+    setSession(result)
     pending = null; store(pendingKey, null)
-    if (action === 'answers') { answer.value = ''; draftQuestion = ''; store(draftKey, null) }
+    if (action === 'answers' || action === 'skip-stage') { answer.value = ''; draftQuestion = ''; store(draftKey, null) }
     if (action === 'corrections') { correction.value = ''; editConfiguration.value = false; clearJd.value = false }
   } catch (error) {
     state.error = errorMessage(error)
@@ -163,6 +182,14 @@ function submitAnswer() {
 
 function confirm() {
   void mutate('confirm', enhanced.value && openingProject.value.trim() ? { projectBrief: openingProject.value.trim() } : {})
+}
+
+function skipStage() {
+  if (!canSkipStage.value || state.busy) return
+  const current = session.value?.stages?.find(stage => stage.id === session.value?.stage)?.label || '当前阶段'
+  const target = nextStage.value ? `进入“${nextStage.value.label}”` : '结束本场问答'
+  if (!window.confirm(`跳过“${current}”，${target}？已提交回答会保留，未提交草稿不会提交。`)) return
+  void mutate('skip-stage', { expectedStage: session.value!.stage })
 }
 
 function correct() {
@@ -225,6 +252,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <section v-if="enhanced && hasStarted && session.report?.version !== 2" class="panel v3-round-progress" aria-label="本场面试进度">
         <div class="heading-row"><h2>本场进度</h2><span v-if="session.timing?.enabled" class="v3-clock" data-interview-clock :class="{ urgent: remainingMs < 180000 }">剩余 {{ clockLabel }}</span><span v-else class="badge">不限时训练</span></div>
         <ol v-if="session.stages?.length" class="v3-rounds" aria-label="面试四阶段"><li v-for="item in session.stages" :key="item.id" :aria-current="session.stage === item.id && item.status === 'IN_PROGRESS' ? 'step' : undefined" :class="{ active: item.status === 'IN_PROGRESS', complete: item.status === 'COMPLETED' }"><strong>{{ item.label }}</strong><span>{{ stageStatus[item.status] }}</span></li></ol>
+        <div v-if="canSkipStage" class="v3-actions"><button class="btn btn-ghost" :disabled="!!state.busy" data-action="skip-stage" @click="skipStage">{{ state.busy === 'skip-stage' ? '正在跳过…' : nextStage ? '跳过当前阶段' : '跳过反问，结束面试' }}</button><span v-if="nextStage" class="tiny muted">进入{{ nextStage.label }}，已有回答保留。</span></div>
         <p v-if="session.timing?.enabled && !expired" class="form-help">阅读、思考和作答计时；模型生成与系统等待不扣时。接近尾声会减少追问，为后续阶段留出时间。</p>
         <p v-if="expired && session.status === 'IN_PROGRESS'" class="v3-expired" role="status">时间已到，已停止新题与语音输入。草稿已保留，请校对最后一答后手动提交；也可直接结束面试。</p>
         <p v-if="session.report && session.stages?.some(item => item.status !== 'COMPLETED')" class="form-help">本场存在未完成阶段，仅表示本场未完成对应流程，不算答错。</p>
@@ -280,7 +308,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 
       <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
       <section v-if="sources.length" class="v3-sources" aria-labelledby="v3-sources-title"><h2 id="v3-sources-title">本场可回查的知识依据</h2><p class="form-help">题库用于发现考点，技术结论结合官方资料核对。来源不足或冲突会明确标注。</p><details v-for="source in sources" :id="`v3-source-${source.id}`" :key="source.id" :data-source="source.id" class="panel v3-source"><summary>{{ source.title }}<span class="tiny muted"> · {{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></summary><p class="tiny muted">版本：{{ source.version || '未标明' }} · 获取：{{ displayDate(source.fetchedAt) }}</p><p class="v3-source-excerpt">{{ source.excerpt }}</p><a v-if="publicSourceUrl(source.url)" :href="publicSourceUrl(source.url)" target="_blank" rel="noopener noreferrer" class="text-link">打开原始来源 ↗</a><p v-else class="tiny muted">此来源没有可打开的公开链接。</p><p v-if="source.sha256" class="tiny muted v3-hash">片段摘要：{{ source.sha256 }}</p></details></section>
-      <footer class="footer-note"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }} / {{ session.usage?.maxCalls || 32 }} 次。</span><span>实际费用未知，以模型服务账单为准；输出上限不代表实际用量或金额。</span></footer>
+      <footer class="footer-note"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }}<template v-if="session.usage?.maxCalls"> / {{ session.usage.maxCalls }}</template> 次。</span><span v-if="hasTokenUsage" data-token-usage>已统计 Token：输入 {{ tokenCount(session.usage?.promptTokens) }} · 输出 {{ tokenCount(session.usage?.completionTokens) }} · 合计 {{ tokenCount(session.usage?.totalTokens) }}<template v-if="session.usage?.usageIncomplete">；部分调用未返回用量，统计不完整。</template></span><span v-else data-token-usage>暂未取得 Token 用量。</span></footer>
     </template>
   </div>
 </template>

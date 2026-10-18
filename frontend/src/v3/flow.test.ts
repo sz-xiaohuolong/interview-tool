@@ -427,3 +427,96 @@ it('V3复盘接入本场矩阵并加载补练关联，旧报告不触发该接�
   await show(Session, '/interview-v3/v3-test')
   expect(reads.some(url => url.includes('/project-evidence/'))).toBe(false)
 })
+
+it('显式跳过阶段只调用V3新动作，取消确认不写入并保留草稿', async () => {
+  const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValue(true)
+  vi.stubGlobal('confirm', confirm)
+  const writes: { url: string; body: any }[] = []
+  let value: any = session({ experienceVersion: 1, stage: 'PROJECT', status: 'IN_PROGRESS', allowedActions: ['answers', 'skip-stage', 'finish'],
+    stages: [{ id: 'PROJECT', label: '项目深挖', status: 'IN_PROGRESS', answeredCount: 0 }, { id: 'TECHNICAL', label: '岗位技术与场景', status: 'NOT_STARTED', answeredCount: 0 }],
+    messages: [{ id: 'q1', role: 'ASSISTANT', questionId: 'q1', content: '项目异常如何恢复？' }] })
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials') return new Response('[]')
+    if (options?.method === 'POST') {
+      writes.push({ url, body: JSON.parse(String(options.body)) })
+      value = { ...value, stage: 'TECHNICAL', revision: 2, stages: [{ id: 'PROJECT', label: '项目深挖', status: 'SKIPPED', answeredCount: 0 }, { id: 'TECHNICAL', label: '岗位技术与场景', status: 'IN_PROGRESS', answeredCount: 0 }], messages: [...value.messages, { id: 'q2', role: 'ASSISTANT', questionId: 'q2', content: '事务隔离如何选择？' }] }
+    }
+    return new Response(JSON.stringify(value))
+  })
+  const { wrapper } = await show(Session, '/interview-v3/v3-test')
+  await wrapper.get('#v3-answer').setValue('尚未提交的草稿')
+  await wrapper.get('[data-action="skip-stage"]').trigger('click'); await flushPromises()
+  expect(writes).toHaveLength(0)
+  expect((wrapper.get('#v3-answer').element as HTMLTextAreaElement).value).toBe('尚未提交的草稿')
+  await wrapper.get('[data-action="skip-stage"]').trigger('click'); await flushPromises()
+  expect(writes).toEqual([{ url: '/api/v3/sessions/v3-test/skip-stage', body: expect.objectContaining({ expectedStage: 'PROJECT', expectedRevision: 1 }) }])
+  expect(wrapper.get('[aria-label="面试四阶段"]').text()).toContain('已跳过')
+  expect((wrapper.get('#v3-answer').element as HTMLTextAreaElement).value).toBe('')
+})
+
+it('跳过失败保留当前草稿，未开放动作或到点时不提供阶段跳过', async () => {
+  vi.stubGlobal('confirm', () => true)
+  let value: any = session({ experienceVersion: 1, stage: 'INTRO', status: 'IN_PROGRESS', allowedActions: ['answers', 'skip-stage'], messages: [{ id: 'q1', role: 'ASSISTANT', questionId: 'q1', content: '请介绍经历' }] })
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials') return new Response('[]')
+    if (options?.method === 'POST') return new Response(JSON.stringify({ message: '跳过暂时失败' }), { status: 503 })
+    return new Response(JSON.stringify(value))
+  })
+  const { wrapper } = await show(Session, '/interview-v3/v3-test')
+  await wrapper.get('#v3-answer').setValue('我的草稿')
+  await wrapper.get('[data-action="skip-stage"]').trigger('click'); await flushPromises()
+  expect((wrapper.get('#v3-answer').element as HTMLTextAreaElement).value).toBe('我的草稿')
+  expect(wrapper.text()).toContain('跳过暂时失败')
+  wrapper.unmount(); wrappers.splice(wrappers.indexOf(wrapper), 1)
+  value = { ...value, allowedActions: ['answers'] }
+  const hidden = await show(Session, '/interview-v3/v3-test')
+  expect(hidden.wrapper.find('[data-action="skip-stage"]').exists()).toBe(false)
+  hidden.wrapper.unmount(); wrappers.splice(wrappers.indexOf(hidden.wrapper), 1)
+  value = { ...value, allowedActions: ['skip-stage'], timing: { enabled: true, limitMs: 1200000, elapsedMs: 1200000, remainingMs: 0, running: false, expired: true, serverNow: Date.now() } }
+  const expired = await show(Session, '/interview-v3/v3-test')
+  expect(expired.wrapper.find('[data-action="skip-stage"]').exists()).toBe(false)
+})
+
+it.each([
+  [{ promptTokens: 1200, completionTokens: 300, totalTokens: 1500, usageIncomplete: false }, ['输入 1,200', '输出 300', '合计 1,500']],
+  [{ promptTokens: 0, completionTokens: 0, totalTokens: 0, usageIncomplete: false }, ['输入 0', '输出 0', '合计 0']],
+  [{ promptTokens: 21, completionTokens: 12, totalTokens: 33, usageIncomplete: true }, ['合计 33', '部分调用未返回用量']],
+  [{ usageIncomplete: true }, ['暂未取得 Token 用量']],
+])('页脚显示模型实际Token并明确缺失情况：%j', async (usage, expected) => {
+  vi.stubGlobal('fetch', async (url: string) => new Response(JSON.stringify(url === '/api/materials' ? [] : session({ usage: { calls: 15, maxCalls: 128, declaredOutputLimit: 9000, ...usage } }))))
+  const { wrapper } = await show(Session, '/interview-v3/v3-test')
+  const footer = wrapper.get('footer').text()
+  for (const text of expected) expect(footer).toContain(text)
+  expect(footer).toContain('15 / 128')
+  expect(footer).not.toContain('实际费用未知')
+  expect(footer).not.toContain('9,000')
+})
+
+
+it.each([true, false])('追问结束与跳过并发冲突时，仅在原阶段仍可跳过时重试：%s', async sameStage => {
+  vi.stubGlobal('confirm', () => true)
+  const writes: { url: string; body: any }[] = []
+  let value: any = session({ experienceVersion: 1, stage: 'PROJECT', status: 'ANSWERING', allowedActions: ['skip-stage'],
+    stages: [{ id: 'PROJECT', label: '项目深挖', status: 'IN_PROGRESS', answeredCount: 1 }, { id: 'TECHNICAL', label: '岗位技术与场景', status: 'NOT_STARTED', answeredCount: 0 }],
+    messages: [{ id: 'q1', role: 'ASSISTANT', questionId: 'q1', content: '项目异常如何恢复？' }] })
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials') return new Response('[]')
+    if (options?.method === 'POST') {
+      writes.push({ url, body: JSON.parse(String(options.body)) })
+      if (writes.length === 1) {
+        value = { ...value, status: 'IN_PROGRESS', revision: 4, stage: sameStage ? 'PROJECT' : 'TECHNICAL' }
+        return new Response(JSON.stringify({ message: '本场状态已变化，请刷新后继续' }), { status: 409 })
+      }
+      value = { ...value, stage: 'TECHNICAL', revision: 5 }
+    }
+    return new Response(JSON.stringify(value))
+  })
+  const { wrapper } = await show(Session, '/interview-v3/v3-test')
+  await wrapper.get('[data-action="skip-stage"]').trigger('click'); await flushPromises()
+  expect(writes).toHaveLength(sameStage ? 2 : 1)
+  if (sameStage) {
+    expect(writes[1]?.body).toEqual(expect.objectContaining({ expectedStage: 'PROJECT', expectedRevision: 4 }))
+    expect(writes[1]?.body.requestId).not.toBe(writes[0]?.body.requestId)
+    expect(wrapper.text()).not.toContain('本场状态已变化')
+  } else expect(wrapper.text()).toContain('本场状态已变化')
+})

@@ -88,7 +88,9 @@ class V3ConcurrencyTest {
         Thread.sleep(60);
         ObjectNode afterLate = service.get(session.path("id").asText());
         assertThat(afterLate.path("messages").toString()).isEqualTo(savedMessages);
-        assertThat(afterLate.path("revision").asInt()).isEqualTo(savedRevision);
+        assertThat(afterLate.path("revision").asInt()).isGreaterThan(savedRevision);
+        assertThat(afterLate.path("usage").path("reportedCalls").asInt())
+            .isEqualTo(fallback.path("usage").path("reportedCalls").asInt() + 1);
     }
 
     @Test
@@ -130,7 +132,9 @@ class V3ConcurrencyTest {
         Thread.sleep(300);
         ObjectNode afterLate = service.get(session.path("id").asText());
         assertThat(afterLate.path("status").asText()).isEqualTo("CANCELLED");
-        assertThat(afterLate.path("revision").asInt()).isEqualTo(revision);
+        assertThat(afterLate.path("revision").asInt()).isGreaterThan(revision);
+        assertThat(afterLate.path("usage").path("reportedCalls").asInt())
+            .isEqualTo(cancelled.path("usage").path("reportedCalls").asInt() + 1);
         assertThat(afterLate.path("messages").toString()).isEqualTo(savedMessages);
         assertThat(userAnswers(afterLate)).isEqualTo(1);
     }
@@ -160,33 +164,68 @@ class V3ConcurrencyTest {
     }
 
     @Test
-    void 调用次数耗尽后保留回答且明确停止而不切换备用题() throws Exception {
+    void 旧三十二次预算中断可在新预算下显式恢复() throws Exception {
+        var session = started();
+        answer(session, "合成回答：保留已提交内容。");
+        session = await(session, s -> s.path("status").asText().equals("IN_PROGRESS"));
+        String id = session.path("id").asText();
+        var saved = store.get(id);
+        saved.put("status", "INTERRUPTED").put("pendingStage", "FOLLOWUP").put("budgetReached", true);
+        ((ObjectNode) saved.path("usage")).put("calls", 32);
+        store.save(saved);
+        session = service.get(id);
+        assertThat(session.path("allowedActions").toString()).contains("retry");
+        assertThat(session.path("budgetReached").asBoolean()).isFalse();
+        service.action(id, "retry", action(session));
+        session = await(session, s -> s.path("status").asText().equals("IN_PROGRESS"));
+        assertThat(session.path("usage").path("calls").asInt()).isEqualTo(33);
+    }
+
+    @Test
+    void 原三十二次以后仍可继续且最后一次额度留给复盘() throws Exception {
         ObjectNode session = started();
         cap(session, 32, 9000);
+        answer(session, "合成回答：三十二次后继续训练。");
+        session = await(session, s -> s.path("status").asText().equals("IN_PROGRESS"));
+        assertThat(session.path("usage").path("calls").asInt()).isEqualTo(33);
+        assertThat(session.path("usage").path("maxCalls").asInt()).isEqualTo(128);
+        cap(session, 127, 9000);
+        answer(session, "合成回答：达到对话预算后保留复盘。");
+        session = await(session, s -> s.path("status").asText().equals("INTERRUPTED"));
+        assertThat(session.path("usage").path("calls").asInt()).isEqualTo(127);
+        service.action(session.path("id").asText(), "finish", action(session));
+        session = await(session, s -> s.path("status").asText().equals("REPORT_READY"));
+        assertThat(session.path("usage").path("calls").asInt()).isEqualTo(128);
+    }
+
+    @Test
+    void 调用次数耗尽后保留回答且明确停止而不切换备用题() throws Exception {
+        ObjectNode session = started();
+        cap(session, 128, 9000);
         int calls = gateway.calls.get();
         answer(session, "合成回答：达到次数预算也不能丢失本回答。");
         ObjectNode stopped = await(session, s -> s.path("status").asText().equals("INTERRUPTED"));
         assertBudgetStop(stopped, calls);
         assertThat(userAnswers(stopped)).isEqualTo(1);
         assertThat(stopped.path("messages").size()).isEqualTo(2);
-        assertThat(stopped.path("usage").path("calls").asInt()).isEqualTo(32);
+        assertThat(stopped.path("usage").path("calls").asInt()).isEqualTo(128);
     }
 
     @Test
     void 输出声明预算不足时不得发送新的模型请求() throws Exception {
         ObjectNode session = started();
-        cap(session, 2, 99_500);
+        cap(session, 2, 399_500);
         int calls = gateway.calls.get();
         answer(session, "合成回答：剩余输出预算不足一轮追问。");
         ObjectNode stopped = await(session, s -> s.path("status").asText().equals("INTERRUPTED"));
         assertBudgetStop(stopped, calls);
-        assertThat(stopped.path("usage").path("declaredOutputLimit").asInt()).isEqualTo(99_500);
+        assertThat(stopped.path("usage").path("declaredOutputLimit").asInt()).isEqualTo(399_500);
     }
 
     @Test
     void 重新准备时预算耗尽不能继续提示可重试() throws Exception {
         ObjectNode session = prepared();
-        cap(session, 32, 9000);
+        cap(session, 128, 9000);
         int calls = gateway.calls.get();
         service.action(session.path("id").asText(), "corrections", action(session).put("correction", "仅负责合成接口的参数校验。"));
         ObjectNode stopped = await(session, s -> !Set.of("QUEUED", "PREPARING").contains(s.path("status").asText()));
@@ -198,7 +237,7 @@ class V3ConcurrencyTest {
         ObjectNode session = started();
         answer(session, "合成回答：事务提交前保留幂等状态。");
         session = await(session, s -> s.path("status").asText().equals("IN_PROGRESS"));
-        cap(session, 32, 9000);
+        cap(session, 128, 9000);
         int calls = gateway.calls.get();
         service.action(session.path("id").asText(), "finish", action(session));
         ObjectNode stopped = await(session, s -> !s.path("status").asText().equals("REPORTING"));

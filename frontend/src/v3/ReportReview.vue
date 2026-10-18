@@ -29,9 +29,9 @@ const groups = computed(() => {
   }
   return result
 })
-const stageLabels = { NOT_STARTED: '未进行', IN_PROGRESS: '未完成', COMPLETED: '已完成' }
+const stageLabels = { NOT_STARTED: '未进行', IN_PROGRESS: '未完成', COMPLETED: '已完成', SKIPPED: '已跳过' }
 const contentLabels = { CLEAR: '已讲清', PARTIAL: '待补强', UNVERIFIED: '尚未验证' }
-const endLabels: Record<string, string> = { USER_FINISHED: '主动结束', TIME_LIMIT: '实战时间到达', QUESTIONS_COMPLETED: '题目流程结束', SYSTEM_INTERRUPTED: '系统中断后结束' }
+const endLabels: Record<string, string> = { USER_FINISHED: '主动结束', TIME_LIMIT: '实战时间到达', QUESTIONS_COMPLETED: '题目流程结束', USER_SKIPPED_FINAL_STAGE: '跳过反问后结束', SYSTEM_INTERRUPTED: '系统中断后结束' }
 function sourceLabel(f: ReviewFinding) { return f.status === 'SUPPORTED' ? '技术核实：有依据支持该判断' : f.status === 'CONFLICTING' ? '技术核实：来源存在冲突' : '技术核实：依据不足，待核实' }
 function sourceIds(f: ReviewFinding) { return f.sourceIds.filter(id => props.session.sources.some(s => s.id === id)) }
 async function locate(qid: string) {

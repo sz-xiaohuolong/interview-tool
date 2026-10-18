@@ -91,7 +91,9 @@ final class V3InterviewProgress {
         if (m.path("role").asText().equals("USER")) answered++;
         else asked = true;
       }
-      String status = answered > 0 && (closed || i < currentIndex) ? "COMPLETED"
+      boolean skipped = false;
+      for (var value : s.path("skippedStages")) if (value.asText().equals(id)) skipped = true;
+      String status = skipped ? "SKIPPED" : answered > 0 && (closed || i < currentIndex) ? "COMPLETED"
           : asked ? "IN_PROGRESS" : "NOT_STARTED";
       out.addObject().put("id", id).put("label", LABELS.get(i)).put("status", status).put("answeredCount", answered);
     }

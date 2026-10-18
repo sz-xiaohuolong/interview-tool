@@ -71,11 +71,24 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
 
   @Override
   public ObjectNode call(String stage, ObjectNode input, int timeoutSeconds) {
+    ObjectNode usage = json.createObjectNode();
+    ObjectNode result = call(stage, input, timeoutSeconds, usage::setAll);
+    if (!usage.isEmpty()) result.set("_modelUsage", usage);
+    return result;
+  }
+
+  @Override
+  public ObjectNode call(String stage, ObjectNode input, int timeoutSeconds,
+      java.util.function.Consumer<ObjectNode> reportUsage) {
     if (!OUTPUT_LIMITS.containsKey(stage)) throw ApiException.bad("不支持的 V3 模型阶段");
     if (input == null || input.toString().length() > 100000)
       throw ApiException.bad("模型输入为空或超过本次允许范围");
     if (timeoutSeconds < 1 || timeoutSeconds > 300) throw ApiException.bad("模型超时必须为 1～300 秒");
-    if ("mock".equals(provider)) return new V3MockModel(json).call(stage, input);
+    if ("mock".equals(provider)) {
+      ObjectNode result = new V3MockModel(json).call(stage, input);
+      if (result.remove("_modelUsage") instanceof ObjectNode usage) reportUsage.accept(usage);
+      return result;
+    }
     if (!"openai".equals(provider) || apiKey.isBlank() || model.isBlank()) {
       throw new ApiException(503, "MODEL_NOT_CONFIGURED", "V3 真实模型未配置；请检查本机模型配置，没有使用 Mock。");
     }
@@ -128,6 +141,18 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
               new Prompt(
                   List.of(
                       new SystemMessage(prompt), new UserMessage(json.writeValueAsString(input)))));
+      if (response != null) {
+        ObjectNode usage = json.createObjectNode();
+        var actual = response.getMetadata().getUsage();
+        if (actual != null && actual.getNativeUsage() instanceof OpenAiApi.Usage nativeUsage) {
+          if (nativeUsage.promptTokens() != null && nativeUsage.promptTokens() >= 0)
+            usage.put("promptTokens", nativeUsage.promptTokens());
+          if (nativeUsage.completionTokens() != null && nativeUsage.completionTokens() >= 0)
+            usage.put("completionTokens", nativeUsage.completionTokens());
+        }
+        usage.put("model", response.getMetadata().getModel());
+        reportUsage.accept(usage);
+      }
       if (response == null
           || response.getResult() == null
           || !"stop".equalsIgnoreCase(response.getResult().getMetadata().getFinishReason())) {
@@ -140,16 +165,6 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
         throw failure("MODEL_INVALID_OUTPUT", "模型输出不是有效 JSON 对象。");
       V3OutputChecks.validate(stage, input, result);
       result.remove("_modelUsage");
-      ObjectNode usage = result.putObject("_modelUsage");
-      var actual = response.getMetadata().getUsage();
-      if (actual != null && actual.getNativeUsage() != null) {
-        usage
-            .put("promptTokens", actual.getPromptTokens())
-            .put("completionTokens", actual.getCompletionTokens());
-      } else {
-        usage.putNull("promptTokens").putNull("completionTokens");
-      }
-      usage.put("model", response.getMetadata().getModel());
       return result;
     } catch (ApiException error) {
       throw error;

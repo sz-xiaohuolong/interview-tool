@@ -60,6 +60,8 @@ public class V3InterviewService implements ProjectEvidenceSource {
   private final ScheduledExecutorService deadlines = Executors.newSingleThreadScheduledExecutor();
   private final Map<String, Future<?>> jobs = new ConcurrentHashMap<>();
   private static final Set<String> BUSY = Set.of("QUEUED", "PREPARING", "ANSWERING", "REPORTING");
+  private static final int MAX_CALLS = 128;
+  private static final int MAX_DECLARED_OUTPUT = 400_000;
   private static final Map<String, Integer> TOKENS =
       Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 6500);
 
@@ -169,6 +171,11 @@ public class V3InterviewService implements ProjectEvidenceSource {
 
   private ObjectNode publicView(ObjectNode s) {
     var out = s.deepCopy();
+    var usage = out.withObject("/usage");
+    usage.put("maxCalls", MAX_CALLS);
+    usage.put("usageIncomplete", usage.path("calls").asInt() > usage.path("reportedCalls").asInt());
+    if (usage.hasNonNull("promptTokens") && usage.hasNonNull("completionTokens"))
+      usage.put("totalTokens", usage.path("promptTokens").asLong() + usage.path("completionTokens").asLong());
     var actions = out.putArray("allowedActions");
     String state = s.path("status").asText(), pending = s.path("pendingStage").asText();
     if (state.equals("READY")) {
@@ -181,13 +188,17 @@ public class V3InterviewService implements ProjectEvidenceSource {
     }
     if (state.equals("COMPLETED")) actions.add("finish");
     if (Set.of("FAILED", "INTERRUPTED").contains(state)) {
-      if (!s.path("budgetReached").asBoolean()) actions.add("retry");
+      String pendingCall = pending.equals("PREPARE") ? "ANALYZE" : pending;
+      boolean reached = s.path("budgetReached").asBoolean() && !hasModelBudget(s, pendingCall);
+      if (s.has("budgetReached")) out.put("budgetReached", reached);
+      if (!reached) actions.add("retry");
       if (pending.equals("FOLLOWUP")) {
         actions.add("next").add("finish");
       }
       if (s.path("messages").isEmpty()) actions.add("corrections").add("refresh");
     }
     if (!Set.of("REPORT_READY", "CANCELLED").contains(state)) actions.add("cancel");
+    if (canSkipStage(s)) actions.add("skip-stage");
     if (V3InterviewProgress.enabled(s)) {
       out.set("timing", progress.timing(s));
       out.set("stages", progress.stages(s));
@@ -209,6 +220,23 @@ public class V3InterviewService implements ProjectEvidenceSource {
             "answerSubmittedAt",
             "forceRefresh"));
     return out;
+  }
+
+  private boolean canSkipStage(JsonNode s) {
+    String state = s.path("status").asText();
+    return V3InterviewProgress.enabled(s) && V3InterviewProgress.STAGES.contains(s.path("stage").asText())
+        && !progress.expired(s)
+        && (Set.of("IN_PROGRESS", "ANSWERING").contains(state)
+            || (Set.of("FAILED", "INTERRUPTED").contains(state) && s.path("pendingStage").asText().equals("FOLLOWUP")));
+  }
+
+  private boolean hasModelBudget(JsonNode s, String stage) {
+    Integer outputLimit = TOKENS.get(stage);
+    if (outputLimit == null) return false;
+    boolean review = stage.equals("REVIEW");
+    return s.path("usage").path("calls").asInt() < (review ? MAX_CALLS : MAX_CALLS - 1)
+        && s.path("usage").path("declaredOutputLimit").asInt() + outputLimit
+            <= MAX_DECLARED_OUTPUT - (review ? 0 : TOKENS.get("REVIEW"));
   }
 
   private record MaterialSnapshot(String text, boolean truncated, String name, String updatedAt) {}
@@ -432,11 +460,12 @@ public class V3InterviewService implements ProjectEvidenceSource {
         throw new CancellationException();
       var usage = (ObjectNode) s.path("usage");
       int calls = usage.path("calls").asInt(), tokens = usage.path("declaredOutputLimit").asInt();
-      if (calls >= 32 || tokens + TOKENS.get(stage) > 100000) {
+      if (!hasModelBudget(s, stage)) {
         s.put("budgetReached", true);
         save(s);
         throw new ApiException(429, "V3_BUDGET_REACHED", "本场模型调用预算已用完，请保留结果并结束本场");
       }
+      s.remove("budgetReached");
       usage.put("calls", calls + 1).put("declaredOutputLimit", tokens + TOKENS.get(stage));
       save(s);
     }
@@ -449,21 +478,23 @@ public class V3InterviewService implements ProjectEvidenceSource {
           save(s);
         }
       }
-    var result = model.call(stage, bounded, timeout);
-    var usage = result.remove("_modelUsage");
-    synchronized (this) {
-      var s = store.get(id);
-      if (s.path("generation").asInt() == generation && usage != null && usage.isObject()) {
-        var u = (ObjectNode) s.path("usage");
-        for (String field : List.of("promptTokens", "completionTokens")) {
-          if (usage.path(field).isIntegralNumber())
-            u.put(field, u.path(field).asLong() + usage.path(field).asLong());
-          else u.put("usageIncomplete", true);
-        }
-        save(s);
-      }
+    return model.call(stage, bounded, timeout, usage -> recordUsage(id, usage));
+  }
+
+  /** 即使正文无效或阶段已跳过，已返回的真实用量仍属于本场；不改写对话。 */
+  private synchronized void recordUsage(String id, JsonNode actual) {
+    var s = store.get(id);
+    var usage = (ObjectNode) s.path("usage");
+    boolean complete = true, reported = false;
+    for (String field : List.of("promptTokens", "completionTokens")) {
+      var value = actual.path(field);
+      if (value.isIntegralNumber() && value.canConvertToLong() && value.asLong() >= 0) {
+        usage.put(field, usage.path(field).asLong() + value.asLong());
+        reported = true;
+      } else complete = false;
     }
-    return result;
+    if (complete) usage.put("reportedCalls", usage.path("reportedCalls").asInt() + 1);
+    if (reported) save(s);
   }
 
   private void prepare(String id, int generation, boolean refresh) {
@@ -563,7 +594,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
   }
 
   public synchronized ObjectNode action(String id, String action, JsonNode body) {
-    if (!Set.of("corrections", "confirm", "answers", "next", "finish", "retry", "cancel", "refresh", "transcription-wait", "transcription-resume")
+    if (!Set.of("corrections", "confirm", "answers", "next", "skip-stage", "finish", "retry", "cancel", "refresh", "transcription-wait", "transcription-resume")
         .contains(action)) throw ApiException.missing("操作不存在");
     String requestId = text(body, "requestId", 100, true);
     var s = store.get(id);
@@ -681,6 +712,21 @@ public class V3InterviewService implements ProjectEvidenceSource {
             .put("error", "");
         start = () -> enqueueFollowup(s);
       }
+      case "skip-stage" -> {
+        require(canSkipStage(s), "当前不能跳过阶段，请核对面试状态");
+        require(text(body, "expectedStage", 30, true).equals(s.path("stage").asText()), "阶段已变化，未跳过新的阶段");
+        progress.stop(s);
+        String skipped = s.path("stage").asText();
+        s.withArray("skippedStages").add(skipped);
+        s.put("generation", s.path("generation").asInt() + 1);
+        var job = jobs.get(id);
+        if (job != null) job.cancel(true);
+        // 显式阶段跳过同样适用于没有新题量字段的四阶段场次。
+        int next = s.path("questionIndex").asInt() + 1;
+        while (next < s.path("questions").size() && s.path("questions").get(next).path("stage").asText().equals(skipped)) next++;
+        moveToQuestion(s, next);
+        if (skipped.equals("QUESTIONS")) s.put("endReason", "USER_SKIPPED_FINAL_STAGE");
+      }
       case "next" -> {
         require(
             state.equals("INTERRUPTED") && s.path("pendingStage").asText().equals("FOLLOWUP"),
@@ -773,6 +819,10 @@ public class V3InterviewService implements ProjectEvidenceSource {
   private void next(ObjectNode s, boolean stageComplete) {
     if (progress.expired(s)) { completeQuestions(s, "时间已到，本场已收尾，可以生成复盘"); return; }
     int index = V3InterviewProgress.enabled(s) ? progress.nextIndex(s, stageComplete) : s.path("questionIndex").asInt() + 1;
+    moveToQuestion(s, index);
+  }
+
+  private void moveToQuestion(ObjectNode s, int index) {
     s.put("questionIndex", index).put("followUpCount", 0).put("error", "");
     if (index >= s.path("questions").size()) {
       completeQuestions(s, "本场问题已完成，可以生成复盘");

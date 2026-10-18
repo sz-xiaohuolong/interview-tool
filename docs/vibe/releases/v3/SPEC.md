@@ -16,7 +16,7 @@ R5 对话：后台准备生成主问题和相关备用问题；每个问题绑�
 
 R6 复盘：主动结束后异步终审核实。逐题区分回答不足、事实错误、资料/依据不足与来源冲突；关键技术结论附具体来源片段。不得将题库答案当唯一方案；不得将未问/未答判错。来源缺失的技术判定降为待核实，实际经历只对用户快照核对。保留原始问答与重试入口。
 
-R7 成本：阶段可选择同服务中的快模型/低思考强度，准备复盘保持深度。一次任务无隐藏自动重试。预算按任务与输出上限限制，不把token上限称为实际费用。每场至多32次模型尝试，达到上限明确停止；准备2次、每轮至多1次、复盘1次，显式重试也计数；输出声明上限累计不超过100000 tokens。未知费用标为未知。
+R7 用量与预算（2026-10-18修订）：阶段可选择同服务中的快模型/低思考强度，准备复盘保持深度，一次任务无隐藏自动重试。每场最多128次模型尝试，其中最后1次及6500 tokens输出声明预算留给复盘；累计输出声明上限400000 tokens。准备通常2次、每次回答后的决策通常1次、复盘通常1次，失败和显式重试也计数。对话预算耗尽后保留问答，可显式结束并使用预留额度复盘；达到总上限不再请求。界面展示模型服务实际返回的累计输入、输出及合计Token，替换费用未知说明；未返回或尚未结束的调用明确标为统计不完整，不能用声明上限、估算或缺省零冒充实际用量。正文无效但已返回的用量仍累计，迟到用量只更新统计，不改写对话。
 
 ## HTTP 契约
 
@@ -67,6 +67,8 @@ R12 计时：TRAINING 不限时，TIMED 提供 20/30/45 分钟，默认30。确�
 
 R13 历史兼容：创建时写入本轮功能版本；无标识的旧场次保留原状态、题单、历史报告和调用行为，禁止在读取时补矩阵、补阶段或自动重算。语音输入适用于两链路可作答的旧场次。
 
+2026-10-18追加：有四阶段标识的场次允许用户显式跳过当前阶段，直接进入紧邻下一阶段；最后阶段跳过则结束问答，复盘仍由用户另行发起。跳过不调用模型、不伪造回答、不删已提交内容；进度与新生成复盘标记 `SKIPPED`（已跳过），未提交草稿在确认后清除，不参与评价。允许作答中、生成追问中或追问中断时跳过，旧代次结果不能覆盖下一阶段；未开考、已结束、已到点或无四阶段标识时拒绝。请求携带expectedStage、requestId及expectedRevision，阶段过期拒绝，重复请求幂等。预算放宽与用量展示适用于现有场次后续操作，旧用量缺口不估算补齐，已有报告不重算。
+
 | AC | 可观察要求 |
 |---|---|
 | 13 | 两类新场次均能生成七项矩阵；状态与理由由实际回答支撑，引用必须属于本场且不能伪造 |
@@ -87,7 +89,8 @@ R13 历史兼容：创建时写入本轮功能版本；无标识的旧场次保�
 - 后续新增`plannedQuestionCount:8|12`（新场次默认8），公共会话保留所选值。它表示整场候选主问题的准备目标，两种模式共用；旧`durationMinutes`仅作兼容字段，新的配置界面不再将其作为题量。已有场次缺少新字段时不自动补写或重排题单，开考前普通资料纠偏也保留其原规划规则。
 - `confirm`可带`projectBrief`，用于临开考补充或替换主项目；此动作不额外调用模型，项目题收敛为绑定新原文的澄清题，其他技术题沿用已准备内容并提示。需要重新深度分析时使用开考前纠偏。
 - `POST /api/v3/sessions/{id}/transcription-wait`和`transcription-resume`沿用`{requestId,expectedRevision,expectedQuestionId}`。只允许当前计时场次的当前问题，等待每次最多10秒，同一等待窗口内重复通知不延期；恢复后可继续同题下一段听写。前端停止等待最多4秒，随后恢复作答状态。
-- 公共会话增加`mainProject:{id,name,brief,hypothetical}`、`stage:INTRO|PROJECT|TECHNICAL|QUESTIONS`、`stages:[{id,label,status,answeredCount}]`及`timing:{enabled,limitMs,elapsedMs,remainingMs,running,expired,serverNow,waitingUntil?}`。阶段状态为`NOT_STARTED|IN_PROGRESS|COMPLETED`。无版本历史不补这些派生内容。
+- 公共会话增加`mainProject:{id,name,brief,hypothetical}`、`stage:INTRO|PROJECT|TECHNICAL|QUESTIONS`、`stages:[{id,label,status,answeredCount}]`及`timing:{enabled,limitMs,elapsedMs,remainingMs,running,expired,serverNow,waitingUntil?}`。阶段状态为`NOT_STARTED|IN_PROGRESS|COMPLETED|SKIPPED`。无版本历史不补这些派生内容。
+- `POST /api/v3/sessions/{id}/skip-stage`接收`{requestId,expectedRevision,expectedStage}`。仅跳过当前阶段，最后阶段返回COMPLETED但不自动复盘；不调用模型，不伪造用户消息。公开usage增加`maxCalls:128`、`promptTokens?`、`completionTokens?`、`totalTokens?`与`usageIncomplete`，Token取自模型服务的真实响应；历史未记录部分不能补算。
 - 消息增加`stage`；候选人反问后同一次追问调用的回应使用`kind:REPLY,role:ASSISTANT`，不带`questionId`，不作为下一道题。反问超时可用明确的收尾提示保留问题，不新增调用。正常结束仍由用户显式生成复盘。
 - 复盘增加`stages`与适用时的`matrix:{version,project:{id,name},notice,items:[]}`。矩阵每项为`{checkpointId,title,status,reason,evidence:[{questionMessageId,answerMessageId,questionQuote,answerQuote}]}`，七项齐全；状态为`CLEAR|PARTIAL|UNCOVERED`。已讲清和待补强必须有本场真实相邻问答引用；缺项、伪造引用不落盘为成功报告。未覆盖不推断能力不足。
 
@@ -115,5 +118,7 @@ R16 回答待补强项可结合岗位、职级、主项目（如有）、原问�
 | 23 | 回答表现与技术核实状态分开；引用原答必须逐字存在，未答不评；术语解释有界 |
 | 24 | 主问追问可折叠分组并保留逐题结论/来源，旧报告保持原样 |
 | 25 | 技术缺口新题复用单题页；重复请求/刷新不重复调用，失败可恢复，原报告不变 |
+| 26 | 显式跳过当前阶段后进入紧邻阶段，已有回答保留、未答不评，进度及复盘标记已跳过；最后阶段只结束问答；幂等、过期拒绝及迟到结果隔离有效 |
+| 27 | 32次后仍可继续，128次总预算为复盘预留1次；界面显示实际输入/输出/合计Token，失败正文的已返回用量仍计入，缺失与迟到用量如实处理 |
 
 新报告`version:2`，finding增加`answerStatus,answerQuote?,observation,headline,priority(1..3),terms:[{term,explanation}]`；`answerQuote`须为该questionId原答的连续片段，有证据的CLEAR/PARTIAL必须引用；无观察降UNVERIFIED。消息增加服务端`rootQuestionId`与`questionKind:MAIN|FOLLOW_UP`。报告`overview`包含实际作答数与结束原因，不虚构不限时有效用时。技术补练`GET /api/review-gaps/V3/{sourceId}`，`POST /api/review-gaps/V3/{sourceId}/{questionId}`，返回已有单题及任务/最近尝试关联；案例`contextOrigin:REVIEW_GAP`。

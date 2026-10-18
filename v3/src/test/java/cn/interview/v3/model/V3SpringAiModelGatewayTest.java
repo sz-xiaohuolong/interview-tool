@@ -120,6 +120,16 @@ class V3SpringAiModelGatewayTest {
         assertThat(requests.getFirst().path("reasoning_effort").asText()).isEqualTo("low");
     }
 
+    @Test void 显式Mock也独立上报测试用量而不访问网络() {
+        var reported = new java.util.ArrayList<ObjectNode>();
+        var result = gateway("mock", "", "", "low").call("FOLLOWUP", followup(), 2, reported::add);
+        assertThat(result.path("mock").asBoolean()).isTrue();
+        assertThat(reported).hasSize(1);
+        assertThat(reported.getFirst().path("promptTokens").asInt()).isZero();
+        assertThat(reported.getFirst().path("completionTokens").asInt()).isZero();
+        assertThat(requests).isEmpty();
+    }
+
     @Test void serverFailureIsOneAttemptAndDoesNotExposeUpstreamBody() {
         responseCode = 500;
         assertThatThrownBy(() -> gateway("openai", "test-only-key", "", "low").call("FOLLOWUP", followup(), 2))

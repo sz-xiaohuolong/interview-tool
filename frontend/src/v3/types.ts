@@ -73,7 +73,7 @@ export interface InterviewReport {
 export interface InterviewStage {
   id: 'INTRO' | 'PROJECT' | 'TECHNICAL' | 'QUESTIONS'
   label: string
-  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED'
+  status: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED'
   answeredCount: number
 }
 
@@ -117,7 +117,7 @@ export interface InterviewSession {
   warnings: string[]
   error?: string | null
   report?: InterviewReport | null
-  usage?: { calls?: number; attempts?: number; maxCalls?: number; declaredOutputTokens?: number; cost?: string; [key: string]: unknown }
+  usage?: { calls?: number; attempts?: number; maxCalls?: number; promptTokens?: number; completionTokens?: number; totalTokens?: number; usageIncomplete?: boolean; [key: string]: unknown }
   metrics?: { [key: string]: unknown }
   allowedActions?: SessionAction[]
 }
@@ -125,4 +125,4 @@ export interface InterviewSession {
 export interface V3Status { enabled: boolean; provider: string; configured: boolean; model?: string }
 export type InterviewSessionSummary = Pick<InterviewSession, 'id' | 'status' | 'phase' | 'role' | 'level' | 'createdAt' | 'updatedAt' | 'mock' | 'resumeId' | 'jdId'>
 export interface MutationBody { requestId: string; expectedRevision: number; [key: string]: unknown }
-export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume'
+export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'skip-stage' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume'

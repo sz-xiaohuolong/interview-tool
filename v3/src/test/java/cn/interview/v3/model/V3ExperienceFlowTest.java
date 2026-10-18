@@ -251,6 +251,61 @@ class V3ExperienceFlowTest {
         var generic=ready(body());
         assertThat(generic.path("warnings").toString()).contains("本场为无资料的通用基准摸底");
     }
+    @Test void 显式跳过仅进入相邻阶段并幂等且不调用模型()throws Exception{
+        var s=start(body());String id=s.path("id").asText();int calls=s.path("usage").path("calls").asInt();
+        assertThat(s.path("allowedActions").toString()).contains("skip-stage");
+        var request=action(s).put("expectedStage","INTRO");
+        s=service.action(id,"skip-stage",request);
+        assertThat(s.path("stage").asText()).isEqualTo("PROJECT");
+        assertThat(s.path("stages").get(0).path("status").asText()).isEqualTo("SKIPPED");
+        assertThat(s.path("stages").get(0).path("answeredCount").asInt()).isZero();
+        assertThat(s.path("usage").path("calls").asInt()).isEqualTo(calls);
+        assertThat(service.action(id,"skip-stage",request)).isEqualTo(s);
+        var stale=action(s).put("expectedStage","INTRO");
+        assertThatThrownBy(()->service.action(id,"skip-stage",stale)).isInstanceOf(ApiException.class);
+    }
+    @Test void 部分回答后跳过保留原答且复盘区分跳过()throws Exception{
+        var s=start(body());String id=s.path("id").asText();
+        s=service.action(id,"skip-stage",action(s).put("expectedStage","INTRO"));
+        answer(s);s=await(s,"IN_PROGRESS");
+        int calls=s.path("usage").path("calls").asInt();
+        s=service.action(id,"skip-stage",action(s).put("expectedStage","PROJECT"));
+        assertThat(s.path("stage").asText()).isEqualTo("TECHNICAL");
+        assertThat(s.path("stages").get(1).path("status").asText()).isEqualTo("SKIPPED");
+        assertThat(s.path("stages").get(1).path("answeredCount").asInt()).isEqualTo(1);
+        assertThat(s.path("usage").path("calls").asInt()).isEqualTo(calls);
+        s=service.action(id,"skip-stage",action(s).put("expectedStage","TECHNICAL"));
+        s=service.action(id,"skip-stage",action(s).put("expectedStage","QUESTIONS"));
+        assertThat(s.path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(s.path("endReason").asText()).isEqualTo("USER_SKIPPED_FINAL_STAGE");
+        service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
+        assertThat(s.path("report").path("stages").findValuesAsText("status")).containsOnly("SKIPPED");
+        assertThat(s.path("report").path("findings")).hasSize(1);
+    }
+    @Test void 跳过后迟到追问不能改回已跳过阶段()throws Exception{
+        var s=start(body());String id=s.path("id").asText();
+        model.block=true;model.entered=new CountDownLatch(1);model.release=new CountDownLatch(1);
+        try{
+            answer(s);assertThat(model.entered.await(2,TimeUnit.SECONDS)).isTrue();s=service.get(id);
+            s=service.action(id,"skip-stage",action(s).put("expectedStage","INTRO"));
+            assertThat(s.path("stage").asText()).isEqualTo("PROJECT");
+            String saved=s.path("messages").toString();model.block=false;model.release.countDown();
+            Thread.sleep(100);
+            assertThat(service.get(id).path("messages").toString()).isEqualTo(saved);
+            assertThat(service.get(id).path("stages").get(0).path("status").asText()).isEqualTo("SKIPPED");
+        }finally{model.block=false;model.release.countDown();}
+    }
+    @Test void 未开考或已到点或旧协议场次不能跳过阶段()throws Exception{
+        var ready=ready(body());String readyId=ready.path("id").asText();var unstarted=action(ready).put("expectedStage","INTRO");
+        assertThatThrownBy(()->service.action(readyId,"skip-stage",unstarted)).isInstanceOf(ApiException.class);
+        var timed=start(body().put("interviewMode","TIMED").put("timeLimitMinutes",20));String timedId=timed.path("id").asText();clock.advance(1_200_000);timed=service.get(timedId);
+        assertThat(timed.path("allowedActions").toString()).doesNotContain("skip-stage");
+        var expired=action(timed).put("expectedStage","INTRO");assertThatThrownBy(()->service.action(timedId,"skip-stage",expired)).isInstanceOf(ApiException.class);
+        var old=start(body());String oldId=old.path("id").asText();var stored=store.get(oldId);stored.remove("experienceVersion");store.save(stored);
+        old=service.get(oldId);var legacy=action(old).put("expectedStage","INTRO");
+        assertThat(old.path("allowedActions").toString()).doesNotContain("skip-stage");
+        assertThatThrownBy(()->service.action(oldId,"skip-stage",legacy)).isInstanceOf(ApiException.class);
+    }
     @TestConfiguration static class Configuration{
         @Bean @Primary MutableClock clock(){return new MutableClock();}
         @Bean @Primary ControlledModel model(ObjectMapper json){return new ControlledModel(json);}
