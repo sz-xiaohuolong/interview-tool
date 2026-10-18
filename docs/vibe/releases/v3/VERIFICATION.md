@@ -302,3 +302,5 @@ V3_LIVE_KNOWLEDGE=true JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -f v3/po
 本轮软件和限定真实样本通过不等于V3整体验收完成；实际语音识别与一般模型语义质量仍保留此前限制。其他会话改动、私人data与.env.local不纳入本次同步，正式Release仍V1。
 
 最终精确暂存快照排除其他会话改动后，`./scripts/test-v3.sh`退出0：Java21后端204项中202执行通过、2联网默认跳过；前端16文件134项、类型检查和V3生产构建通过。该快照与完整工作区测试数量不同，不能混用。日志`.runtime/v3-report/staged-verification.log`。最终Mock浏览器2条及真实合成报告只读浏览器1条通过，含1440/390/320px、优势/缺口、官方引用/术语与补练恢复；原始日志在`browser/browser-final.log`与`browser/real-browser.log`。只读子Agent已复判两项P2为resolved，无剩余必须修复项。
+
+代码4547aa4已推送origin/main并核对远程一致。日常`./scripts/dev.sh`已重启5173/8080：健康、真实模型配置、8/12题选择和新版报告模块只读检查通过；资料、旧场次、V3场次的ID摘要与重启前一致，零写请求、零模型调用，只有日常两端监听保留。记录`.runtime/v3-report/daily-before.json`、`daily-after.json`与`daily-ui.json`。正式版本及V3整体PARTIAL保持，等待用户新建场次验收。
