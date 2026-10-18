@@ -50,6 +50,15 @@ public class PracticeService implements V2ModelHandler {
         row.set("mainProject",project.deepCopy());row.set("checkpointSnapshot",checkpoint.deepCopy());row.putArray("priorDialogue");row.set("rubric",rubric());row.put("rubricHash",db.hash(row.path("rubric")));
         row.set("initialProtocol",runner.llm.protocol(V2Task.PRACTICE_EVALUATOR));return db.insert("v2_practice_cases",row);
     }
+    ObjectNode reviewGapCase(String sourceId, JsonNode source, ObjectNode snapshot){
+        String context=snapshot.toString();
+        var row=db.object().put("familyId",id()).put("caseVersion",1).put("sourceKind","SESSION").put("sourceId",sourceId).put("sourceSessionKind","V3")
+            .put("contextOrigin","REVIEW_GAP").put("sourceQuestionId",snapshot.path("questionId").asText()).put("questionIndex",-1).put("question","").put("status","RUNNING")
+            .put("context",context).put("contextTruncated",false).put("mock",source.path("mock").asBoolean()).put("analysisExposure","PROVIDED")
+            .put("contextHash",ContentHash.sha(context)).put("sourceReportHash",db.hash(source.path("report")));
+        row.putArray("priorDialogue");row.set("rubric",rubric());row.put("rubricHash",db.hash(row.path("rubric")));
+        row.set("initialProtocol",runner.llm.protocol(V2Task.PRACTICE_EVALUATOR));return db.insert("v2_practice_cases",row);
+    }
     ObjectNode visibleCase(ObjectNode row){var out=row.deepCopy();out.remove("referenceAnalysis");if(out.has("initialProtocol"))out.set("initialProtocol",runner.llm.publicProtocol(out.path("initialProtocol")));if(out.has("generationProtocol"))out.set("generationProtocol",runner.llm.publicProtocol(out.path("generationProtocol")));return out;}
     public ObjectNode caseList(String cursor,int limit,String sourceId){var page=db.page("v2_practice_cases",cursor,limit,null,sourceId==null?null:"source_id",sourceId);for(JsonNode item:page.path("items"))((ObjectNode)item).remove(List.of("context","priorDialogue","referenceAnalysis","initialProtocol","generationProtocol","mainProject","checkpointSnapshot","rubric"));return page;}
     public ObjectNode reveal(String id,JsonNode body){return ops.write("CASE_REVEAL",id,body,()->{var c=db.get("v2_practice_cases",id);db.expect(c,body);String kind=choice(required(body,"revealKind",30),"SOURCE_ANALYSIS","TEMPLATE_GUIDE");c.put("analysisExposure","PROVIDED");c.withArray("exposureEvents").addObject().put("kind",kind).put("at",now());db.save("v2_practice_cases",c,c.path("revision").asInt());var result=db.object().put("id",id).put("provided",true);result.set("content",kind.equals("SOURCE_ANALYSIS")?c.path("referenceAnalysis"):c.path("rubric"));return result;});}
@@ -57,7 +66,7 @@ public class PracticeService implements V2ModelHandler {
         if(cursor!=null&&!cursor.isBlank())try{ordinal=Integer.parseInt(cursor);if(ordinal<0)throw new NumberFormatException();}catch(NumberFormatException e){throw V2Exception.invalid("作答游标无效，请返回第一页");}
         var ids=db.attemptIdsAfter(id,ordinal,limit+1);var page=db.object();var list=page.putArray("items");for(String aid:ids.subList(0,Math.min(limit,ids.size())))list.add(view(db.get("v2_practice_attempts",aid)));page.putNull("nextCursor");if(ids.size()>limit)page.put("nextCursor",list.get(list.size()-1).path("ordinal").asText());return page;}
     public ObjectNode attempt(String cid,JsonNode body){return ops.write("PRACTICE_ATTEMPT",cid,body,()->{
-        var c=db.get("v2_practice_cases",cid);if(c.path("contextOrigin").asText().equals("PROJECT_GAP")&&!c.path("status").asText().equals("READY"))throw V2Exception.conflict("V2_SOURCE_NOT_READY","补练题目尚未生成，请恢复原操作后再作答");String declaration=choice(optional(body,"exposureDeclaration","UNKNOWN",30),"SEEN","NOT_SEEN","UNKNOWN");
+        var c=db.get("v2_practice_cases",cid);if(Set.of("PROJECT_GAP","REVIEW_GAP").contains(c.path("contextOrigin").asText())&&!c.path("status").asText().equals("READY"))throw V2Exception.conflict("V2_SOURCE_NOT_READY","补练题目尚未生成，请恢复原操作后再作答");String declaration=choice(optional(body,"exposureDeclaration","UNKNOWN",30),"SEEN","NOT_SEEN","UNKNOWN");
         int ordinal=db.nextAttemptOrdinal(cid);
         var row=db.object().put("caseId",cid).put("ordinal",ordinal).put("kind","NEW_ANSWER").put("status","DRAFT").put("answerText",body.has("answer")?text(body,"answer",6000,false):"").put("exposureDeclaration",declaration).put("effectiveExposure",c.path("analysisExposure").asText().equals("PROVIDED")?"PROVIDED":declaration).put("mock",c.path("mock").asBoolean());row.putNull("submittedAt");return db.insert("v2_practice_attempts",row);
     });}

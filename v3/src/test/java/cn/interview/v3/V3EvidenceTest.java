@@ -7,6 +7,14 @@ import static org.assertj.core.api.Assertions.*;
 
 class V3EvidenceTest {
     final ObjectMapper json=new ObjectMapper();final V3OutputValidator validator=new V3OutputValidator(json);
+    @Test void 阶段完成必须是布尔值且不能和继续追问并用()throws Exception{
+        var raw=json.createObjectNode().put("action","NEXT").put("stageComplete","true");raw.putArray("sourceIds");
+        assertThatThrownBy(()->validator.followup(raw,json.createArrayNode())).hasMessageContaining("依据不合法");
+        raw.put("action","FOLLOW_UP").put("question","合成追问").put("stageComplete",true);
+        assertThatThrownBy(()->validator.followup(raw,json.createArrayNode())).hasMessageContaining("依据不合法");
+        raw.put("action","NEXT");
+        assertThat(validator.followup(raw,json.createArrayNode()).path("stageComplete").asBoolean()).isTrue();
+    }
     @Test void 不允许评估未回答问题或编造来源()throws Exception{
         var messages=json.readTree("[{\"role\":\"USER\",\"questionId\":\"q1\",\"content\":\"已提交回答\"}]");
         var raw=json.readTree("{\"summary\":\"合成总结\",\"findings\":[{\"questionId\":\"q2\",\"assessment\":\"判断\",\"suggestion\":\"建议\",\"status\":\"SUPPORTED\",\"sourceIds\":[]}]}");

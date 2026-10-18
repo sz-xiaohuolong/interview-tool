@@ -39,20 +39,96 @@ class V3ExperienceFlowTest {
     @Autowired V3InterviewService service; @Autowired V3Store store; @Autowired ObjectMapper json;
     @Autowired cn.interview.service.MaterialService materials;
     @Autowired MutableClock clock; @Autowired ControlledModel model;
-    @AfterEach void cleanup(){model.release.countDown();for(var s:store.list())if(!List.of("REPORT_READY","CANCELLED").contains(s.path("status").asText()))service.action(s.path("id").asText(),"cancel",action(service.get(s.path("id").asText())));}
+    @AfterEach void cleanup(){model.release.countDown();model.completeStage=false;for(var s:store.list())if(!List.of("REPORT_READY","CANCELLED").contains(s.path("status").asText()))service.action(s.path("id").asText(),"cancel",action(service.get(s.path("id").asText())));}
     ObjectNode body(){return json.createObjectNode().put("requestId",UUID.randomUUID().toString()).put("role","Java 后端").put("level","JUNIOR");}
     ObjectNode action(JsonNode s){return json.createObjectNode().put("requestId",UUID.randomUUID().toString()).put("expectedRevision",s.path("revision").asInt());}
     ObjectNode ready(ObjectNode config)throws Exception{return await(service.create(config),"READY");}
     ObjectNode start(ObjectNode config)throws Exception{var s=ready(config);return service.action(s.path("id").asText(),"confirm",action(s));}
     ObjectNode answer(ObjectNode s){var q=s.path("messages").get(s.path("messages").size()-1);return service.action(s.path("id").asText(),"answers",action(s).put("expectedQuestionId",q.path("questionId").asText()).put("content","合成回答：我负责订单查询接口，数据库超时后返回明确错误，使用请求编号排查。"));}
     ObjectNode await(ObjectNode s,String... states)throws Exception{long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(5);while(System.nanoTime()<deadline){s=service.get(s.path("id").asText());if(List.of(states).contains(s.path("status").asText()))return s;if(s.path("status").asText().equals("FAILED"))throw new AssertionError(s.toString());Thread.onSpinWait();}throw new AssertionError("合成任务未完成："+s);}
+    @Test void 新报告统计主追问且早退不评未答题()throws Exception{
+        var s=start(body());String id=s.path("id").asText();
+        assertThat(s.path("reviewVersion").asInt()).isEqualTo(2);
+        String root=s.path("messages").get(0).path("rootQuestionId").asText();assertThat(root).isNotBlank();
+        answer(s);s=await(s,"IN_PROGRESS");
+        assertThat(s.path("messages").get(2).path("rootQuestionId").asText()).isEqualTo(root);
+        assertThat(s.path("messages").get(2).path("questionKind").asText()).isEqualTo("FOLLOW_UP");
+        answer(s);s=await(s,"IN_PROGRESS");
+        s=service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
+        var report=s.path("report");assertThat(report.path("version").asInt()).isEqualTo(2);
+        assertThat(report.path("overview").path("answeredCount").asInt()).isEqualTo(2);
+        assertThat(report.path("overview").path("mainQuestionCount").asInt()).isEqualTo(1);
+        assertThat(report.path("overview").path("followUpCount").asInt()).isEqualTo(1);
+        assertThat(report.path("overview").path("endReason").asText()).isEqualTo("USER_FINISHED");
+        assertThat(report.path("findings")).hasSize(2);
+    }
+    @Test void 旧报告读取与显式复盘不自动升级()throws Exception{
+        var s=start(body());String id=s.path("id").asText();var stored=store.get(id);stored.remove("reviewVersion");store.save(stored);
+        answer(s);s=await(s,"IN_PROGRESS");s=service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
+        assertThat(s.path("report").has("version")).isFalse();String before=store.get(id).toString();service.get(id);
+        assertThat(store.get(id).toString()).isEqualTo(before);
+    }
+    @Test void 两种模式按同一计划题量准备且默认八题()throws Exception{
+        for(String mode:List.of("TRAINING","TIMED"))for(int count:List.of(8,12)){
+            var s=ready(body().put("interviewMode",mode).put("plannedQuestionCount",count));
+            assertThat(s.path("plannedQuestionCount").asInt()).isEqualTo(count);
+            assertThat(store.get(s.path("id").asText()).path("questions").size()).isEqualTo(count);
+            assertThat(s.path("stages").size()).isEqualTo(4);
+        }
+        assertThat(ready(body()).path("plannedQuestionCount").asInt()).isEqualTo(8);
+    }
+    @Test void 计划题量拒绝非法值且开考前纠偏保留原计划()throws Exception{
+        for(var invalid:List.of(json.getNodeFactory().numberNode(5),json.getNodeFactory().numberNode(8.5),json.getNodeFactory().textNode("12"),json.nullNode())){
+            var config=body();config.set("plannedQuestionCount",invalid);
+            assertThatThrownBy(()->service.create(config)).isInstanceOf(ApiException.class);
+        }
+        var s=ready(body().put("plannedQuestionCount",12));
+        s=service.action(s.path("id").asText(),"corrections",action(s).put("role","大模型应用 / Agent 开发工程师"));
+        s=await(s,"READY");
+        assertThat(s.path("plannedQuestionCount").asInt()).isEqualTo(12);
+        assertThat(store.get(s.path("id").asText()).path("questions").size()).isEqualTo(12);
+    }
+    @Test void 阶段已充分时可少于计划完成但保留四阶段()throws Exception{
+        model.completeStage=true;
+        for(String mode:List.of("TRAINING","TIMED")){
+            var s=start(body().put("interviewMode",mode).put("plannedQuestionCount",12));
+            for(String stage:List.of("INTRO","PROJECT","TECHNICAL","QUESTIONS")){
+                assertThat(s.path("stage").asText()).isEqualTo(stage);
+                answer(s);s=await(s,"IN_PROGRESS","COMPLETED");
+            }
+            assertThat(s.path("status").asText()).isEqualTo("COMPLETED");
+            assertThat(s.path("stages").findValuesAsText("status")).containsOnly("COMPLETED");
+            assertThat(s.path("messages").findValuesAsText("role").stream().filter("USER"::equals).count()).isEqualTo(4);
+        }
+    }
+    @Test void 追问可让实际作答轮数超过八题计划()throws Exception{
+        var s=start(body().put("plannedQuestionCount",8));
+        for(int i=0;i<9;i++){answer(s);s=await(s,"IN_PROGRESS","COMPLETED");}
+        assertThat(s.path("messages").findValuesAsText("role").stream().filter("USER"::equals).count()).isEqualTo(9);
+        assertThat(s.path("status").asText()).isEqualTo("IN_PROGRESS");
+    }
+    @Test void 旧场次不因新阶段完成标记跳过原题且读取不写盘()throws Exception{
+        var s=ready(body().put("durationMinutes",20).put("plannedQuestionCount",8));String id=s.path("id").asText();
+        var saved=store.get(id);saved.remove("plannedQuestionCount");((ObjectNode)saved.path("input")).remove("plannedQuestionCount");store.save(saved);
+        String before=store.get(id).toString();s=service.get(id);
+        assertThat(s.has("plannedQuestionCount")).isFalse();assertThat(store.get(id).toString()).isEqualTo(before);
+        s=service.action(id,"corrections",action(s).put("role","大模型应用 / Agent 开发工程师"));s=await(s,"READY");
+        assertThat(s.has("plannedQuestionCount")).isFalse();
+        assertThat(store.get(id).path("input").has("plannedQuestionCount")).isFalse();
+        assertThat(store.get(id).path("questions").size()).isEqualTo(8);
+        model.completeStage=true;s=service.action(id,"confirm",action(s));
+        answer(s);s=await(s,"IN_PROGRESS");assertThat(s.path("stage").asText()).isEqualTo("PROJECT");
+        answer(s);s=await(s,"IN_PROGRESS");assertThat(s.path("stage").asText()).isEqualTo("PROJECT");
+        s=service.action(id,"finish",action(s));s=await(s,"REPORT_READY");
+        assertThat(s.path("report").path("stages").get(3).path("status").asText()).isEqualTo("NOT_STARTED");
+    }
     @Test void 新场次标版本并提供四阶段而不把短训练减少为三阶段()throws Exception{
         var s=start(body().put("durationMinutes",5));
         assertThat(s.path("experienceVersion").asInt()).isEqualTo(1);
         assertThat(s.path("stage").asText()).isEqualTo("INTRO");
         assertThat(s.path("stages").size()).isEqualTo(4);
         assertThat(s.path("timing").path("enabled").asBoolean()).isFalse();
-        for(int i=0;i<20&&!s.path("status").asText().equals("COMPLETED");i++){answer(s);s=await(s,"IN_PROGRESS","COMPLETED");}
+        for(int i=0;i<30&&!s.path("status").asText().equals("COMPLETED");i++){answer(s);s=await(s,"IN_PROGRESS","COMPLETED");}
         assertThat(s.path("status").asText()).isEqualTo("COMPLETED");
         assertThat(s.path("stages").findValuesAsText("id")).containsExactly("INTRO","PROJECT","TECHNICAL","QUESTIONS");
         assertThat(s.path("stages").findValuesAsText("status")).containsOnly("COMPLETED");
@@ -184,8 +260,8 @@ class V3ExperienceFlowTest {
         public ZoneId getZone(){return ZoneOffset.UTC;}public Clock withZone(ZoneId zone){return this;}public Instant instant(){return Instant.ofEpochMilli(value);}
     }
     static final class ControlledModel implements V3ModelGateway{
-        final V3MockModel delegate;volatile boolean block;volatile CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+        final V3MockModel delegate;volatile boolean block,completeStage;volatile CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
         ControlledModel(ObjectMapper json){delegate=new V3MockModel(json);}
-        public ObjectNode call(String stage,ObjectNode input,int timeout){if(stage.equals("FOLLOWUP")&&block){entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}}return delegate.call(stage,input);}
+        public ObjectNode call(String stage,ObjectNode input,int timeout){if(stage.equals("FOLLOWUP")&&block){entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException e){Thread.currentThread().interrupt();}}var result=delegate.call(stage,input);if(stage.equals("FOLLOWUP")&&completeStage)result.put("action","NEXT").put("stageComplete",true);return result;}
     }
 }

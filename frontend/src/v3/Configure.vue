@@ -9,7 +9,7 @@ import { createSession, displayDate, getV3Status, levelLabels, listSessions, req
 import type { InterviewConfig, InterviewSession, V3Status } from './types'
 
 const route = useRoute(), router = useRouter()
-const config = ref<InterviewConfig>({ role: String(route.query.role || ''), level: String(route.query.level || ''), resumeId: '', jdId: '', jd: '', durationMinutes: 10, interviewMode: 'TRAINING', timeLimitMinutes: 30, projectId: '', projectBrief: '' })
+const config = ref<InterviewConfig>({ role: String(route.query.role || ''), level: String(route.query.level || ''), resumeId: '', jdId: '', jd: '', plannedQuestionCount: 8, interviewMode: 'TRAINING', timeLimitMinutes: 30, projectId: '', projectBrief: '' })
 const materials = ref<Material[]>([]), sessions = ref<InterviewSession[]>([]), health = ref<V3Status | null>(null)
 const state = reactive({ busy: false, loading: true, error: '', historyError: '', materialError: '' })
 const valid = computed(() => !!config.value.role.trim() && ['INTERN', 'JUNIOR', 'SENIOR'].includes(config.value.level))

@@ -60,9 +60,29 @@ it('配置岗位和职级必填，简历与 JD 真实传入，空资料明确提
   await wrapper.get('#v3-jd-id').setValue('j1')
   await wrapper.get('form').trigger('submit'); await flushPromises()
   expect(writes).toHaveLength(1)
-  expect(writes[0]).toMatchObject({ role: 'Java 后端工程师', level: 'SENIOR', resumeId: 'r1', jdId: 'j1' })
+  expect(writes[0]).toMatchObject({ role: 'Java 后端工程师', level: 'SENIOR', resumeId: 'r1', jdId: 'j1', plannedQuestionCount: 8 })
   expect(writes[0].requestId).toBeTruthy()
   expect(router.currentRoute.value.path).toBe('/interview-v3/v3-test')
+})
+
+it.each(['TRAINING', 'TIMED'])('两种模式共用计划题量，切换模式后保留所选十二题：%s', async (mode) => {
+  const writes: any[] = []
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials') return new Response('[]')
+    if (url === '/api/v3/status') return new Response(JSON.stringify({ enabled: true, configured: true, provider: 'mock' }))
+    if (options?.method === 'POST') { writes.push(JSON.parse(String(options.body))); return new Response(JSON.stringify(session({ status: 'QUEUED' }))) }
+    return new Response('[]')
+  })
+  const { wrapper } = await show(Configure, '/interview-v3')
+  await wrapper.get('#v3-role').setValue('Java 后端工程师')
+  await wrapper.get('#v3-level').setValue('JUNIOR')
+  await wrapper.get('#v3-question-count').setValue('12')
+  await wrapper.get('#v3-mode').setValue('TIMED')
+  expect((wrapper.get('#v3-question-count').element as HTMLSelectElement).value).toBe('12')
+  await wrapper.get('#v3-mode').setValue(mode)
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(writes[0]).toMatchObject({ plannedQuestionCount: 12, interviewMode: mode })
+  expect(wrapper.text()).toContain('实际题数')
 })
 
 it('准备摘要允许纠偏，本场更正携带版本且不会直接开考', async () => {

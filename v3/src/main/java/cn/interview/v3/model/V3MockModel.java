@@ -154,6 +154,13 @@ final class V3MockModel {
               .put("sourceQuote", "")
               .put("suggestion", "请在真实模式下结合对应版本官方文档核对，并补充本人实际验证步骤。");
       finding.putArray("sourceIds");
+      if (input.path("reviewVersion").asInt() == 2) {
+        String answer = "";
+        for (var m : input.path("messages")) if (m.path("role").asText().equals("USER") && m.path("questionId").asText().equals(questionId)) answer = m.path("content").asText();
+        finding.put("answerStatus", "PARTIAL").put("answerQuote", answer.substring(0, Math.min(120, answer.length())))
+            .put("headline", "合成观察：补充验证边界").put("observation", "Mock只验证内容与来源分离的展示，不代表真实内容判断。")
+            .put("priority", 1).putArray("terms");
+      }
     }
     if (input.path("experienceVersion").asInt() == 1 && !input.path("mainProject").path("hypothetical").asBoolean()
         && !input.path("mainProject").path("brief").asText().isBlank()) {

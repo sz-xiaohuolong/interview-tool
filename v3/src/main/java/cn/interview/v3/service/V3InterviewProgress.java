@@ -107,9 +107,9 @@ final class V3InterviewProgress {
     double fraction = switch (stage) { case 0 -> .10; case 1 -> .50; case 2 -> .90; default -> 1.0; };
     return remaining <= Math.max(60_000, later * 90_000L) || elapsed(s) >= (long) (limit * fraction);
   }
-  int nextIndex(JsonNode s) {
+  int nextIndex(JsonNode s, boolean stageComplete) {
     int next = s.path("questionIndex").asInt() + 1;
-    if (enabled(s) && narrowFollowups(s)) {
+    if (enabled(s) && (narrowFollowups(s) || (s.has("plannedQuestionCount") && stageComplete))) {
       String stage = s.path("stage").asText();
       while (next < s.path("questions").size() && s.path("questions").get(next).path("stage").asText().equals(stage)) next++;
     }

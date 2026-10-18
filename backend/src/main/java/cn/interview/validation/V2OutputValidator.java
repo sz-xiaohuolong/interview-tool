@@ -107,7 +107,7 @@ public class V2OutputValidator {
         if((!raw.path("strengths").isEmpty()||!raw.path("gaps").isEmpty()||!raw.path("tradeoffs").isEmpty())&&evidence.isEmpty())throw invalid();
         var out=raw.deepCopy();out.set("evidenceRefs",evidence);return out;
     }
-    public ObjectNode validate(V2Task task,ObjectNode input,ObjectNode raw){return switch(task){case PROJECT_GAP_QUESTION->ProjectGapOutputValidator.validate(raw,input);
+    public ObjectNode validate(V2Task task,ObjectNode input,ObjectNode raw){return switch(task){case REVIEW_GAP_QUESTION->ReviewGapOutputValidator.validate(raw,input);case PROJECT_GAP_QUESTION->ProjectGapOutputValidator.validate(raw,input);
         case PRACTICE_EVALUATOR -> evaluation(raw,input,input.path("answerSnapshotId").asText());
         case PRACTICE_COMPARE -> comparison(raw,input);
         case PRACTICE_PAIR_EVALUATOR -> {keys(raw,"leftEvaluation","rightEvaluation","comparison");var out=db.object();var l=evaluation(raw.path("leftEvaluation"),input,input.path("leftSnapshotId").asText());var r=evaluation(raw.path("rightEvaluation"),input,input.path("rightSnapshotId").asText());var both=input.deepCopy();both.set("leftEvaluation",l);both.set("rightEvaluation",r);out.set("leftEvaluation",l);out.set("rightEvaluation",r);out.set("comparison",comparison(raw.path("comparison"),both));yield out;}

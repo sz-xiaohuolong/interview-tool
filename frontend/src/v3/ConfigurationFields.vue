@@ -70,7 +70,12 @@ defineProps<{ materials: Material[]; disabled?: boolean; correction?: boolean; l
         <p class="form-help">确认开考后计时，模型生成和系统等待不扣时；到点保留当前答案，校对后手动提交。</p>
       </div>
     </template>
-    <div v-if="!correction && config.interviewMode !== 'TIMED'" class="form-field">
+    <div v-if="!correction && !legacy" class="form-field">
+      <label for="v3-question-count">计划题量</label>
+      <select id="v3-question-count" v-model.number="config.plannedQuestionCount"><option :value="8">计划 8 题</option><option :value="12">计划 12 题</option></select>
+      <p class="form-help">整场四阶段共用的主问题规划，实际题数会根据回答深度、追问和剩余时间调整，不要求固定答满。</p>
+    </div>
+    <div v-if="!correction && legacy && config.interviewMode !== 'TIMED'" class="form-field">
       <label for="v3-duration">训练题量</label>
       <select id="v3-duration" v-model.number="config.durationMinutes"><option :value="5">5 分钟</option><option :value="10">10 分钟</option><option :value="20">20 分钟</option></select>
       <p class="form-help">沿用短练习的题量档位，不设倒计时；四阶段各保留一次作答机会，可随时结束并进入复盘。</p>

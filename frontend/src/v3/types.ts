@@ -6,7 +6,8 @@ export interface InterviewConfig {
   resumeId: string
   jdId: string
   jd: string
-  durationMinutes: number
+  durationMinutes?: number
+  plannedQuestionCount?: number
   interviewMode?: 'TRAINING' | 'TIMED'
   timeLimitMinutes?: number
   projectId?: string
@@ -26,6 +27,9 @@ export interface InterviewMessage {
   content: string
   questionId?: string
   kind?: 'REPLY'
+  stage?: InterviewStage['id']
+  rootQuestionId?: string
+  questionKind?: 'MAIN' | 'FOLLOW_UP'
   createdAt: string
   fallback?: boolean
 }
@@ -43,6 +47,12 @@ export interface KnowledgeSource {
 }
 
 export interface ReviewFinding {
+  answerStatus?: 'CLEAR' | 'PARTIAL' | 'UNVERIFIED'
+  headline?: string
+  observation?: string
+  answerQuote?: string
+  priority?: number
+  terms?: { term: string; explanation: string }[]
   questionId: string
   assessment: string
   status: string
@@ -52,6 +62,8 @@ export interface ReviewFinding {
 }
 
 export interface InterviewReport {
+  version?: number
+  overview?: { answeredCount: number; mainQuestionCount: number; followUpCount: number; endReason: string }
   summary: string
   findings: ReviewFinding[]
   stages?: InterviewStage[]
@@ -86,7 +98,9 @@ export interface InterviewSession {
   resumeId?: string
   jdId?: string
   durationMinutes: number
+  plannedQuestionCount?: number
   experienceVersion?: number
+  reviewVersion?: number
   interviewMode?: 'TRAINING' | 'TIMED'
   timeLimitMinutes?: number
   projectId?: string

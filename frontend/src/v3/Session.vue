@@ -7,6 +7,7 @@ import Notice from '../components/Notice.vue'
 import SpeechInput from '../components/SpeechInput.vue'
 import ProjectEvidenceMatrix from '../components/ProjectEvidenceMatrix.vue'
 import ConfigurationFields from './ConfigurationFields.vue'
+import ReportReview from './ReportReview.vue'
 import { displayDate, getSession, levelLabels, mutateSession, publicSourceUrl, requestId, statusLabels } from './api'
 import type { InterviewConfig, InterviewSession, MutationBody, ReviewFinding, SessionAction } from './types'
 
@@ -209,18 +210,19 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 
 <template>
   <div class="page v3-page">
-    <header class="page-heading"><nav class="v3-actions" aria-label="综合面试导航"><RouterLink to="/interview-v3" class="text-link">← 综合面试与记录</RouterLink><RouterLink to="/" class="text-link">返回练习概览</RouterLink></nav><h1>{{ session?.role || '综合面试' }}</h1><p v-if="session">{{ levelLabels[session.level] || session.level }} · {{ enhanced ? session.interviewMode === 'TIMED' ? `${session.timeLimitMinutes} 分钟计时实战` : '不限时训练' : `${session.durationMinutes} 分钟目标` }} · {{ displayDate(session.createdAt) }}</p></header>
+    <header class="page-heading"><nav class="v3-actions" aria-label="综合面试导航"><RouterLink to="/interview-v3" class="text-link">← 综合面试与记录</RouterLink><RouterLink to="/" class="text-link">返回练习概览</RouterLink></nav><h1>{{ session?.role || '综合面试' }}</h1><p v-if="session">{{ levelLabels[session.level] || session.level }} · {{ enhanced ? session.interviewMode === 'TIMED' ? `${session.timeLimitMinutes} 分钟计时实战` : '不限时训练' : `${session.durationMinutes} 分钟目标` }}<span v-if="session.plannedQuestionCount"> · 计划 {{ session.plannedQuestionCount }} 道主问题，实际轮数灵活调整</span> · {{ displayDate(session.createdAt) }}</p></header>
     <Notice :message="state.error" kind="error" />
     <Notice :message="state.pollError" kind="warning" />
     <div v-if="state.pollError || state.error" class="v3-actions"><button class="btn btn-secondary" :disabled="state.busy !== ''" data-action="reload" @click="load">刷新已保存状态</button></div>
     <p v-if="state.loading" role="status" class="muted">正在恢复本场面试…</p>
     <template v-if="session">
       <div class="v3-meta"><span class="badge">{{ statusLabels[session.status] || '任务处理中' }}</span><span v-if="session.mock" class="badge badge-orange">Mock 测试 · 非真实模型评估</span><span class="tiny muted">离开或刷新后可继续查看</span></div>
-      <Notice v-for="(warning, index) in session.warnings || []" :key="index" :message="warning" kind="warning" />
+      <details v-if="session.report?.version === 2 && session.warnings?.length" class="panel v3-report-warnings"><summary>查看本场准备与查证提示（{{ session.warnings.length }} 条）</summary><Notice v-for="(warning, index) in session.warnings" :key="index" :message="warning" kind="warning" /></details>
+      <template v-else><Notice v-for="(warning, index) in session.warnings || []" :key="index" :message="warning" kind="warning" /></template>
       <Notice v-if="session.error" :message="session.error" kind="error" />
-      <p v-if="!session.resumeId" class="v3-note">本场未选择简历，不会推断你没有提供的项目经历。</p>
+      <p v-if="!session.resumeId && session.report?.version !== 2" class="v3-note">本场未选择简历，不会推断你没有提供的项目经历。</p>
 
-      <section v-if="enhanced && hasStarted" class="panel v3-round-progress" aria-label="本场面试进度">
+      <section v-if="enhanced && hasStarted && session.report?.version !== 2" class="panel v3-round-progress" aria-label="本场面试进度">
         <div class="heading-row"><h2>本场进度</h2><span v-if="session.timing?.enabled" class="v3-clock" data-interview-clock :class="{ urgent: remainingMs < 180000 }">剩余 {{ clockLabel }}</span><span v-else class="badge">不限时训练</span></div>
         <ol v-if="session.stages?.length" class="v3-rounds" aria-label="面试四阶段"><li v-for="item in session.stages" :key="item.id" :aria-current="session.stage === item.id && item.status === 'IN_PROGRESS' ? 'step' : undefined" :class="{ active: item.status === 'IN_PROGRESS', complete: item.status === 'COMPLETED' }"><strong>{{ item.label }}</strong><span>{{ stageStatus[item.status] }}</span></li></ol>
         <p v-if="session.timing?.enabled && !expired" class="form-help">阅读、思考和作答计时；模型生成与系统等待不扣时。接近尾声会减少追问，为后续阶段留出时间。</p>
@@ -253,7 +255,8 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
         <button class="btn btn-secondary" data-action="correct" :disabled="!!state.busy || (!correction.trim() && !editConfiguration) || (editConfiguration && (!config.role || !config.level))" @click="correct">{{ state.busy === 'corrections' ? '正在保存更正…' : '保存更正，重新准备' }}</button>
       </section>
 
-      <section v-if="hasStarted" class="panel chat-panel v3-dialogue" aria-labelledby="v3-dialogue-title">
+      <ReportReview v-if="session.report?.version === 2" :session="session" />
+      <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel v3-dialogue" aria-labelledby="v3-dialogue-title">
         <header class="chat-header"><h2 id="v3-dialogue-title">{{ session.report ? '本场原始问答' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
         <div ref="messagesPanel" class="chat-messages v3-messages" role="log" aria-label="面试对话" aria-live="polite">
           <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }"><span class="avatar" aria-hidden="true">{{ message.role === 'USER' ? '你' : message.kind === 'REPLY' ? '答' : '问' }}</span><div><p class="message-meta">{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}<span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span></p><p class="message-content">{{ message.content }}</p></div></article>
@@ -273,9 +276,9 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <div v-if="canFinish" class="v3-actions v3-finish"><button class="btn btn-secondary" :disabled="!!state.busy" data-action="finish" @click="mutate('finish')">{{ state.busy === 'finish' ? '正在创建复盘任务…' : session.status === 'COMPLETED' ? '生成查证复盘' : '结束面试，查证复盘' }}</button><span class="tiny muted">只评价实际问过且已回答的内容。</span></div>
       <p v-if="session.status === 'CANCELLED'" class="panel">本场已取消，已保存的输入与问答仍可在这里查看。</p>
 
-      <section v-if="session.report" class="v3-report" aria-labelledby="v3-report-title"><div class="heading-row"><h2 id="v3-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel v3-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel v3-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="v3-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="v3-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#v3-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
+      <section v-if="session.report && session.report.version !== 2" class="v3-report" aria-labelledby="v3-report-title"><div class="heading-row"><h2 id="v3-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel v3-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel v3-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="v3-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="v3-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#v3-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
 
-      <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
+      <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
       <section v-if="sources.length" class="v3-sources" aria-labelledby="v3-sources-title"><h2 id="v3-sources-title">本场可回查的知识依据</h2><p class="form-help">题库用于发现考点，技术结论结合官方资料核对。来源不足或冲突会明确标注。</p><details v-for="source in sources" :id="`v3-source-${source.id}`" :key="source.id" :data-source="source.id" class="panel v3-source"><summary>{{ source.title }}<span class="tiny muted"> · {{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></summary><p class="tiny muted">版本：{{ source.version || '未标明' }} · 获取：{{ displayDate(source.fetchedAt) }}</p><p class="v3-source-excerpt">{{ source.excerpt }}</p><a v-if="publicSourceUrl(source.url)" :href="publicSourceUrl(source.url)" target="_blank" rel="noopener noreferrer" class="text-link">打开原始来源 ↗</a><p v-else class="tiny muted">此来源没有可打开的公开链接。</p><p v-if="source.sha256" class="tiny muted v3-hash">片段摘要：{{ source.sha256 }}</p></details></section>
       <footer class="footer-note"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }} / {{ session.usage?.maxCalls || 32 }} 次。</span><span>实际费用未知，以模型服务账单为准；输出上限不代表实际用量或金额。</span></footer>
     </template>
@@ -290,6 +293,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .v3-actions .text-link { display: inline-flex; align-items: center; min-height: 44px; }
 .v3-page .page-heading .v3-actions { margin: 0 0 14px; }
 .v3-meta { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 20px; }
+.v3-report-warnings summary { min-height: 44px; cursor: pointer; font-size: 16px; line-height: 1.8; }
 .v3-note { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 .v3-preparation > p { margin-top: 12px; }
 .v3-steps { padding: 0; list-style: none; display: flex; gap: 12px; margin-block: 24px; flex-wrap: wrap; }

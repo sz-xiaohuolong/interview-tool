@@ -131,6 +131,11 @@ public class V3OutputValidator {
     String action = text(raw.path("action"), 20);
     if (!Set.of("FOLLOW_UP", "NEXT").contains(action)) throw invalid();
     var out = json.createObjectNode().put("action", action);
+    if (raw.has("stageComplete")) {
+      if (!raw.path("stageComplete").isBoolean()
+          || (raw.path("stageComplete").asBoolean() && !action.equals("NEXT"))) throw invalid();
+      out.put("stageComplete", raw.path("stageComplete").asBoolean());
+    }
     if (action.equals("FOLLOW_UP")) out.put("question", text(raw.path("question"), 1500));
     out.set("sourceIds", references(raw.path("sourceIds"), sources));
     if (raw.has("reply") && !raw.path("reply").asText().isBlank()) out.put("reply", text(raw.path("reply"), 2000));
@@ -186,4 +191,42 @@ public class V3OutputValidator {
             .putArray("sourceIds");
     return out;
   }
+  /** 内容观察与技术查证分别校验，原答短引只能来自对应已提交回答。 */
+  public ObjectNode reportV2(JsonNode raw, JsonNode messages, JsonNode sources) {
+    var out = report(raw, messages, sources);
+    out.put("version", 2);
+    for (var node : out.path("findings")) {
+      var finding = (ObjectNode) node;
+      String qid = finding.path("questionId").asText();
+      JsonNode candidate = null;
+      for (var f : raw.path("findings")) if (f.path("questionId").asText().equals(qid)) candidate = f;
+      finding.put("answerStatus", "UNVERIFIED").put("headline", "本题尚未形成充分内容观察")
+          .put("observation", "现有评估样本不足，保留原回答，不能据此判断为短板。")
+          .put("priority", 3).putArray("terms");
+      if (candidate == null || !candidate.has("answerStatus")) continue;
+      String state = candidate.path("answerStatus").asText();
+      if (!Set.of("CLEAR", "PARTIAL", "UNVERIFIED").contains(state)) throw invalid();
+      String quote = candidate.path("answerQuote").asText("");
+      if (!quote.isEmpty()) {
+        if (!candidate.path("answerQuote").isTextual() || quote.length() > 500) throw invalid();
+        boolean literal = false;
+        for (var m : messages) if (m.path("role").asText().equals("USER")
+            && m.path("questionId").asText().equals(qid) && m.path("content").asText().contains(quote)) literal = true;
+        if (!literal) throw invalid();
+        finding.put("answerQuote", quote);
+      }
+      if (!state.equals("UNVERIFIED") && (quote.isBlank() || candidate.path("observation").asText().isBlank())) continue;
+      finding.put("answerStatus", state).put("headline", text(candidate.path("headline"), 120))
+          .put("observation", text(candidate.path("observation"), 1500));
+      var priority = candidate.path("priority");
+      if (!priority.isIntegralNumber() || priority.asInt() < 1 || priority.asInt() > 3) throw invalid();
+      finding.put("priority", priority.asInt());
+      if (!candidate.path("terms").isArray() || candidate.path("terms").size() > 3) throw invalid();
+      var terms = finding.putArray("terms");
+      for (var term : candidate.path("terms")) terms.addObject().put("term", text(term.path("term"), 80))
+          .put("explanation", text(term.path("explanation"), 250));
+    }
+    return out;
+  }
+
 }

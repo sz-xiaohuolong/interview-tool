@@ -289,8 +289,18 @@ public class V3InterviewService implements ProjectEvidenceSource {
     s.put("interviewMode", mode).put("timeLimitMinutes", minutes).put("projectId", projectId).put("projectBrief", brief);
     s.set("mainProject", main);
     s.put("contextTruncated", s.path("contextTruncated").asBoolean() || project.truncated());
-    input.put("experienceVersion", 1).put("project", content)
-        .put("totalQuestions", mode.equals("TIMED") ? 8 : Math.max(4, input.path("totalQuestions").asInt()));
+    input.put("experienceVersion", 1).put("project", content);
+    if (s.has("plannedQuestionCount") || b.has("plannedQuestionCount")) {
+      JsonNode requested = b.path("plannedQuestionCount");
+      int count = b.has("plannedQuestionCount") ? requested.asInt() : s.path("plannedQuestionCount").asInt(8);
+      if ((b.has("plannedQuestionCount") && (!requested.isIntegralNumber() || !requested.canConvertToInt()))
+          || !Set.of(8, 12).contains(count)) throw ApiException.bad("计划题量请选择8或12道主问题");
+      s.put("plannedQuestionCount", count);
+      input.put("plannedQuestionCount", count).put("totalQuestions", count);
+    } else {
+      // 旧场次重新准备时沿用原题量，不自动切换规划规则。
+      input.put("totalQuestions", mode.equals("TIMED") ? 8 : Math.max(4, input.path("totalQuestions").asInt()));
+    }
     input.set("mainProject", main.deepCopy());
     input.putArray("stageOrder").add("INTRO").add("PROJECT").add("TECHNICAL").add("QUESTIONS");
     var snapshot = ((ObjectNode) input.path("materialSnapshots")).putObject("project");
@@ -350,8 +360,8 @@ public class V3InterviewService implements ProjectEvidenceSource {
   @Override public boolean supports(String kind) { return "V3".equals(kind); }
   @Override public ObjectNode source(String id) {
     var s = store.get(id);
-    if (!V3InterviewProgress.enabled(s) || !s.path("report").path("matrix").isObject())
-      throw ApiException.conflict("本场没有可补练的项目矩阵");
+    if (!s.path("status").asText().equals("REPORT_READY"))
+      throw ApiException.conflict("请等待本场复盘完成后补练");
     s.set("matrix", s.path("report").path("matrix").deepCopy());
     s.put("mode", "PROJECT"); return s;
   }
@@ -374,6 +384,8 @@ public class V3InterviewService implements ProjectEvidenceSource {
             .put("generation", 1)
             .put("revision", 0)
             .put("experienceVersion", 1)
+            .put("reviewVersion", 2)
+            .put("plannedQuestionCount", 8)
             .put("mock", env.getProperty("app.llm.provider", "openai").equals("mock"));
     configure(s, body);
     s.put("status", "QUEUED").put("phase", "已进入准备队列").put("pendingStage", "PREPARE");
@@ -582,13 +594,13 @@ public class V3InterviewService implements ProjectEvidenceSource {
                   || body.has("jdId")
                   || body.has("jd")
                   || body.has("durationMinutes") || body.has("projectId") || body.has("projectBrief")
-                  || body.has("interviewMode") || body.has("timeLimitMinutes");
+                  || body.has("interviewMode") || body.has("timeLimitMinutes") || body.has("plannedQuestionCount");
           if (configChanged) {
             var config = json.createObjectNode();
-            for (String k : List.of("role", "level", "resumeId", "jdId", "durationMinutes", "projectId", "projectBrief", "interviewMode", "timeLimitMinutes"))
-              config.set(k, s.path(k));
+            for (String k : List.of("role", "level", "resumeId", "jdId", "durationMinutes", "projectId", "projectBrief", "interviewMode", "timeLimitMinutes", "plannedQuestionCount"))
+              if (s.has(k)) config.set(k, s.path(k));
             config.put("jd", s.path("input").path("jd").asText());
-            for (String k : List.of("role", "level", "resumeId", "jdId", "jd", "durationMinutes", "projectId", "projectBrief", "interviewMode", "timeLimitMinutes"))
+            for (String k : List.of("role", "level", "resumeId", "jdId", "jd", "durationMinutes", "projectId", "projectBrief", "interviewMode", "timeLimitMinutes", "plannedQuestionCount"))
               if (body.has(k)) config.set(k, body.get(k));
             if (body.has("jdId")
                 && body.path("jdId").asText().isBlank()
@@ -653,6 +665,10 @@ public class V3InterviewService implements ProjectEvidenceSource {
                 .put("questionId", expected)
                 .put("createdAt", now());
         if (V3InterviewProgress.enabled(s)) m.put("stage", s.path("stage").asText());
+        if (s.path("reviewVersion").asInt() == 2) {
+          m.set("rootQuestionId", s.path("currentQuestion").path("rootQuestionId"));
+          m.set("questionKind", s.path("currentQuestion").path("questionKind"));
+        }
         if (progress.expired(s)) {
           if (s.path("stage").asText().equals("QUESTIONS")) reply(s, "时间已到，你的反问已保存；未额外调用模型生成回应，具体公司情况请向招聘方确认。本场面试已结束。");
           completeQuestions(s, "时间已到，最后一答已保存，可以生成复盘");
@@ -675,6 +691,8 @@ public class V3InterviewService implements ProjectEvidenceSource {
       case "finish" -> {
         require(Set.of("IN_PROGRESS", "INTERRUPTED", "COMPLETED").contains(state), "当前不能开始复盘");
         progress.stop(s);
+        if (s.path("reviewVersion").asInt() == 2 && !s.has("endReason"))
+          s.put("endReason", progress.expired(s) ? "TIME_LIMIT" : state.equals("INTERRUPTED") ? "SYSTEM_INTERRUPTED" : "USER_FINISHED");
         s.put("generation", s.path("generation").asInt() + 1)
             .put("status", "REPORTING")
             .put("phase", "正在准备终审核实")
@@ -736,14 +754,25 @@ public class V3InterviewService implements ProjectEvidenceSource {
             .put("createdAt", now())
             .put("fallback", fallback);
     m.set("sourceIds", sourceIds.deepCopy());
+    if (s.path("reviewVersion").asInt() == 2) {
+      String root = s.path("questions").get(s.path("questionIndex").asInt()).path("id").asText();
+      boolean follow = false;
+      for (var previous : s.path("messages")) if (previous != m && previous.path("role").asText().equals("ASSISTANT")
+          && previous.path("rootQuestionId").asText().equals(root)) follow = true;
+      m.put("rootQuestionId", root).put("questionKind", follow ? "FOLLOW_UP" : "MAIN");
+    }
     if (V3InterviewProgress.enabled(s)) m.put("stage", s.path("stage").asText());
     s.set("currentQuestion", m.deepCopy());
     progress.resume(s);
   }
 
   private void next(ObjectNode s) {
+    next(s, false);
+  }
+
+  private void next(ObjectNode s, boolean stageComplete) {
     if (progress.expired(s)) { completeQuestions(s, "时间已到，本场已收尾，可以生成复盘"); return; }
-    int index = V3InterviewProgress.enabled(s) ? progress.nextIndex(s) : s.path("questionIndex").asInt() + 1;
+    int index = V3InterviewProgress.enabled(s) ? progress.nextIndex(s, stageComplete) : s.path("questionIndex").asInt() + 1;
     s.put("questionIndex", index).put("followUpCount", 0).put("error", "");
     if (index >= s.path("questions").size()) {
       completeQuestions(s, "本场问题已完成，可以生成复盘");
@@ -764,6 +793,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
   private void completeQuestions(ObjectNode s, String phase) {
     progress.stop(s);
     s.put("status", "COMPLETED").put("phase", phase);
+    if (s.path("reviewVersion").asInt() == 2) s.put("endReason", progress.expired(s) ? "TIME_LIMIT" : "QUESTIONS_COMPLETED");
     if (V3InterviewProgress.enabled(s)) s.put("endedAt", now());
   }
 
@@ -790,6 +820,14 @@ public class V3InterviewService implements ProjectEvidenceSource {
         input.put("experienceVersion", 1).put("stage", s.path("stage").asText())
             .put("reduceFollowups", progress.narrowFollowups(s));
         input.set("mainProject", s.path("mainProject"));
+        if (s.has("plannedQuestionCount")) {
+          input.set("plannedQuestionCount", s.path("plannedQuestionCount"));
+          var remaining = input.putArray("remainingStageQuestions");
+          for (int i = s.path("questionIndex").asInt() + 1; i < s.path("questions").size(); i++) {
+            var q = s.path("questions").get(i);
+            if (q.path("stage").asText().equals(s.path("stage").asText())) remaining.add(q.path("question").asText());
+          }
+        }
       }
       input.put(
           "answer", s.path("messages").get(s.path("messages").size() - 1).path("content").asText());
@@ -822,7 +860,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
         } else {
           if (V3InterviewProgress.enabled(s) && s.path("stage").asText().equals("QUESTIONS"))
             reply(s, decision.path("reply").asText("感谢你的提问。本场面试已结束；具体公司的内部信息需要向招聘方确认。"));
-          next(s);
+          next(s, decision.path("stageComplete").asBoolean());
         }
         s.put("generation", generation + 1);
         ((ObjectNode) s.path("metrics"))
@@ -922,6 +960,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
       var input = json.createObjectNode();
       for (String k : List.of("role", "level", "summary", "messages")) input.set(k, s.path(k));
       if (V3InterviewProgress.enabled(s)) { input.put("experienceVersion", 1); input.set("mainProject", s.path("mainProject")); }
+      if (s.path("reviewVersion").asInt() == 2) input.put("reviewVersion", 2);
       input.set("sources", selected);
       input
           .put("resume", s.path("input").path("resume").asText())
@@ -929,9 +968,19 @@ public class V3InterviewService implements ProjectEvidenceSource {
       boolean answered = false;
       for (var m : s.path("messages")) if (m.path("role").asText().equals("USER")) answered = true;
       ObjectNode rawReport = answered ? invoke(id, generation, "REVIEW", input, 150) : null;
-      ObjectNode report = answered ? validator.report(rawReport, s.path("messages"), selected)
+      ObjectNode report = answered ? (s.path("reviewVersion").asInt() == 2
+          ? validator.reportV2(rawReport, s.path("messages"), selected) : validator.report(rawReport, s.path("messages"), selected))
           : json.createObjectNode().put("summary", "本场尚无已提交回答，样本不足，无法评价能力");
       if (!answered) report.putArray("findings");
+      if (s.path("reviewVersion").asInt() == 2) {
+        report.put("version", 2);
+        int mainCount = 0, followCount = 0;
+        for (var m : s.path("messages")) if (m.path("role").asText().equals("USER")) {
+          if (m.path("questionKind").asText().equals("FOLLOW_UP")) followCount++; else mainCount++;
+        }
+        report.putObject("overview").put("answeredCount", mainCount + followCount).put("mainQuestionCount", mainCount)
+            .put("followUpCount", followCount).put("endReason", s.path("endReason").asText("SYSTEM_INTERRUPTED"));
+      }
       if (V3InterviewProgress.enabled(s)) {
         var matrix = answered ? evidence.normalize(rawReport.path("matrix"), s.path("messages"), s.path("mainProject"))
             : evidence.uncovered(s.path("mainProject"));
