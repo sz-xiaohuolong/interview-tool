@@ -1,9 +1,21 @@
 <script setup lang="ts">
 import { PhChatsCircle, PhSquaresFour, PhBooks, PhClockCounterClockwise, PhCaretRight, PhLockSimple, PhLightning } from '@phosphor-icons/vue'
 import { useRoute } from 'vue-router'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import ModelSettingsDialog from './ModelSettingsDialog.vue'
+import { notifyModelConfigurationChanged, type ModelConfiguration } from '../model-settings'
 import { navigationFor } from '../navigation'
-defineProps<{ providerLabel: string; mock: boolean; configured: boolean }>()
+const props = defineProps<{ providerLabel: string; mock: boolean; configured: boolean }>()
+const emit = defineEmits<{ 'configuration-changed': [] }>()
+const settingsOpen = ref(false), savedSettings = ref<ModelConfiguration | null>(null)
+const label = computed(() => !savedSettings.value ? props.providerLabel : savedSettings.value.provider === 'mock' ? '测试模式 · Mock' : savedSettings.value.configured ? `模型已配置 · ${savedSettings.value.model}` : '模型待配置')
+const isMock = computed(() => savedSettings.value ? savedSettings.value.provider === 'mock' : props.mock)
+const isConfigured = computed(() => savedSettings.value ? savedSettings.value.configured : props.configured)
+function settingsSaved(value: ModelConfiguration) {
+  if (!savedSettings.value || value.revision >= savedSettings.value.revision) savedSettings.value = value
+  notifyModelConfigurationChanged()
+  emit('configuration-changed')
+}
 const route = useRoute()
 const location = computed(() => navigationFor(route.path, typeof route.meta.title === 'string' ? route.meta.title : ''))
 const navigation = [
@@ -41,9 +53,15 @@ const navigation = [
             <span v-else aria-current="page">{{ step.title }}</span>
           </li>
         </ol></nav>
-        <div class="topbar-meta"><span class="badge" :class="{ 'badge-orange': mock, 'badge-red': !configured }"><PhLightning :size="12" />{{ providerLabel }}</span><span class="topbar-date">个人版</span></div>
+        <div class="topbar-meta"><button type="button" class="badge model-settings-trigger" data-model-settings aria-label="打开模型配置" :class="{ 'badge-orange': isMock, 'badge-red': !isConfigured }" @click="settingsOpen = true"><PhLightning :size="12" />{{ label }}</button><span class="topbar-date">个人版</span></div>
       </header>
       <main id="main-content"><slot /></main>
     </div>
+    <ModelSettingsDialog v-model:open="settingsOpen" @saved="settingsSaved" />
   </div>
 </template>
+<style scoped>
+.model-settings-trigger { cursor: pointer; font: inherit; font-size: 12px; max-width: min(44vw, 360px); overflow-wrap: anywhere; text-align: left; }
+.model-settings-trigger:hover { filter: brightness(.96); }
+.model-settings-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>

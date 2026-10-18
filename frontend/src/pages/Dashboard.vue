@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onModelConfigurationChanged } from '../model-settings'
 import { computed, onMounted, ref } from 'vue'
 import { PhArrowUpRight, PhArrowRight, PhLightning, PhFileText, PhStack, PhChatsCircle, PhLockSimple, PhClock } from '@phosphor-icons/vue'
 import { request, errorMessage } from '../api'
@@ -11,6 +12,7 @@ const sessions = ref<Session[]>([]), materials = ref<Material[]>([]), health = r
 const completed = computed(() => sessions.value.filter(s => s.status === 'COMPLETED'))
 const answers = computed(() => sessions.value.reduce((n, s) => n + s.messages.filter(m => m.role === 'USER').length, 0))
 const recent = computed(() => sessions.value.slice(0, 4))
+onModelConfigurationChanged(async () => { try { health.value = await request<Health>('/health') } catch { health.value = null } })
 onMounted(async () => {
   try { [sessions.value, materials.value, health.value] = await Promise.all([request<Session[]>('/sessions'), request<Material[]>('/materials'), request<Health>('/health')]) }
   catch (e) { error.value = errorMessage(e) } finally { loading.value = false }
@@ -20,7 +22,7 @@ onMounted(async () => {
   <div class="page dashboard-page">
     <div class="page-heading"><p class="eyebrow" style="margin-top: 0">每一次练习，都是下一次的底气</p><h1>把你会的，讲得更好。</h1><p>从一道问题开始，练习技术深度、表达与临场应对。</p></div>
     <Notice :message="error" kind="error" />
-    <Notice v-if="health && !health.configured" message="还没有配置模型。请填写项目根目录 .env.local 中的模型地址、密钥和模型名称，重启后端后开始练习。" kind="warning" />
+    <Notice v-if="health && !health.configured" message="还没有配置模型。请点击右上角配置服务地址、密钥和模型名称，然后开始练习。" kind="warning" />
     <Notice v-if="health?.provider === 'mock'" message="当前为 Mock 测试模式：可体验完整流程，题目和评分仅供功能验证。正式练习请配置真实模型。" kind="warning" />
     <LoadingState v-if="loading" />
     <template v-else>

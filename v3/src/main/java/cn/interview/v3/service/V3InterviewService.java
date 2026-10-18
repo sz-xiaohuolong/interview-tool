@@ -37,6 +37,10 @@ public class V3InterviewService implements ProjectEvidenceSource {
   private final KnowledgeService knowledge;
   private final V3OutputValidator validator;
   private final Environment env;
+  private cn.interview.service.ModelConfigurationService modelSettings;
+
+  @Autowired
+  void modelSettings(cn.interview.service.ModelConfigurationService settings) { this.modelSettings = settings; }
   private final long fastDeadline;
   private final Clock clock;
   private final V3InterviewProgress progress;
@@ -101,6 +105,10 @@ public class V3InterviewService implements ProjectEvidenceSource {
   }
 
   public Map<String, Object> health() {
+    if (modelSettings != null) {
+      var connection = modelSettings.connection();
+      return Map.of("enabled", true, "provider", connection.provider(), "configured", connection.configured(), "model", connection.model());
+    }
     String provider = env.getProperty("app.llm.provider", "openai");
     return Map.of(
         "enabled",
@@ -414,7 +422,7 @@ public class V3InterviewService implements ProjectEvidenceSource {
             .put("experienceVersion", 1)
             .put("reviewVersion", 2)
             .put("plannedQuestionCount", 8)
-            .put("mock", env.getProperty("app.llm.provider", "openai").equals("mock"));
+            .put("mock", health().get("provider").equals("mock"));
     configure(s, body);
     s.put("status", "QUEUED").put("phase", "已进入准备队列").put("pendingStage", "PREPARE");
     s.putObject("summary");

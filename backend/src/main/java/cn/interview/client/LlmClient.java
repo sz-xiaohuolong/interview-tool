@@ -1,6 +1,9 @@
 package cn.interview.client;
 
 import cn.interview.exception.ApiException;
+import cn.interview.dto.ModelSettings;
+import cn.interview.service.ModelConfigurationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -20,26 +23,44 @@ import org.springframework.stereotype.Component;
 @Component
 public class LlmClient {
     final ObjectMapper json;
-    final String provider,baseUrl,key,model,reasoningEffort;
+    private final java.util.function.Supplier<ModelSettings> connections;
     final int timeout;
     final HttpClient http;
     final MockLlmProvider mock;
-    public LlmClient(ObjectMapper json,@Value("${app.llm.provider}")String provider,@Value("${app.llm.base-url}")String baseUrl,@Value("${app.llm.api-key}")String key,@Value("${app.llm.model}")String model,@Value("${app.llm.timeout-seconds}")int timeout,@Value("${app.llm.reasoning-effort:}")String reasoningEffort){
-        this.json=json;this.provider=provider;this.baseUrl=baseUrl;this.key=key;this.model=model;this.reasoningEffort=reasoningEffort.strip();this.timeout=Math.max(1,Math.min(timeout,300));
-        http=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(Math.min(this.timeout,15))).followRedirects(HttpClient.Redirect.NEVER).build();mock=new MockLlmProvider(json);
+    @Autowired
+    public LlmClient(ObjectMapper json, ModelConfigurationService settings, @Value("${app.llm.timeout-seconds}") int timeout) {
+        this(json, settings::connection, timeout);
     }
-    public boolean isMock(){return "mock".equals(provider);}
-    public Map<String,Object> health(){return Map.of("status","ok","provider",provider,"configured",isMock()||("openai".equals(provider)&&!key.isBlank()&&!model.isBlank()&&!baseUrl.isBlank()),"model",isMock()?"明确标识的测试模型":model);}
+    public LlmClient(ObjectMapper json, String provider, String baseUrl, String key, String model, int timeout, String reasoningEffort) {
+        this(json, () -> new ModelSettings(provider, "CUSTOM", baseUrl, key, model, "", reasoningEffort.strip(), ""), timeout);
+    }
+    private LlmClient(ObjectMapper json, java.util.function.Supplier<ModelSettings> connections, int timeout) {
+        this.json = json;
+        this.connections = connections;
+        this.timeout = Math.max(1, Math.min(timeout, 300));
+        http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(Math.min(this.timeout, 15))).followRedirects(HttpClient.Redirect.NEVER).build();
+        mock = new MockLlmProvider(json);
+    }
+    public ModelSettings connection() { return connections.get(); }
+    public boolean isMock() { return connection().isMock(); }
+    public Map<String, Object> health() {
+        var s = connection();
+        return Map.of("status", "ok", "provider", s.provider(), "configured", s.configured(), "model", s.isMock() ? "明确标识的测试模型" : s.model());
+    }
+
     public ObjectNode call(String task,ObjectNode input){
-        if(isMock())return mock.generate(task,input);
+        var settings=connection();
+        String provider=settings.provider(),baseUrl=settings.baseUrl(),key=settings.apiKey(),model=settings.model(),reasoningEffort=settings.effort(task.equals("interviewer") && settings.preset().equals("DEEPSEEK"));
+        if(settings.isMock())return mock.generate(task,input);
         if(!"openai".equals(provider))throw new ApiException(503,"MODEL_NOT_CONFIGURED","LLM_PROVIDER 必须为 openai 或显式测试用 mock");
-        if(key.isBlank()||model.isBlank())throw new ApiException(503,"MODEL_NOT_CONFIGURED","模型尚未配置，请在 .env.local 设置 LLM_API_KEY 和 LLM_MODEL 后重启服务");
+        if(key.isBlank()||model.isBlank())throw new ApiException(503,"MODEL_NOT_CONFIGURED","模型尚未配置，请点击右上角设置服务地址、API Key 和模型 ID");
         try{
             String prompt=new ClassPathResource("prompts/"+task+".txt").getContentAsString(StandardCharsets.UTF_8);
             String url=baseUrl.replaceAll("/+$","");if(!url.endsWith("/chat/completions"))url+="/chat/completions";
             URI uri=URI.create(url);if(!List.of("http","https").contains(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)throw new ApiException(503,"MODEL_NOT_CONFIGURED","LLM_BASE_URL 不是有效的 HTTP 服务地址");
             ObjectNode payload=json.valueToTree(Map.of("model",model,"temperature",0.4,"max_tokens",task.equals("evaluator")?6500:4500,"response_format",Map.of("type","json_object"),"messages",List.of(Map.of("role","system","content",prompt),Map.of("role","user","content",json.writeValueAsString(input)))));
             if(!reasoningEffort.isBlank())payload.put("reasoning_effort",reasoningEffort);
+            settings.extraBody(task.equals("interviewer")).forEach((name,value)->payload.set(name,json.valueToTree(value)));
             HttpRequest request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(timeout)).header("Content-Type","application/json").header("Authorization","Bearer "+key).POST(HttpRequest.BodyPublishers.ofString(payload.toString())).build();
             HttpResponse<byte[]> response=http.sendAsync(request,HttpResponse.BodyHandlers.ofByteArray()).get(timeout,TimeUnit.SECONDS);
             int status=response.statusCode();

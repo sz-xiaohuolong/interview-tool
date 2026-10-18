@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onModelConfigurationChanged } from '../model-settings'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { request, errorMessage } from '../api'
@@ -16,6 +17,7 @@ const valid = computed(() => !!config.value.role.trim() && ['INTERN', 'JUNIOR', 
 const generic = computed(() => !config.value.resumeId && !config.value.jdId && !config.value.jd.trim() && !config.value.projectId && !config.value.projectBrief?.trim())
 let pending: { fingerprint: string; id: string } | null = null
 
+onModelConfigurationChanged(async () => { try { health.value = await getV3Status() } catch { health.value = null } })
 onMounted(async () => {
   const results = await Promise.allSettled([request<Material[]>('/materials'), listSessions(), getV3Status()])
   if (results[0].status === 'fulfilled') materials.value = results[0].value

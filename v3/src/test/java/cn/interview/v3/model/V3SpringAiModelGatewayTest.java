@@ -83,6 +83,28 @@ class V3SpringAiModelGatewayTest {
         return input;
     }
 
+    @Test void 后续请求动态读取共享配置且DeepSeek追问关闭思考() throws Exception {
+        var env = new org.springframework.mock.env.MockEnvironment()
+            .withProperty("app.llm.provider", "mock");
+        var directory = java.nio.file.Files.createTempDirectory("v3-model-settings-");
+        var settings = new cn.interview.service.ModelConfigurationService(env,
+            new cn.interview.mapper.ModelConfigStore(directory.toString(), json), json);
+        var gateway = new V3SpringAiModelGateway(json, settings);
+        var body = json.createObjectNode().put("expectedRevision", 0).put("preset", "CUSTOM")
+            .put("baseUrl", "http://127.0.0.1:" + server.getAddress().getPort() + "/v1")
+            .put("apiKey", "synthetic-connection-key").put("model", "new-deep-model")
+            .put("fastModel", "new-fast-model").put("fastReasoningEffort", "low");
+        settings.save(body);
+        gateway.call("FOLLOWUP", followup(), 2);
+        assertThat(requests.get(0).path("model").asText()).isEqualTo("new-fast-model");
+        body.put("expectedRevision", 1).put("preset", "DEEPSEEK").put("fastModel", "next-fast-model");
+        settings.save(body);
+        gateway.call("FOLLOWUP", followup(), 2);
+        assertThat(requests.get(1).path("model").asText()).isEqualTo("next-fast-model");
+        assertThat(requests.get(1).has("reasoning_effort")).isFalse();
+        assertThat(requests.get(1).path("thinking").path("type").asText()).isEqualTo("disabled");
+    }
+
     @Test void unconfiguredRealModeFailsWithoutUsingMockOrNetwork() {
         assertThatThrownBy(() -> gateway("openai", "", "", "low").call("FOLLOWUP", followup(), 2))
             .isInstanceOfSatisfying(ApiException.class, error -> assertThat(error.code).isEqualTo("MODEL_NOT_CONFIGURED"));

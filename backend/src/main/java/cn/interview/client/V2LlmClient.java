@@ -1,6 +1,7 @@
 package cn.interview.client;
 
 import cn.interview.common.ContentHash;
+import cn.interview.dto.ModelSettings;
 import cn.interview.common.Models;
 import cn.interview.exception.V2Exception;
 import cn.interview.mapper.V2Store;
@@ -22,33 +23,36 @@ import org.springframework.stereotype.Component;
 public class V2LlmClient {
     final LlmClient legacy;final V2Store db;
     public V2LlmClient(LlmClient legacy,V2Store db){this.legacy=legacy;this.db=db;}
-    public ObjectNode protocol(V2Task task) {
+    public ObjectNode protocol(V2Task task) { return protocol(task, legacy.connection()); }
+    private ObjectNode protocol(V2Task task, ModelSettings settings) {
         try {
             String prompt=new ClassPathResource("v2/prompts/"+task.file()+".txt").getContentAsString(StandardCharsets.UTF_8);
             var p=db.object().put("rubricVersion","v2.1").put("promptVersion","v2.1").put("outputSchemaVersion","v2.1")
-                .put("promptHash",ContentHash.sha(prompt)).put("promptText",prompt).put("providerIdentity",ContentHash.sha(legacy.provider+"|"+legacy.baseUrl))
-                .put("requestedModel",legacy.isMock()?"EXPLICIT_MOCK_V2":legacy.model).put("mock",legacy.isMock());
-            p.putNull("returnedModel");p.putObject("parameters").put("temperature",0.4).put("max_tokens",task.tokens()).put("reasoning_effort",legacy.reasoningEffort);
+                .put("promptHash",ContentHash.sha(prompt)).put("promptText",prompt).put("providerIdentity",ContentHash.sha(settings.provider()+"|"+settings.baseUrl()))
+                .put("requestedModel",settings.isMock()?"EXPLICIT_MOCK_V2":settings.model()).put("mock",settings.isMock());
+            p.putNull("returnedModel");p.putObject("parameters").put("temperature",0.4).put("max_tokens",task.tokens()).put("reasoning_effort",settings.effort(false));
             return p;
         }catch(Exception e){throw new IllegalStateException("V2 固定提示词缺失",e);}
     }
     public ObjectNode publicProtocol(JsonNode p){var out=((ObjectNode)p).deepCopy();out.remove("promptText");return out;}
-    public boolean executable(V2Task task,JsonNode p){var current=protocol(task);var old=((ObjectNode)p).deepCopy();old.putNull("returnedModel");old.remove(List.of("startedAt","finishedAt","finishReason","systemFingerprint"));return db.hash(current).equals(db.hash(old));}
+    public boolean executable(V2Task task,JsonNode p){return executable(task,p,legacy.connection());}
+    private boolean executable(V2Task task,JsonNode p,ModelSettings settings){var current=protocol(task,settings);var old=((ObjectNode)p).deepCopy();old.putNull("returnedModel");old.remove(List.of("startedAt","finishedAt","finishReason","systemFingerprint"));return db.hash(current).equals(db.hash(old));}
     public ObjectNode call(V2Task task,ObjectNode input,ObjectNode protocol) {
+        var settings=legacy.connection();
         if(input.toString().length()>60000)throw V2Exception.invalid("本次输入超过60000字符，请缩小所选范围");
-        if(!executable(task,protocol))throw new V2Exception(409,"V2_PROTOCOL_CHANGED","当前模型或规则已变化，请显式建立新的评估分组。","CREATE_EVALUATION_GROUP");
+        if(!executable(task,protocol,settings))throw new V2Exception(409,"V2_PROTOCOL_CHANGED","当前模型或规则已变化，请显式建立新的评估分组。","CREATE_EVALUATION_GROUP");
         protocol.put("startedAt",Models.now());
-        if(legacy.isMock()){protocol.put("returnedModel","EXPLICIT_MOCK_V2").put("finishedAt",Models.now()).put("finishReason","stop");return V2MockTasks.generate(task,input,db);}
-        if(!"openai".equals(legacy.provider)||legacy.key.isBlank()||legacy.model.isBlank())throw new V2Exception(503,"MODEL_NOT_CONFIGURED","模型未配置；请检查本机配置，没有使用 Mock。","CHECK_CONFIGURATION");
+        if(settings.isMock()){protocol.put("returnedModel","EXPLICIT_MOCK_V2").put("finishedAt",Models.now()).put("finishReason","stop");return V2MockTasks.generate(task,input,db);}
+        if(!"openai".equals(settings.provider())||settings.apiKey().isBlank()||settings.model().isBlank())throw new V2Exception(503,"MODEL_NOT_CONFIGURED","模型未配置；请检查本机配置，没有使用 Mock。","CHECK_CONFIGURATION");
         CompletableFuture<HttpResponse<byte[]>> pending=null;
         try {
-            String url=legacy.baseUrl.replaceAll("/+$","");if(!url.endsWith("/chat/completions"))url+="/chat/completions";
+            String url=settings.baseUrl().replaceAll("/+$","");if(!url.endsWith("/chat/completions"))url+="/chat/completions";
             URI uri=URI.create(url);if(!List.of("http","https").contains(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)throw new V2Exception(503,"MODEL_NOT_CONFIGURED","模型服务地址无效。","CHECK_CONFIGURATION");
-            var payload=db.object().put("model",legacy.model).put("temperature",0.4).put("max_tokens",task.tokens());
+            var payload=db.object().put("model",settings.model()).put("temperature",0.4).put("max_tokens",task.tokens());
             payload.putObject("response_format").put("type","json_object");
-            if(!legacy.reasoningEffort.isBlank())payload.put("reasoning_effort",legacy.reasoningEffort);
+            if(!settings.effort(false).isBlank())payload.put("reasoning_effort",settings.effort(false));
             var messages=payload.putArray("messages");messages.addObject().put("role","system").put("content",protocol.path("promptText").asText());messages.addObject().put("role","user").put("content",input.toString());
-            var request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(legacy.timeout)).header("Content-Type","application/json").header("Authorization","Bearer "+legacy.key).POST(HttpRequest.BodyPublishers.ofString(payload.toString())).build();
+            var request=HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(legacy.timeout)).header("Content-Type","application/json").header("Authorization","Bearer "+settings.apiKey()).POST(HttpRequest.BodyPublishers.ofString(payload.toString())).build();
             pending=legacy.http.sendAsync(request,info->new BoundedBody());var response=pending.get(legacy.timeout,TimeUnit.SECONDS);
             if(response.statusCode()==401||response.statusCode()==403)throw new V2Exception(503,"MODEL_AUTH_ERROR","模型认证失败，请检查本机密钥和权限。","CHECK_CONFIGURATION");
             if(response.statusCode()==429)throw new V2Exception(503,"MODEL_RATE_LIMITED","模型服务限流，输入已保存，请稍后显式重试。","RETRY_OPERATION");

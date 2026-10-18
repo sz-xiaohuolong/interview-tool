@@ -122,3 +122,21 @@ R16 回答待补强项可结合岗位、职级、主项目（如有）、原问�
 | 27 | 32次后仍可继续，128次总预算为复盘预留1次；界面显示实际输入/输出/合计Token，失败正文的已返回用量仍计入，缺失与迟到用量如实处理 |
 
 新报告`version:2`，finding增加`answerStatus,answerQuote?,observation,headline,priority(1..3),terms:[{term,explanation}]`；`answerQuote`须为该questionId原答的连续片段，有证据的CLEAR/PARTIAL必须引用；无观察降UNVERIFIED。消息增加服务端`rootQuestionId`与`questionKind:MAIN|FOLLOW_UP`。报告`overview`包含实际作答数与结束原因，不虚构不限时有效用时。技术补练`GET /api/review-gaps/V3/{sourceId}`，`POST /api/review-gaps/V3/{sourceId}/{questionId}`，返回已有单题及任务/最近尝试关联；案例`contextOrigin:REVIEW_GAP`。
+
+## 全站模型配置（2026-10-18，用户已确认）
+
+R17 点击右上角模型状态打开配置弹窗，全站共用一套当前连接，覆盖V1调用、V2专项练习和V3综合面试。提供OpenAI、DeepSeek、自定义OpenAI兼容服务预设；地址、密钥、模型ID及高级追问模型/思考强度可配置。模型可手填或主动获取列表，获取失败不清空输入，也不阻止手填。保存后后续请求动态读取，已经发出的请求保持其配置快照，不自动重算历史。
+
+配置只保存在后端本机data目录，不修改.env.local；重启保留，支持恢复启动配置。接口不回传明文密钥，浏览器不持久化密钥，关闭清空密钥草稿；空密钥只在同一预设与同一服务地址下表示沿用，更换连接必须重新填写。服务地址仅接受合法HTTP(S)，HTTP限回环本机地址，禁止凭证、查询参数及片段。配置写入、恢复、凭证复用须校验revision，拒绝过期修改；损坏配置明确失败，不静默换模型。无配置或失败不回退Mock，Mock只保留显式启动配置。
+
+测试连接和获取模型是独立显式动作，不因打开/保存自动请求。测试只发送固定合成JSON检查内容，明确可能消耗少量Token；返回JSON能力、耗时及上游实际用量（若有），不把可连接称为真实面试质量通过。上游认证、限流、超时、格式错误和列表不可用分别提示，不回传上游正文或凭证。DeepSeek沿用OpenAI聊天协议，默认追问关闭思考以保留低延迟；思考强度和模型能力以用户选择及服务实际返回为准。
+
+HTTP：GET/PUT `/api/model-config`，POST `/api/model-config/reset`、`/test`、`/models`。GET仅返回revision、source、provider、preset、baseUrl、model、fastModel、reasoningEffort、fastReasoningEffort、apiKeyConfigured及configured；PUT/test/models接收同名配置字段、可选apiKey与expectedRevision，reset接收expectedRevision。测试不改已保存配置。全站health与V3/status使用同一配置事实源。
+
+| AC | 可观察要求 |
+|---|---|
+| 28 | 右上角可打开弹窗、保存与关闭；取消不生效；密钥不回显或进入浏览器存储；模型可手填、主动获取及测试 |
+| 29 | 保存后V1、V2、V3后续真实HTTP请求及全站状态使用新配置，无需重启；在途请求保持原参数；V2原评估协议发生模型变化时仍拒绝混组 |
+| 30 | 配置重启保留，可恢复启动配置；过期修改或换址缺密钥被拒绝，不破坏原配置，失败不切换Mock |
+| 31 | 测试与模型列表只在主动操作时访问指定服务，固定合成内容、受限响应和超时，失败不泄露凭证且不覆盖已保存配置 |
+| 32 | OpenAI兼容服务与DeepSeek参数预设均通过本机合成协议验证，旧场次/报告不自动重算，日常启动配置原样保留 |

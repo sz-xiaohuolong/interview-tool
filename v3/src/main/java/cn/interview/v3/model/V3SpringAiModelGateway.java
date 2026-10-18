@@ -1,6 +1,9 @@
 package cn.interview.v3.model;
 
 import cn.interview.exception.ApiException;
+import cn.interview.dto.ModelSettings;
+import cn.interview.service.ModelConfigurationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,13 +45,13 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
   private static final Map<String, Integer> OUTPUT_LIMITS =
       Map.of("ANALYZE", 2500, "PLAN", 6500, "FOLLOWUP", 800, "REVIEW", 6500);
   private final ObjectMapper json;
-  private final String provider;
-  private final String baseUrl;
-  private final String apiKey;
-  private final String model;
-  private final String reasoningEffort;
-  private final String fastModel;
-  private final String fastReasoningEffort;
+  private final java.util.function.Supplier<ModelSettings> connections;
+
+  @Autowired
+  public V3SpringAiModelGateway(ObjectMapper json, ModelConfigurationService settings) {
+    this.json = json;
+    this.connections = settings::connection;
+  }
 
   public V3SpringAiModelGateway(
       ObjectMapper json,
@@ -60,13 +63,8 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
       @Value("${V3_FAST_MODEL:}") String fastModel,
       @Value("${V3_FAST_REASONING_EFFORT:low}") String fastReasoningEffort) {
     this.json = json;
-    this.provider = provider;
-    this.baseUrl = baseUrl;
-    this.apiKey = apiKey;
-    this.model = model;
-    this.reasoningEffort = reasoningEffort;
-    this.fastModel = fastModel;
-    this.fastReasoningEffort = fastReasoningEffort;
+    this.connections = () -> new ModelSettings(provider, "CUSTOM", baseUrl, apiKey, model,
+        fastModel, reasoningEffort, fastReasoningEffort);
   }
 
   @Override
@@ -84,6 +82,8 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
     if (input == null || input.toString().length() > 100000)
       throw ApiException.bad("模型输入为空或超过本次允许范围");
     if (timeoutSeconds < 1 || timeoutSeconds > 300) throw ApiException.bad("模型超时必须为 1～300 秒");
+    ModelSettings settings = connections.get();
+    String provider = settings.provider(), apiKey = settings.apiKey(), model = settings.model(), fastModel = settings.fastModel();
     if ("mock".equals(provider)) {
       ObjectNode result = new V3MockModel(json).call(stage, input);
       if (result.remove("_modelUsage") instanceof ObjectNode usage) reportUsage.accept(usage);
@@ -94,7 +94,7 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
     }
     HttpClient http = null;
     try {
-      URI endpoint = endpoint();
+      URI endpoint = endpoint(settings.baseUrl());
       http =
           HttpClient.newBuilder()
               .connectTimeout(Duration.ofSeconds(Math.min(timeoutSeconds, 15)))
@@ -125,7 +125,8 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
               .internalToolExecutionEnabled(false)
               .responseFormat(
                   ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build());
-      String effort = fast ? fastReasoningEffort : reasoningEffort;
+      options.extraBody(settings.extraBody(fast));
+      String effort = settings.effort(fast);
       if (!effort.isBlank()) options.reasoningEffort(effort.strip());
       OpenAiChatModel chat =
           OpenAiChatModel.builder()
@@ -183,7 +184,7 @@ public class V3SpringAiModelGateway implements V3ModelGateway {
     }
   }
 
-  private URI endpoint() {
+  private URI endpoint(String baseUrl) {
     try {
       String address = baseUrl.strip().replaceAll("/+$", "");
       if (!address.endsWith("/chat/completions")) address += "/chat/completions";

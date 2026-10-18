@@ -80,3 +80,19 @@
 本次已实现新报告校验、主追问分组、首屏原答定位、术语解释、技术缺口新题与独立结果关联；旧报告原分支保持。完整工作区209项后端中207通过、2联网默认跳过，前端140项与类型/构建通过；审查2项P2修复后5项前端回归通过，2条隔离浏览器通过。限定真实样本1次复盘与1次补练通过，无私人资料；实际结果与后续精确暂存快照以VERIFICATION为准。
 
 精确同步快照已独立通过202项后端、134项前端及类型/构建（另2联网默认跳过），3条浏览器路径与限定2次真实调用分别保留证据。两项审查P2复判resolved；按本次授权同步origin/main并重启日常入口，远程结果以Git引用为准，不开PR/Tag/Release。
+
+## 全站模型配置实施清单（2026-10-18，已批准范围）
+
+目标：右上角弹窗管理一套全站连接，覆盖V1/V2/V3并可恢复启动配置。沿用Java21、Spring AI1.1.8、Vue3、Reka UI，无新增依赖。规格见本版SPEC的R17及AC28～32。主代理在当前会话执行，不另外建立计划目录。
+
+- [x] M1：先补API与本机HTTP失败测试，再新增 `dto/ModelSettings.java`、`mapper/ModelConfigStore.java`、`service/ModelConfigurationService.java`、`client/ModelConnectionProbe.java` 和 `controller/ModelConfigController.java`。验证本机持久化、恢复、revision、密钥保留边界、模型列表、JSON测试及错误脱敏。
+- [x] M2：先补全站动态调用测试，再接入 `LlmClient`、`V2LlmClient`、`V3SpringAiModelGateway` 与V3状态。每次调用读取同一不可变配置快照，保留V2协议一致性及V3预算/幂等，不改变旧报告。
+- [x] M3：先补弹窗行为测试，再新增 `ModelSettingsDialog.vue` 和 `model-settings.ts`，修改AppLayout及两应用壳。测试保存/取消/恢复、换址密钥、模型列表失败保留输入及状态刷新；复用现有Modal。
+- [x] M4：定向自审后运行工程检查与隔离合成浏览器桌面/手机验收，更新VERIFICATION及PROGRESS。真实密钥不进入快照，不调用付费模型；按既有授权精确同步本轮内容，保留其他任务修改。
+
+接口：共享service以 `connection()` 返回不可变ModelSettings；配置公开视图和Controller只返回无密钥JSON。ModelSettings包含协议provider、预设preset、地址、密钥、主模型、追问模型及两种思考强度，toString隐藏凭证；V1兼容原手工构造入口，V2读取同一调用快照，V3沿用现有适配器。复用本机启动环境作为恢复目标，不通过修改Environment模拟热更新。
+
+重点审查：切换服务时旧密钥外发、测试草稿误保存、配置与顶栏/旧客户端不一致、V2跨模型混组、响应过大/迟到结果和关闭弹窗后凭证残留。对应检查均放入拥有该行为的任务测试。技术细节由主代理决定，不追加产品范围。
+
+
+M1～M4已完成限定软件验证：交付快照后端240项通过、3项联网跳过，前端186项、类型与V3构建通过；1条隔离浏览器闭环及日常只读检查通过。17:16完成日常重启且资料/历史/启动配置摘要一致，没有真实模型调用。适用AC、已修正失败和质量限制以VERIFICATION中全站模型配置节为准；按既有授权精确同步origin/main，其他任务修改保留。

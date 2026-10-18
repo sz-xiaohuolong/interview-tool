@@ -106,3 +106,15 @@ V3ModelGateway增加用量回调，原三参数调用保持兼容；生产适配
 新建场次写`reviewVersion:2`，不升级旧快照。服务端出题时从内部题单写稳定根问题ID，回答继承该标识。新报告由同次REVIEW输出内容观察、原答引用和必要术语；独立校验回答引用、官方来源与状态，不将缺少官方依据等同回答不具体。首屏条目由校验后的finding推导，不增加模型调用。完成原因由状态转换记录；统计只基于已提交回答。
 
 前端新增独立复盘阅读组件，原Session保留旧报告分支；矩阵复用共享组件。技术补练使用backend薄服务、固定任务与校验器，复用V2ModelRunner、案例/尝试表、显式恢复和PracticeService。来源适配只读已完成V3报告，无真实项目亦可补练；项目矩阵服务继续自行检查真实项目适用性。无新依赖或数据库迁移。补练保存原问答、岗位和报告摘要哈希，稳定操作键防重复。
+
+## 全站模型配置（2026-10-18）
+
+沿用当前依赖与调用链：V1/V2的Java HTTP客户端及V3的Spring AI1.1.8统一读取 `ModelConfigurationService.connection()`。`ModelSettings` 保存不可变请求参数，隐藏toString凭证；配置保存或恢复只替换后续调用快照，进行中的HTTP请求不会改参数。V2创建协议、校验协议与发起调用使用同一快照，保留原有跨模型拒绝机制。V3预算、幂等、单次尝试与输出校验不变。
+
+后端配置分为Controller接收、Service校验/版本与内存状态、Mapper文件持久化。`data/model-config.json` 采用同目录临时文件及原子替换，权限0600；写失败保留原内存状态，读取损坏明确终止启动。文件保存当前配置，恢复时只保存STARTUP标记及版本，不复制启动密钥。原`.env.local`保持不变。接口公开视图只返回是否已配密钥；空密钥复用须同时匹配当前版本、服务地址与预设，换址必须新填。
+
+服务地址接受HTTPS及回环HTTP，不允许账号信息、查询或片段。`ModelConnectionProbe` 只在用户点击后发起受限请求，无重试和重定向，响应读取上限2MB、总等待15秒；获取模型最多返回200个合法去重ID，可在模型未填时使用。JSON测试仅发送固定合成指令，返回耗时及上游实际usage；错误不带上游正文。DeepSeek预设通过Spring AI `extraBody` 传入追问 `thinking.type=disabled`，并省略追问reasoning_effort，避免把默认low强度直接传给它。
+
+前端复用Modal，顶部模型状态改为按钮。弹窗关闭清空密钥草稿，读取/探测的迟到结果用打开代次隔离；已提交的保存完成后仍通知状态刷新。配置更新通过共享事件刷新应用壳、概览与综合面试配置页的health，不重建路由页面或清除答题草稿。预设仅填协议地址，模型始终允许手填，不保证任意模型的参数能力。
+
+本轮没有引入网关平台或新SDK：现有调用方式已覆盖一套本机配置的范围，新增独立平台会增加部署、凭证副本和依赖。Spring AI1.1.8的[OpenAI适配官方文档](https://github.com/spring-projects/spring-ai/blob/v1.1.8/spring-ai-docs/src/main/antora/modules/ROOT/pages/api/chat/openai-chat.adoc)确认extraBody支持自定义兼容服务参数。软件验证仅使用本机合成HTTP，不声称已经验证真实服务的模型质量。
