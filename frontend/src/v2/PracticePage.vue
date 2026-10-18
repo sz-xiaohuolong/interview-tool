@@ -12,7 +12,7 @@ import type { Page } from './types'
 interface Check { checkId: string; status: string; explanation: string; evidenceRefs: { kind: string; quote?: string; checkId?: string; start: number; end: number }[] }
 interface Evaluation { id: string; status: string; operationId?: string; protocol?: { requestedModel: string; returnedModel?: string; mock: boolean; parameters: { reasoning_effort?: string } }; result?: { checks?: Check[]; suggestions?: string[] } }
 interface Attempt { id: string; ordinal: number; revision: number; status: string; answerText: string; effectiveExposure: string; submittedAt?: string; evaluation?: Evaluation }
-interface Case { id: string; sourceKind?: string; sourceId?: string; questionIndex?: number; revision: number; question: string; caseVersion: number; mock: boolean; context?: string; contextOrigin: string; contextTruncated?: boolean; priorDialogue: { id: string; role: string; content: string }[]; analysisExposure: string }
+interface Case { id: string; sourceKind?: string; sourceId?: string; sourceSessionKind?: 'SESSION' | 'V3'; questionIndex?: number; revision: number; question: string; caseVersion: number; mock: boolean; context?: string; contextOrigin: string; contextTruncated?: boolean; priorDialogue: { id: string; role: string; content: string }[]; analysisExposure: string }
 interface Comparison { id: string; leftAttemptId: string; rightAttemptId: string; status: string; comparability: string; scopeNotice?: string; leftAnswer?: string; rightAnswer?: string; operationId?: string; result?: Record<string, any> }
 
 const route = useRoute(), router = useRouter(), id = computed(() => String(route.params.id || ''))
@@ -25,6 +25,8 @@ const labels: Record<string, string> = { DRAFT: '草稿', IMPORTED: '原始回�
 const exposure: Record<string, string> = { PROVIDED: '解析已提供 · 辅助准备', SEEN: '用户声明看过解析', NOT_SEEN: '用户声明未看解析', UNKNOWN: '解析接触情况未知' }
 const baseline = computed(() => attempts.value.find(a => a.ordinal === 0) || attempts.value.filter(a => a.status === 'READY' && a.ordinal < (active.value?.ordinal ?? Infinity)).at(-1))
 const canCompare = computed(() => active.value?.status === 'READY' && baseline.value && baseline.value.id !== active.value.id)
+const projectGap = computed(() => source.value?.contextOrigin === 'PROJECT_GAP')
+const projectReportPath = computed(() => `${source.value?.sourceSessionKind === 'V3' ? '/interview-v3' : '/reports'}/${encodeURIComponent(source.value?.sourceId || '')}`)
 const contextText = computed(() => {
   if (source.value?.contextOrigin !== 'CONFIRMED_STORY') return source.value?.context || ''
   try { return Object.values(JSON.parse(source.value.context || '{}')).map((f: any) => f.confirmation?.notApplicable ? `不适用：${f.confirmation.reason}` : f.text).join('\n\n') } catch { return '故事上下文无法读取，请查看来源版本。' }
@@ -99,7 +101,7 @@ async function load(cursor = '') {
       if (!draft && latest && ['FAILED', 'INTERRUPTED', 'EVALUATING', 'SUBMITTED'].includes(latest.status)) await select(latest)
       else await prepareDraft()
     }
-    if (source.value.sourceKind === 'SESSION') {
+    if (source.value.sourceKind === 'SESSION' && !projectGap.value) {
       const review = await v2<{ id: string | null }>(`/review-item-for-source?sessionId=${encodeURIComponent(source.value.sourceId || '')}&questionIndex=${source.value.questionIndex}`)
       reviewId.value = review.id || ''
     }
@@ -198,7 +200,7 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
 
 <template>
   <div class="page v2-page practice-page">
-    <div class="page-heading"><h1>{{ id ? '同一道题，再回答一次。' : '独立作答，保留每次变化。' }}</h1><p>{{ id ? '写下新答案，直接查看这次补齐了什么。' : '选择一道题，继续练习。' }}</p></div>
+    <div class="page-heading"><h1>{{ projectGap ? '围绕项目缺口，定向补练。' : id ? '同一道题，再回答一次。' : '独立作答，保留每次变化。' }}</h1><p>{{ projectGap ? '结合本场主项目独立作答。补练结果单独保存，不修改原面试证据矩阵。' : id ? '写下新答案，直接查看这次补齐了什么。' : '选择一道题，继续练习。' }}</p><RouterLink v-if="projectGap" :to="projectReportPath" class="text-link">返回原面试证据矩阵</RouterLink></div>
     <Notice :message="error" kind="error" /><Notice :message="notice" />
     <ModelRecovery :error="recovery" @recovered="recoverResult" />
     <button v-if="error && !active" class="btn btn-secondary" :disabled="loading" @click="load()">重新读取作答记录</button>
@@ -231,7 +233,7 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
       </section>
       <section v-if="comparison?.result" class="panel v2-flow v2-section practice-result" aria-label="本次对比结果" aria-live="polite"><h2>这次回答，有哪些变化？</h2><ComparisonResult :result="comparison.result" /><p v-if="comparison.scopeNotice" class="tiny muted">{{ comparison.scopeNotice }}</p></section>
       <button v-if="canCompare && !comparison?.result && !recovery?.operationId" class="btn btn-secondary v2-section" data-action="retry-comparison" :disabled="busy" @click="retryComparison">{{ comparisonFailed ? '重试对比' : '生成本次对比' }}</button>
-      <div v-if="active && active.status !== 'DRAFT'" class="practice-actions practice-exits"><button class="btn btn-primary" data-action="again" :disabled="busy" @click="again">再练一次</button><RouterLink to="/review" class="btn btn-secondary">返回错题复习</RouterLink></div>
+      <div v-if="active && active.status !== 'DRAFT'" class="practice-actions practice-exits"><button class="btn btn-primary" data-action="again" :disabled="busy" @click="again">再练一次</button><RouterLink :to="projectGap ? projectReportPath : '/review'" class="btn btn-secondary">{{ projectGap ? '返回原面试证据矩阵' : '返回错题复习' }}</RouterLink></div>
       <details class="practice-debug v2-section"><summary>历史记录与评估详情</summary><div class="v2-flow">
         <p class="tiny muted">案例版本 {{ source.caseVersion }} · {{ exposure[source.analysisExposure] }}。历史原答的评分协议保留未知，配对重评另存结果。</p>
         <p v-if="source.contextTruncated" class="tiny muted">原资料已截断，不能据此断言内容缺失。</p>

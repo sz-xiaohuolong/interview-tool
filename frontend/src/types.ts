@@ -1,3 +1,4 @@
+import type { ProjectEvidenceMatrix } from './project-evidence'
 export type MaterialKind = 'RESUME' | 'PROJECT' | 'JD'
 export interface Document { id: string; name: string; text: string; truncated: boolean; createdAt: string }
 export interface Material { id: string; kind: MaterialKind; name: string; content: string; createdAt: string; updatedAt: string; documents: Document[] }
@@ -9,4 +10,4 @@ export interface PredictionQuestion { id: string; question: string; evidence: st
 export interface Prediction { id: string; resumeId: string; role: string; createdAt: string; mock: boolean; contextTruncated?: boolean; questions: PredictionQuestion[]; risks: string[] }
 export interface Dimension { name: string; score: number; reason: string }
 export interface QuestionAnalysis { questionIndex: number; question: string; correct: string[]; incorrect: string[]; missing: string[]; uncertain: string[]; answerOutline: string; knowledgeExplanation: string; evidence: string[] }
-export interface Report { sessionId: string; summary: string; dimensions: Dimension[]; questions: QuestionAnalysis[]; weaknesses: string[]; suggestions: string[]; mock: boolean; createdAt: string }
+export interface Report { sessionId: string; summary: string; dimensions: Dimension[]; questions: QuestionAnalysis[]; weaknesses: string[]; suggestions: string[]; mock: boolean; createdAt: string; matrix?: ProjectEvidenceMatrix }

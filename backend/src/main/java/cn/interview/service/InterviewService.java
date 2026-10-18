@@ -20,7 +20,7 @@ import static cn.interview.common.Models.*;
 @Service
 public class InterviewService {
     final Store store;final MaterialService materials;final LlmClient llm;final ObjectMapper json;
-    static final List<String> PUBLIC_FIELDS=List.of("id","status","mode","role","level","durationMinutes","style","createdAt","updatedAt","endedAt","questionIndex","followUpCount","totalQuestions","currentTopic","messages","mock","error","pendingAction","reportStatus","contextTruncated");
+    static final List<String> PUBLIC_FIELDS=List.of("id","status","mode","role","level","durationMinutes","style","createdAt","updatedAt","endedAt","questionIndex","followUpCount","totalQuestions","currentTopic","messages","mock","error","pendingAction","reportStatus","contextTruncated","experienceVersion","mainProject");
     public InterviewService(Store store,MaterialService materials,LlmClient llm,ObjectMapper json){this.store=store;this.materials=materials;this.llm=llm;this.json=json;}
     public Map<String,Object> health(){return llm.health();}
     @PostConstruct void recover(){for(ObjectNode s:store.sessions()){boolean changed=false;String pending=s.path("pendingAction").asText();if(!pending.isEmpty()&&!s.path("status").asText().equals("COMPLETED")){s.put("status",pending.equals("PLAN")?"FAILED":"INTERRUPTED").put("error","上次生成因服务重启而中断，输入已保存，请重试");changed=true;}if(s.path("reportStatus").asText().equals("GENERATING")){s.put("reportStatus","FAILED").put("error","报告生成因服务重启而中断，请重试报告");changed=true;}if(changed)store.saveSession(s);}}
@@ -32,7 +32,7 @@ public class InterviewService {
         String level=choice(optional(body,"level","JUNIOR",20),"INTERN","JUNIOR","SENIOR");String style=choice(optional(body,"style","NORMAL",20),"NORMAL","PRESSURE");
         int duration=body.path("durationMinutes").isMissingNode()?10:body.path("durationMinutes").asInt(-1);if(body.has("durationMinutes")&&!body.path("durationMinutes").isIntegralNumber()||!List.of(5,10,20).contains(duration))throw ApiException.bad("目标时长必须为 5、10 或 20 分钟");
         String jd=optional(body,"jd","",10000),focus=optional(body,"focus","",2000),materialId=optional(body,"materialId","",100),predictionId=optional(body,"predictionId","",100),questionId=optional(body,"questionId","",100);
-        Context context=new Context(jd,false);ObjectNode selected=null;
+        Context context=new Context(jd,false);ObjectNode selected=null;Material selectedProject=null;
         if(!predictionId.isBlank()){
             if(!mode.equals("RESUME")||questionId.isBlank())throw ApiException.bad("押题练习必须选择简历模式与具体问题");ObjectNode prediction=store.prediction(predictionId);
             if(prediction.path("mock").asBoolean()!=llm.isMock())throw ApiException.bad("该押题结果与当前模型模式不同，请重新生成押题后练习");
@@ -41,15 +41,16 @@ public class InterviewService {
         }else if(!questionId.isBlank())throw ApiException.bad("选择问题时必须提供押题记录");
         else if(!mode.equals("QUICK")){
             if(materialId.isBlank())throw ApiException.bad("请选择面试资料");Material m=store.material(materialId);
-            if(!m.kind().equals(mode.equals("PROJECT")?"PROJECT":"RESUME"))throw ApiException.bad("所选资料类型与面试模式不匹配");ensureContent(m);context=materials.context(m,jd);
+            if(!m.kind().equals(mode.equals("PROJECT")?"PROJECT":"RESUME"))throw ApiException.bad("所选资料类型与面试模式不匹配");ensureContent(m);context=materials.context(m,jd);if(mode.equals("PROJECT"))selectedProject=m;
         }
         String id=id(),now=now();ObjectNode s=json.createObjectNode().put("schemaVersion",1).put("id",id).put("status","CREATED").put("mode",mode).put("role",role).put("level",level).put("style",style).put("durationMinutes",duration).put("createdAt",now).put("updatedAt",now).put("questionIndex",0).put("followUpCount",0).put("totalQuestions",selected!=null?1:duration==5?3:duration==10?5:8).put("currentTopic","").put("mock",llm.isMock()).put("error","").put("pendingAction","PLAN").put("reportStatus","NONE").put("contextTruncated",context.truncated()).put("context",context.text()).put("jd",jd).put("focus",focus);
+        if(selectedProject!=null){var projectContext=materials.context(selectedProject,"");s.put("experienceVersion",1);s.putObject("mainProject").put("id",selectedProject.id()).put("name",selectedProject.name()).put("brief",projectContext.text()).put("hypothetical",false).put("updatedAt",selectedProject.updatedAt()).put("truncated",projectContext.truncated());}
         s.putNull("endedAt");s.putArray("messages");s.putObject("requests");s.putArray("plan");store.saveSession(s);
         if(selected!=null){ObjectNode q=json.createObjectNode().put("question",selected.path("question").asText()).put("topic",selected.path("knowledgePoint").asText()).put("level","L2").put("evidence",selected.path("evidence").asText());((ArrayNode)s.path("plan")).add(q);begin(s);store.saveSession(s);}else plan(s);
         return visible(s);
     }
     void ensureContent(Material m){if(m.content().isBlank()&&m.documents().isEmpty())throw ApiException.bad("资料没有可用正文，请先填写项目内容或上传文档");}
-    ObjectNode input(ObjectNode s){ObjectNode in=json.createObjectNode();for(String key:List.of("mode","role","level","style","durationMinutes","totalQuestions","context","jd","focus","messages","questionIndex","followUpCount","currentTopic"))in.set(key,s.get(key));int next=s.path("questionIndex").asInt()+1;if(next<s.path("plan").size())in.set("nextPlannedQuestion",s.path("plan").get(next));return in;}
+    ObjectNode input(ObjectNode s){ObjectNode in=json.createObjectNode();for(String key:List.of("mode","role","level","style","durationMinutes","totalQuestions","context","jd","focus","messages","questionIndex","followUpCount","currentTopic"))in.set(key,s.get(key));if(s.has("experienceVersion")){in.set("experienceVersion",s.path("experienceVersion"));in.set("mainProject",s.path("mainProject"));}int next=s.path("questionIndex").asInt()+1;if(next<s.path("plan").size())in.set("nextPlannedQuestion",s.path("plan").get(next));return in;}
     void plan(ObjectNode s) {
         ObjectNode before=s.deepCopy();
         try {
@@ -127,6 +128,7 @@ public class InterviewService {
             for(JsonNode m:s.path("messages"))if(m.path("role").asText().equals("USER"))answered=true;
             report=answered?llm.call("evaluator",input(s)):emptyReport();
             if(answered)ModelValidator.report(report,s);
+            if(s.path("experienceVersion").asInt()==1){var evidence=new ProjectEvidenceService(json);var matrix=answered?evidence.normalize(report.path("matrix"),s.path("messages"),s.path("mainProject")):evidence.uncovered(s.path("mainProject"));if(matrix!=null)report.set("matrix",matrix);else report.remove("matrix");}
             for(JsonNode q:report.path("questions")) {
                 for(JsonNode m:s.path("messages")) {
                     if(m.path("role").asText().equals("ASSISTANT")&&!m.path("followUp").asBoolean()&&m.path("questionIndex").asInt()==q.path("questionIndex").asInt()) {

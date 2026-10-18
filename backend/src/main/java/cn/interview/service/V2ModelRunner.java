@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 
 import static cn.interview.common.Models.*;
 
-/** 仅协调六个固定任务；数据库事务不跨越网络等待。 */
+/** 仅协调固定任务；数据库事务不跨越网络等待。 */
 @Component
 public class V2ModelRunner {
     record Work(String table,ObjectNode resource,ObjectNode input){}

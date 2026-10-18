@@ -161,3 +161,21 @@ it('查询参数引起页面重建时，对比结果仍自动出现且不重复�
   expect(writes.filter(w => w.url.endsWith('/practice-comparisons'))).toHaveLength(1)
   wrapper.unmount()
 })
+
+it('V3项目缺口补练首答正常评估，不查询旧复习来源且能返回原矩阵', async () => {
+  const reads: string[] = []
+  const writes = mockPractice([], (url, init) => {
+    reads.push(url)
+    if (url.endsWith('/practice-cases/c1')) return { ...caseRow, contextOrigin: 'PROJECT_GAP', sourceSessionKind: 'V3', sourceId: 'v3-source', questionIndex: undefined }
+    if (url.includes('/review-item-for-source?')) return new Response(JSON.stringify({ message: '旧会话不存在' }), { status: 404 })
+  })
+  const wrapper = await show()
+  expect(reads.some(url => url.includes('/review-item-for-source?'))).toBe(false)
+  expect(wrapper.text()).toContain('项目缺口')
+  expect(wrapper.find('a[href="/interview-v3/v3-source"]').exists()).toBe(true)
+  await wrapper.get('textarea').setValue('本次完整回答')
+  await wrapper.get('[data-action="submit"]').trigger('click'); await flushPromises()
+  expect(wrapper.text()).toContain('单次评估建议')
+  expect(writes.some(w => w.url.endsWith('/practice-comparisons'))).toBe(false)
+  wrapper.unmount()
+})

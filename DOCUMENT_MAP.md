@@ -1,6 +1,6 @@
 # 文档职责地图
 
-- 最近审计：2026-10-17。
+- 最近审计：2026-10-18。
 - 地图 owner：本文件；当前 Release：V1。
 
 | 职责 | 实际路径 | 状态 | 定位依据与备注 |
@@ -27,6 +27,14 @@
 | V2 方案评审与修改建议 | [REVIEW.md](docs/vibe/releases/v2/REVIEW.md) | APPROVED / 历史评审 | 8 项工程建议已采纳；16 项任务、28 组测试分支为评审安排，不声称全部已实测 |
 | V2 实际软件验证与缺口 | [VERIFICATION.md](docs/vibe/releases/v2/VERIFICATION.md) | PARTIAL | 本轮UI为103后端、62前端及构建，导航与响应式浏览器检查；原15项浏览器和19次模型调用保留适用范围 |
 | V2 受限模型校准计划 | [MODEL_CALIBRATION_PLAN.md](docs/vibe/releases/v2/MODEL_CALIBRATION_PLAN.md) | AUTHORIZED / 本轮完成 | 原批及后续停止记录保留；修正后两条阶段复验及内置真实链路完成，无自动重试 |
+
+
+| V3 冻结目标与范围 | [PROJECT_BRIEF.md](docs/vibe/releases/v3/PROJECT_BRIEF.md) | FROZEN / APPROVED | 个性化综合面试；追加两链路项目矩阵、缺口补练、语音输入及综合面试四阶段与计时 |
+| V3 行为与验收 | [SPEC.md](docs/vibe/releases/v3/SPEC.md) | FROZEN / APPROVED | R1～R13、20项验收、新旧场次边界及HTTP扩展契约 |
+| V3 技术设计 | [TECH_DESIGN.md](docs/vibe/releases/v3/TECH_DESIGN.md) | 已实施 / 待人工验收 | Spring AI、受控检索、共享矩阵与单题、语音及服务端计时 |
+| V3 实施进度 | [IMPLEMENTATION_PLAN.md](docs/vibe/releases/v3/IMPLEMENTATION_PLAN.md) | VERIFYING | S0～S6历史与本轮E0～E6检查点 |
+| V3 实际验证与限制 | [VERIFICATION.md](docs/vibe/releases/v3/VERIFICATION.md) | PARTIAL | 软件测试、公开来源、合成真实模型及浏览器证据分别记录 |
+| V3 本机运行入口 | [README.md](v3/README.md) | 已接入日常dev | 日常5173/8080使用V3与原资料库；保留独立4173/18081入口 |
 | V3 错题复习与原题重练修复 | [修复记录](docs/vibe/releases/v3/REVIEW_PRACTICE_FIX.md) | 局部软件验收通过 | 原题案例、零创建恢复、自动草稿/对比及本次前端验证；不代表V3整体验收 |
 
 本文件仅作导航，正文事实由对应 owner 维护。后续版本按实际 Release 建立目录；V1 历史验收保留当时输入与配置边界。目标方案、前版变化和独立复盘按需创建，本次未建立空白文件。

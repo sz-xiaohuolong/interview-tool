@@ -28,5 +28,11 @@ final class MockLlmProvider {
         for(String name:ModelValidator.DIMENSIONS)dims.addObject().put("name",name).put("score",2).put("reason","测试示意分数，不代表真实能力；请配置真实模型获得评估。");
         Map<Integer,JsonNode> mains=new LinkedHashMap<>();Map<Integer,Boolean> answered=new LinkedHashMap<>();for(JsonNode m:in.path("messages")){int index=m.path("questionIndex").asInt();if(m.path("role").asText().equals("ASSISTANT")&&!m.path("followUp").asBoolean())mains.putIfAbsent(index,m);if(m.path("role").asText().equals("USER"))answered.put(index,true);}
         ArrayNode qs=out.putArray("questions");for(int index:answered.keySet()){ObjectNode q=qs.addObject().put("questionIndex",index).put("question",mains.get(index).path("content").asText()).put("answerOutline","先说明问题背景，再讲个人做法、验证依据和方案限制。").put("knowledgeExplanation","测试模式没有执行真实知识判断，请在真实模型模式下复盘。");q.putArray("correct");q.putArray("incorrect");q.putArray("missing").add("可以补充可验证的实现细节与边界条件。");q.putArray("uncertain").add("Mock 无法判断技术准确性。");q.putArray("evidence");}
-        out.putArray("weaknesses").add("使用具体案例阐述实现与验证过程");out.putArray("suggestions").add("配置真实模型后围绕相同问题重新练习，并对照原始回答检查评价。");return out;}
+        out.putArray("weaknesses").add("使用具体案例阐述实现与验证过程");out.putArray("suggestions").add("配置真实模型后围绕相同问题重新练习，并对照原始回答检查评价。");
+        if(in.path("experienceVersion").asInt()==1&&!in.path("mainProject").path("hypothetical").asBoolean()){
+            var matrix=out.putObject("matrix");var items=matrix.putArray("items");
+            for(String key:cn.interview.service.ProjectEvidenceService.CHECKPOINT_IDS){var item=items.addObject().put("checkpointId",key).put("status","UNCOVERED").put("reason","Mock仅演示覆盖状态，不判断真实表现");var refs=item.putArray("evidence");
+                if(key.equals("RESPONSIBILITY"))for(int i=0;i+1<in.path("messages").size();i++){var q=in.path("messages").get(i);var a=in.path("messages").get(i+1);if(q.path("role").asText().equals("ASSISTANT")&&a.path("role").asText().equals("USER")){item.put("status","PARTIAL");refs.addObject().put("questionMessageId",q.path("id").asText()).put("answerMessageId",a.path("id").asText()).put("questionQuote",q.path("content").asText()).put("answerQuote",a.path("content").asText().substring(0,Math.min(100,a.path("content").asText().length())));break;}}
+            }
+        }return out;}
 }

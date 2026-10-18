@@ -10,6 +10,14 @@ const after = (answer: string): Session => ({ ...first, followUpCount: 1, messag
 beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear() })
 function page() { return mount(SessionPage, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } }) }
 describe('回答恢复与防重', () => {
+  it('不支持听写时保留文字输入并明确提示浏览器兼容边界', async () => {
+    mocks.request.mockResolvedValue(first)
+    const wrapper = page(); await flushPromises()
+    await wrapper.get('textarea').setValue('原有文字回答')
+    expect(wrapper.text()).toContain('当前浏览器不支持语音输入')
+    expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('原有文字回答')
+    wrapper.unmount()
+  })
   it('另一个标签页先回答后，过期提交失败不会丢失当前草稿', async () => {
     mocks.request.mockResolvedValueOnce(first).mockResolvedValueOnce(after('另一个标签页的答案'))
     mocks.post.mockRejectedValue(new Error('该问题已更新'))
