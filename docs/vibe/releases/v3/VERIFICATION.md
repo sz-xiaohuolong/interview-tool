@@ -355,3 +355,18 @@ V3_LIVE_KNOWLEDGE=true JAVA_HOME=$(/usr/libexec/java_home -v 21) mvn -q -f v3/po
 最终交付快照只包含本轮3个测试文件及原 HEAD 产品代码，前端20文件169项全部通过，TypeScript检查和 V3 生产构建通过。记录 `snapshot-tests.log`、`snapshot-typecheck.log`、`snapshot-build.log`。完整工作区曾24文件190项通过，随后最终19项在工作区再验通过；其他任务内容不同，不能混用两种快照数量。原始记录均位于 `.runtime/api-boundary-guard/`，不提交。
 
 这些检查由现有 `npm --prefix frontend test` 自动加载，两种工程检查脚本均已包含此命令，未增加额外安装、Git钩子或后台任务。保护范围是 V3 面试客户端、已扫描的 V3 路径表达式与共用历史入口，不能证明任意动态拼接或未来其他共用页面已经正确接入；AGENTS 要求新增共用入口补其行为测试。旧概览仍只统计旧面试，本轮未扩大统计产品范围，实际限制已写入当前架构。后端未改，未重跑后端测试、浏览器或真实模型质量校准；没有新增模型调用、重启或数据操作。同步仅收录本轮规则、说明及测试，正式Release及V3整体PARTIAL保持。
+
+
+## 小林coding专题知识来源接入（2026-10-18）
+
+本轮按用户要求接入MySQL索引、Redis数据结构及TCP三篇具体文章，知识清单从17项增加到20项。三篇均为 `INTERVIEW`；官方引用与技术结论校验保持。分析提示词及两处输出边界同步接受 `NETWORK`。继续使用六源预算，在某主题没有尚未选取的官方来源时补充该主题线索，并调整Redis专题在清单中的位置，避免配置存在但始终被预算排除。实际地址与边界见本版TECH_DESIGN。
+
+- 失败测试：`.runtime/xiaolin-sources/red.log` 为新增6项行为测试的3项断言失败、3项错误，复现域名、来源及NETWORK尚未接入。基础配置后追加混合五主题用例，`prefetch-red.log` 的7项中仅网络来源预取失败，证明六源预算下的实际遗漏。实现后本次7项与既有KnowledgeService、技术证据校验合计26项通过，记录 `green.log`。既有 `V3EvidenceTest` 验证博客不能单独维持 `SUPPORTED`，没有降低证据等级。
+- 精确交付快照：以本轮开始的HEAD导出源码，仅叠加本次9份代码、配置与测试，排除其他任务的前后端修改。Java21下执行 `mvn -f .runtime/xiaolin-sources/snapshot/v3/pom.xml test`，216项中213项执行通过、3项联网默认跳过，记录 `backend-tests.log`。`mvn -f .runtime/xiaolin-sources/snapshot/v3/pom.xml -DskipTests package` 成功，记录 `package.log`；未重跑未受影响的前端与浏览器。
+- 真实网络失败保留：第一次显式运行新来源与既有联网测试共5项，4项通过、Redis新来源1项未取到；补充断言诊断后复验新来源3项，MySQL/TCP通过，Redis仍未取到，提示“来源未获取”。这两次Redis用例均约3.0秒返回，未保存具体底层异常，不能断言网络根因。记录 `live.log`、`live-recheck.log`；没有延长期限或增加生产自动重试。
+- 定向诊断：生产Transport单独获取Redis文章返回200、144966字节、282毫秒；随后在六源并发预取中记录各请求结果，六源全部返回200、无缺口，Redis请求527毫秒。诊断临时测试只放在忽略的隔离快照，未进入交付。记录 `transport-diagnostic.log`、`concurrent-diagnostic.log`。
+- 最终真实联网：`V3_LIVE_KNOWLEDGE=true mvn -f .runtime/xiaolin-sources/snapshot/v3/pom.xml -Dtest=XiaolinKnowledgeLiveTest test` 三项全部通过，记录 `live-final.log`。按DATABASE、REDIS/DISTRIBUTED、NETWORK预取并验证三篇正文、SHA-256、非过期、INTERVIEW等级及片段检索；对应主题预取与断言耗时708/1673/2446毫秒。公共输出不包含rawText。联网测试显式启用，默认工程测试不访问网站。
+
+证据只证明来源配置、受控获取、正文提取和片段可用，不证明已提升所有真实面试的训练效果或覆盖文章全部语义。网页原文、缓存及原始日志仅留在本机 `.runtime/xiaolin-sources/`，不提交。没有调用模型、外发简历/JD或重算旧历史。
+
+发现日常服务仍有进行中面试，因此保留5173/8080运行，不重启后端。所有后续构建在隔离快照进行；日常编译资源保留原运行版本，避免旧校验器混用新增NETWORK提示词。新配置在下次正常启动后端时生效。沿用已有授权精确同步本次来源接入与文档，远程结果以Git引用核对为准；V3整体PARTIAL及待人工验收状态保持。

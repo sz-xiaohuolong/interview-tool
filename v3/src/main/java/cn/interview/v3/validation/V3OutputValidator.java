@@ -18,6 +18,7 @@ public class V3OutputValidator {
           "DATABASE",
           "REDIS",
           "DISTRIBUTED",
+          "NETWORK",
           "AI_RAG",
           "AI_TOOLS",
           "AI_MEMORY",

@@ -168,6 +168,11 @@ public class KnowledgeService {
           .filter(source -> source.kind().equals("OFFICIAL") && source.topics().contains(topic))
           .filter(source -> !chosen.contains(source))
           .findFirst()
+          // 当前主题没有尚未选取的官方来源时，补充考点线索；复盘仍按来源分级校验。
+          .or(() -> candidates.stream()
+              .filter(source -> source.kind().equals("INTERVIEW") && source.topics().contains(topic))
+              .filter(source -> !chosen.contains(source))
+              .findFirst())
           .ifPresent(chosen::add);
     }
     for (Source source : candidates) {

@@ -17,6 +17,7 @@ final class V3OutputChecks {
           "DATABASE",
           "REDIS",
           "DISTRIBUTED",
+          "NETWORK",
           "AI_RAG",
           "AI_TOOLS",
           "AI_MEMORY",

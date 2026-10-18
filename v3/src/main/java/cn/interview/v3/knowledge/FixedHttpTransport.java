@@ -24,7 +24,8 @@ final class FixedHttpTransport implements KnowledgeService.Transport {
           "dev.mysql.com",
           "raw.githubusercontent.com",
           "modelcontextprotocol.io",
-          "www.anthropic.com");
+          "www.anthropic.com",
+          "xiaolincoding.com");
   private final HttpClient client =
       HttpClient.newBuilder()
           .followRedirects(HttpClient.Redirect.NEVER)
