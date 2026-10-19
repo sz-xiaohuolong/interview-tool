@@ -5,9 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import cn.interview.Application;
-import cn.interview.client.LlmClient;
-import cn.interview.client.V2LlmClient;
-import cn.interview.client.V2Task;
+import cn.interview.client.FocusedInterviewModelClient;
+import cn.interview.client.TrainingModelClient;
+import cn.interview.client.ModelTask;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -65,7 +65,7 @@ class ModelConfigurationIntegrationTest {
     }
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r){r.add("app.data-dir",DATA::toString);r.add("app.llm.base-url",()->url());}
     static String url(){return "http://127.0.0.1:"+SERVER.getAddress().getPort()+"/v1";}
-    @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired LlmClient llm; @Autowired V2LlmClient v2;
+    @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired FocusedInterviewModelClient llm; @Autowired TrainingModelClient training;
     JsonNode view()throws Exception{return json.readTree(mvc.perform(get("/api/model-config")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
     ObjectNode draft()throws Exception{return json.createObjectNode().put("expectedRevision",view().path("revision").asLong()).put("preset","CUSTOM").put("baseUrl",url()).put("model","wire-model").put("apiKey","synthetic-new-key").put("fastModel","").put("reasoningEffort","").put("fastReasoningEffort","");}
     JsonNode write(String path,ObjectNode body)throws Exception{return json.readTree(mvc.perform(post(path).contentType("application/json").content(body.toString())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());}
@@ -86,10 +86,10 @@ class ModelConfigurationIntegrationTest {
         assertThat(Files.getPosixFilePermissions(file)).containsExactlyInAnyOrder(java.nio.file.attribute.PosixFilePermission.OWNER_READ,java.nio.file.attribute.PosixFilePermission.OWNER_WRITE);
     }
     @Test void 切换模型后专项练习拒绝旧评估分组并使用新协议()throws Exception{
-        var task=V2Task.PRACTICE_EVALUATOR;var old=v2.protocol(task);
+        var task=ModelTask.PRACTICE_EVALUATOR;var old=training.protocol(task);
         save(draft());
-        org.assertj.core.api.Assertions.assertThatThrownBy(()->v2.call(task,json.createObjectNode(),old)).isInstanceOf(cn.interview.exception.V2Exception.class).hasMessageContaining("评估分组");
-        var protocol=v2.protocol(task);v2.call(task,json.createObjectNode(),protocol);
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->training.call(task,json.createObjectNode(),old)).isInstanceOf(cn.interview.exception.RecoveryException.class).hasMessageContaining("评估分组");
+        var protocol=training.protocol(task);training.call(task,json.createObjectNode(),protocol);
         assertThat(REQUEST.get().path("model").asText()).isEqualTo("wire-model");
         assertThat(AUTH.get()).isEqualTo("Bearer synthetic-new-key");
     }
@@ -132,7 +132,7 @@ class ModelConfigurationIntegrationTest {
         save(draft());
         var app=new SpringApplication(Application.class);app.setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
         try(var context=app.run("--app.data-dir="+DATA,"--app.llm.provider=openai","--app.llm.api-key=startup-synthetic-key","--app.llm.base-url="+url(),"--app.llm.model=startup-model","--app.v3.enabled=false","--logging.level.root=ERROR","--spring.main.banner-mode=off")){
-            assertThat(context.getBean(LlmClient.class).health().get("model")).isEqualTo("wire-model");
+            assertThat(context.getBean(FocusedInterviewModelClient.class).health().get("model")).isEqualTo("wire-model");
         }
         var s=view();var result=write("/api/model-config/reset",json.createObjectNode().put("expectedRevision",s.path("revision").asLong()));
         assertThat(result.path("source").asText()).isEqualTo("STARTUP");

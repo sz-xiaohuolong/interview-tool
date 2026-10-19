@@ -5,12 +5,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v2")
+@RequestMapping({"/api/training", "/api/v2"})
 class ReviewController {
     final ReviewService service;
     ReviewController(ReviewService service) {this.service=service;}
     @GetMapping("/review-import-preview") Object preview(@RequestParam String sessionId) {return service.preview(sessionId);}
-    @PostMapping("/review-imports") Object importReport(@RequestBody JsonNode body) {return V2Responses.created("REVIEW_IMPORT","LOCAL_USER",body,()->service.importReport(body));}
+    @PostMapping("/review-imports") Object importReport(@RequestBody JsonNode body) {return ApiResponses.created("REVIEW_IMPORT","LOCAL_USER",body,()->service.importReport(body));}
     @GetMapping("/review-items") Object list(@RequestParam(required=false) String cursor,@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) String status) {return service.list(cursor,limit,status);}
     @GetMapping("/review-item-for-source") Object source(@RequestParam String sessionId,@RequestParam int questionIndex){return service.source(sessionId,questionIndex);}
     @GetMapping("/review-items/{id}") Object item(@PathVariable String id) {return service.get(id);}

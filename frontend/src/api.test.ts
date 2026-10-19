@@ -3,6 +3,10 @@ import { request, ApiError } from './api'
 
 afterEach(() => vi.unstubAllGlobals())
 describe('API 客户端', () => {
+  it('共用请求同时保留恢复动作、修订号和操作指针', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ code: 'V2_VERSION_CONFLICT', message: '内容已更新', currentRevision: 4, nextAction: 'LOAD_LATEST', operationId: 'operation-one', resourceId: 'resource-one', retryable: true }), { status: 409 }))
+    await expect(request('/training/review-items/one')).rejects.toMatchObject({ status: 409, currentRevision: 4, nextAction: 'LOAD_LATEST', operationId: 'operation-one', resourceId: 'resource-one', retryable: true })
+  })
   it('成功响应返回服务器数据，JSON 写入保持同源', async () => {
     const fetcher = vi.fn().mockResolvedValue(new Response('{"id":"one"}', { status: 200 }))
     vi.stubGlobal('fetch', fetcher)

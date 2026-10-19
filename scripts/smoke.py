@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""仅使用合成资料，对运行中的 V1 服务进行可重复的 HTTP 验收。"""
+"""仅使用合成资料，对运行中的 项目与单题面试接口进行可重复的 HTTP 验收。"""
 
 import argparse
 import datetime as dt

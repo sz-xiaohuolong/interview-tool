@@ -27,7 +27,7 @@ public class ModelConfigurationService {
         String preset = url.matches("https://api\\.deepseek\\.com(?:/.*)?") ? "DEEPSEEK" : url.matches("https://api\\.openai\\.com(?:/.*)?") ? "OPENAI" : "CUSTOM";
         startup = new ModelSettings(env.getProperty("app.llm.provider", "openai"), preset, url,
             env.getProperty("app.llm.api-key", ""), env.getProperty("app.llm.model", ""),
-            env.getProperty("V3_FAST_MODEL", ""), env.getProperty("app.llm.reasoning-effort", ""), env.getProperty("V3_FAST_REASONING_EFFORT", "low"));
+            env.getProperty("INTERVIEW_FOLLOWUP_MODEL", env.getProperty("V3_FAST_MODEL", "")), env.getProperty("app.llm.reasoning-effort", ""), env.getProperty("INTERVIEW_FOLLOWUP_REASONING_EFFORT", env.getProperty("V3_FAST_REASONING_EFFORT", "low")));
         current = new State(0, "STARTUP", startup);
         JsonNode saved = store.read();
         if (saved != null) {

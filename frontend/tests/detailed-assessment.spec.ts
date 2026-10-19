@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { InterviewSession } from '../src/v3/types'
+import type { InterviewSession } from '../src/models/interview'
 
 const time='2026-10-18T08:00:00Z'
 const session: InterviewSession = {
@@ -29,19 +29,19 @@ for(const width of [1440,390,320])test(`${width}px 四部分正文、行动与�
   await page.setViewportSize({width,height:1000})
   const writes:string[]=[],unknown:string[]=[],errors:string[]=[]
   page.on('pageerror',e=>errors.push(e.message))
-  await page.route('**/api/**',async route=>{
+  await page.route(url => url.pathname.startsWith('/api/'),async route=>{
     const r=route.request(),path=new URL(r.url()).pathname
     if(r.method()!=='GET')writes.push(path)
     const responses:Record<string,unknown>={
       '/api/health':{status:'ok',provider:'mock',configured:true,model:'mock'},
-      '/api/v3/status':{enabled:true,provider:'mock',configured:true},'/api/v2/status':{enabled:true},
-      '/api/materials':[], '/api/v3/sessions/detail-report':session,
+      '/api/interviews/status':{enabled:true,provider:'mock',configured:true},'/api/training/status':{enabled:true},
+      '/api/materials':[], '/api/interviews/detail-report':session,
       '/api/review-gaps/V3/detail-report':{items:[]},
     }
     if(path in responses)await route.fulfill({json:responses[path]})
     else{unknown.push(path);await route.fulfill({status:404,json:{message:'合成用例未定义接口'}})}
   })
-  await page.goto('/interview-v3/detail-report')
+  await page.goto('/interviews/detail-report')
   const detail=page.locator('[data-detailed-assessment]')
   await expect(detail.locator('h3')).toHaveText(['整体印象','亮点分析','可提升空间','下一步行动'])
   await expect(detail.locator('ol li')).toHaveCount(1)

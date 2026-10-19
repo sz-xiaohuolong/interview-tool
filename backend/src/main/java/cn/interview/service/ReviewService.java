@@ -1,8 +1,8 @@
 package cn.interview.service;
 
 import cn.interview.common.ContentHash;
-import cn.interview.exception.V2Exception;
-import cn.interview.mapper.V2Store;
+import cn.interview.exception.RecoveryException;
+import cn.interview.mapper.TrainingStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -17,19 +17,19 @@ import static cn.interview.common.Models.*;
 
 @Service
 public class ReviewService {
-    final V2Store db; final V2Operations ops; final JsonNode catalog;
-    ReviewService(V2Store db,V2Operations ops) throws Exception {
+    final TrainingStore db; final OperationService ops; final JsonNode catalog;
+    ReviewService(TrainingStore db,OperationService ops) throws Exception {
         this.db=db;this.ops=ops;
-        catalog=db.json().readTree(new ClassPathResource("v2/skill-catalog.json").getContentAsString(StandardCharsets.UTF_8));
+        catalog=db.json().readTree(new ClassPathResource("training/skill-catalog.json").getContentAsString(StandardCharsets.UTF_8));
     }
     public ObjectNode preview(String sessionId) {
-        db.enabled();var session=db.legacy().session(sessionId);
+        db.enabled();var session=db.database().session(sessionId);
         if(!session.path("status").asText().equals("COMPLETED")||!session.path("reportStatus").asText().equals("READY"))
-            throw V2Exception.conflict("V2_SOURCE_NOT_READY","请先完成面试并生成报告，再整理复习项。");
-        var report=db.legacy().report(sessionId);var result=db.object().put("sessionId",sessionId).put("reportHash",db.hash(report));
+            throw RecoveryException.conflict("V2_SOURCE_NOT_READY","请先完成面试并生成报告，再整理复习项。");
+        var report=db.database().report(sessionId);var result=db.object().put("sessionId",sessionId).put("reportHash",db.hash(report));
         var items=result.putArray("items");
         for(JsonNode question:report.path("questions")) {
-            int index=question.path("questionIndex").asInt(-1);if(index<0)throw V2Exception.invalid("旧报告的题目编号缺失，无法导入");
+            int index=question.path("questionIndex").asInt(-1);if(index<0)throw RecoveryException.invalid("旧报告的题目编号缺失，无法导入");
             var dialogue=db.array();boolean answered=false;
             for(JsonNode m:session.path("messages")) if(m.path("questionIndex").asInt(-1)==index) {
                 dialogue.add(m.deepCopy());if(m.path("role").asText().equals("USER"))answered=true;
@@ -42,10 +42,10 @@ public class ReviewService {
             item.set("dialogue",dialogue);item.set("sourceReport",question.deepCopy());item.putArray("skillIds");
             var findings=item.putArray("findings");
             for(String kind:List.of("incorrect","missing","uncertain")) {
-                if(!question.path(kind).isArray())throw V2Exception.invalid("旧报告缺少分类，请查看原报告；没有补造结论");
+                if(!question.path(kind).isArray())throw RecoveryException.invalid("旧报告缺少分类，请查看原报告；没有补造结论");
                 int position=0;
                 for(JsonNode text:question.path(kind)) {
-                    if(!text.isTextual()||text.asText().isBlank())throw V2Exception.invalid("报告结论格式不完整，无法导入");
+                    if(!text.isTextual()||text.asText().isBlank())throw RecoveryException.invalid("报告结论格式不完整，无法导入");
                     String key=result.path("reportHash").asText()+"|"+index+"|"+kind+"|"+position+++"|"+text.asText();
                     findings.addObject().put("id",ContentHash.sha(key)).put("kind",kind).put("text",text.asText()).put("confirmed",false).put("disputed",false);
                 }
@@ -59,7 +59,7 @@ public class ReviewService {
         return ops.write("REVIEW_IMPORT","LOCAL_USER",body,()->{
             String session=required(body,"sessionId",100);var preview=preview(session);
             if(!required(body,"expectedReportHash",100).equals(preview.path("reportHash").asText()))
-                throw V2Exception.conflict("V2_SOURCE_CHANGED","报告已更新，请重新查看候选后导入。");
+                throw RecoveryException.conflict("V2_SOURCE_CHANGED","报告已更新，请重新查看候选后导入。");
             var result=db.object();var items=result.putArray("items");
             for(JsonNode source:preview.path("items")) {
                 var ids=db.reviewItemIds(session,source.path("questionIndex").asInt());
@@ -81,7 +81,7 @@ public class ReviewService {
         });
     }
     ArrayNode skillIds(JsonNode input) {
-        if(!input.isArray()||input.size()>12)throw V2Exception.invalid("请选择目录内的技能标签，最多12个");
+        if(!input.isArray()||input.size()>12)throw RecoveryException.invalid("请选择目录内的技能标签，最多12个");
         var result=db.array();var seen=new HashSet<String>();
         for(JsonNode value:input) {
             String mapped=null;
@@ -89,7 +89,7 @@ public class ReviewService {
                 if(skill.path("id").asText().equals(value.asText())||skill.path("name").asText().equals(value.asText()))mapped=skill.path("id").asText();
                 for(JsonNode alias:skill.path("aliases"))if(alias.asText().equalsIgnoreCase(value.asText()))mapped=skill.path("id").asText();
             }
-            if(mapped==null)throw V2Exception.invalid("未知技能标签，保留未归类或选择已有目录");
+            if(mapped==null)throw RecoveryException.invalid("未知技能标签，保留未归类或选择已有目录");
             if(seen.add(mapped))result.add(mapped);
         }
         return result;
@@ -107,11 +107,11 @@ public class ReviewService {
         return ops.write("REVIEW_ACTION",id,body,()->{
             var item=db.get("v2_review_items",id);db.expect(item,body);int revision=item.path("revision").asInt();
             String action=required(body,"action",40),state=item.path("status").asText();
-            if(state.equals("ARCHIVED")&&!Set.of("RESTORE","CONFIRM_EVIDENCE").contains(action))throw V2Exception.conflict("V2_INVALID_STATE","请先恢复归档项。");
+            if(state.equals("ARCHIVED")&&!Set.of("RESTORE","CONFIRM_EVIDENCE").contains(action))throw RecoveryException.conflict("V2_INVALID_STATE","请先恢复归档项。");
             switch(action) {
                 case "CONFIRM" -> {
-                    if(!Set.of("PENDING_CONFIRMATION","RESOLVED","DUE","WAITING_EVIDENCE").contains(state))throw V2Exception.conflict("V2_INVALID_STATE","请先返回队列，再确认新发现。");
-                    if(item.path("findings").isEmpty())throw V2Exception.conflict("V2_NO_FINDINGS","这版报告没有待练发现，请核对来源版本；可归档保留历史。");
+                    if(!Set.of("PENDING_CONFIRMATION","RESOLVED","DUE","WAITING_EVIDENCE").contains(state))throw RecoveryException.conflict("V2_INVALID_STATE","请先返回队列，再确认新发现。");
+                    if(item.path("findings").isEmpty())throw RecoveryException.conflict("V2_NO_FINDINGS","这版报告没有待练发现，请核对来源版本；可归档保留历史。");
                     item.set("skillIds",skillIds(body.path("skillIds")));boolean errors=false;
                     var selected=selectedFindings(item,body,false);boolean newlyConfirmed=false;
                     for(JsonNode f:item.path("findings")) {
@@ -126,9 +126,9 @@ public class ReviewService {
                 case "CLASSIFY" -> item.set("skillIds",skillIds(body.path("skillIds")));
                 case "DISPUTE" -> {
                     String reason=required(body,"reason",1000);var selected=new HashSet<String>();body.path("findingIds").forEach(n->selected.add(n.asText()));
-                    if(selected.isEmpty())throw V2Exception.invalid("请选择具体结论");
+                    if(selected.isEmpty())throw RecoveryException.invalid("请选择具体结论");
                     for(JsonNode finding:item.path("findings"))if(selected.remove(finding.path("id").asText()))((ObjectNode)finding).put("disputed",true).put("disputeReason",reason);
-                    if(!selected.isEmpty())throw V2Exception.invalid("所选结论不属于当前来源版本");
+                    if(!selected.isEmpty())throw RecoveryException.invalid("所选结论不属于当前来源版本");
                     if(item.has("lastEvidence"))item.put("currentSupportWithdrawn",true);
                 }
                 case "START" -> {requireState(state,"DUE");item.put("status","IN_PROGRESS");}
@@ -136,7 +136,7 @@ public class ReviewService {
                 case "RESCHEDULE","RESOLVE" -> {
                     requireState(state,"IN_PROGRESS");var evidence=validEvidence(item,body);storeEvidence(item,evidence);
                     if(action.equals("RESOLVE"))item.put("status","RESOLVED").putNull("nextReviewAt").put("resolutionReason","USER_ENDED_ROUND");
-                    else {int days=body.path("intervalDays").asInt();if(days!=1&&days!=3)throw V2Exception.invalid("复习间隔只能为1或3天");item.put("status","DUE").put("nextReviewAt",Instant.now().plus(days,ChronoUnit.DAYS).toString());}
+                    else {int days=body.path("intervalDays").asInt();if(days!=1&&days!=3)throw RecoveryException.invalid("复习间隔只能为1或3天");item.put("status","DUE").put("nextReviewAt",Instant.now().plus(days,ChronoUnit.DAYS).toString());}
                 }
                 case "CONFIRM_EVIDENCE","RESOLVE_EVIDENCE" -> {
                     var evidence=validEvidence(item,body);storeEvidence(item,evidence);
@@ -144,7 +144,7 @@ public class ReviewService {
                     if(action.equals("RESOLVE_EVIDENCE")) {
                         requireState(state,"WAITING_EVIDENCE");
                         boolean unhandled=false;for(JsonNode finding:item.path("findings"))if(finding.path("confirmed").asBoolean()&&!finding.path("disputed").asBoolean()&&(!finding.path("kind").asText().equals("uncertain")||!contains(evidence.path("supportedFindingIds"),finding.path("id").asText())))unhandled=true;
-                        if(!support||gaps||unhandled)throw V2Exception.conflict("V2_EVIDENCE_INSUFFICIENT","仍有未知或未处理发现，不能结束待证事项。");
+                        if(!support||gaps||unhandled)throw RecoveryException.conflict("V2_EVIDENCE_INSUFFICIENT","仍有未知或未处理发现，不能结束待证事项。");
                         item.put("status","RESOLVED").put("resolutionReason","SUPPORT_CONFIRMED").putNull("nextReviewAt");
                     } else if(gaps) {
                         if(state.equals("ARCHIVED"))item.put("newEvidenceAvailable",true);else item.put("status","DUE").put("nextReviewAt",now());
@@ -152,22 +152,22 @@ public class ReviewService {
                 }
                 case "ARCHIVE" -> item.put("beforeArchive",state).put("status","ARCHIVED");
                 case "RESTORE" -> {requireState(state,"ARCHIVED");item.put("status",item.path("confirmationPending").asBoolean()?"PENDING_CONFIRMATION":item.path("beforeArchive").asText("PENDING_CONFIRMATION"));}
-                default -> throw V2Exception.invalid("不支持的复习动作");
+                default -> throw RecoveryException.invalid("不支持的复习动作");
             }
             db.save("v2_review_items",item,revision);event(item,action,body,id+":"+required(body,"requestId",120));return item;
         });
     }
-    void requireState(String actual,String expected) {if(!actual.equals(expected))throw V2Exception.conflict("V2_INVALID_STATE","当前状态不允许此操作，请返回列表查看最新状态。");}
+    void requireState(String actual,String expected) {if(!actual.equals(expected))throw RecoveryException.conflict("V2_INVALID_STATE","当前状态不允许此操作，请返回列表查看最新状态。");}
     static boolean contains(JsonNode values,String id){for(JsonNode v:values)if(v.asText().equals(id))return true;return false;}
     Set<String> selectedFindings(JsonNode item,JsonNode body,boolean confirmedOnly) {
         var valid=new HashSet<String>();for(JsonNode f:item.path("findings"))if(!f.path("disputed").asBoolean()&&(!confirmedOnly||f.path("confirmed").asBoolean()))valid.add(f.path("id").asText());
         if(!body.has("findingIds"))return valid;
-        if(!body.path("findingIds").isArray()||body.path("findingIds").isEmpty())throw V2Exception.invalid("请选择至少一条当前有效发现");
-        var selected=new HashSet<String>();for(JsonNode f:body.path("findingIds"))if(!valid.contains(f.asText())||!selected.add(f.asText()))throw V2Exception.invalid("所选发现不存在、重复、未确认或有争议");return selected;
+        if(!body.path("findingIds").isArray()||body.path("findingIds").isEmpty())throw RecoveryException.invalid("请选择至少一条当前有效发现");
+        var selected=new HashSet<String>();for(JsonNode f:body.path("findingIds"))if(!valid.contains(f.asText())||!selected.add(f.asText()))throw RecoveryException.invalid("所选发现不存在、重复、未确认或有争议");return selected;
     }
     ObjectNode validEvidence(ObjectNode item,JsonNode body) {
         var selectedFindings=selectedFindings(item,body,true);
-        if(selectedFindings.isEmpty()||!body.path("bindings").isArray()||body.path("bindings").size()!=selectedFindings.size())throw V2Exception.invalid("请逐条选择发现并绑定对应检查点或报告结论，确认实际覆盖范围");
+        if(selectedFindings.isEmpty()||!body.path("bindings").isArray()||body.path("bindings").size()!=selectedFindings.size())throw RecoveryException.invalid("请逐条选择发现并绑定对应检查点或报告结论，确认实际覆盖范围");
         var result=db.object();var supported=result.putArray("supportedFindingIds");var statuses=result.putArray("findingStatuses");boolean gaps=false,support=false;
         JsonNode checks=null,reportQuestion=null;Set<String> allowed=null;
         if(body.hasNonNull("attemptId")) {
@@ -175,36 +175,36 @@ public class ReviewService {
             var source=db.get("v2_practice_cases",attempt.path("caseId").asText());
             if(!attempt.path("status").asText().equals("READY")||!source.path("sourceKind").asText().equals("SESSION")||
                     !source.path("sourceId").asText().equals(item.path("sourceSessionId").asText())||source.path("questionIndex").asInt(-1)!=item.path("questionIndex").asInt()||source.path("mock").asBoolean()!=item.path("mock").asBoolean())
-                throw V2Exception.conflict("V2_EVIDENCE_INSUFFICIENT","尝试尚未就绪、与原题无关或模型模式不同。");
+                throw RecoveryException.conflict("V2_EVIDENCE_INSUFFICIENT","尝试尚未就绪、与原题无关或模型模式不同。");
             var group=db.get("v2_practice_evaluation_groups",attempt.path("primaryGroupId").asText());
-            if(!group.path("status").asText().equals("READY"))throw V2Exception.conflict("V2_EVIDENCE_INSUFFICIENT","评估尚未完成");
+            if(!group.path("status").asText().equals("READY"))throw RecoveryException.conflict("V2_EVIDENCE_INSUFFICIENT","评估尚未完成");
             checks=group.path("result").path("checks");
             result.put("attemptId",id).put("evaluationGroupId",group.path("id").asText());
         } else {
             var link=db.get("v2_training_links",required(body,"trainingLinkId",100));
             if(!link.path("sourceKind").asText().equals("REVIEW")||!link.path("sourceId").asText().equals(item.path("id").asText())||link.path("mock").asBoolean()!=item.path("mock").asBoolean())
-                throw V2Exception.invalid("训练来源不对应当前复习项");
-            if(!link.path("sourceReportHash").asText().equals(item.path("reportHash").asText()))throw V2Exception.conflict("V2_SOURCE_CHANGED","原报告版本已变化，请重新建立训练范围");
+                throw RecoveryException.invalid("训练来源不对应当前复习项");
+            if(!link.path("sourceReportHash").asText().equals(item.path("reportHash").asText()))throw RecoveryException.conflict("V2_SOURCE_CHANGED","原报告版本已变化，请重新建立训练范围");
             allowed=new HashSet<>();for(JsonNode f:link.path("findingIds"))allowed.add(f.asText());
-            var session=db.legacy().session(link.path("sessionId").asText());
-            if(!session.path("status").asText().equals("COMPLETED")||!session.path("reportStatus").asText().equals("READY"))throw V2Exception.conflict("V2_EVIDENCE_INSUFFICIENT","请先完成练习及报告，再确认对应证据。");
-            var report=db.legacy().report(session.path("id").asText());
+            var session=db.database().session(link.path("sessionId").asText());
+            if(!session.path("status").asText().equals("COMPLETED")||!session.path("reportStatus").asText().equals("READY"))throw RecoveryException.conflict("V2_EVIDENCE_INSUFFICIENT","请先完成练习及报告，再确认对应证据。");
+            var report=db.database().report(session.path("id").asText());
             int index=body.path("evidenceQuestionIndex").asInt(-1);JsonNode selected=null;for(JsonNode q:report.path("questions"))if(q.path("questionIndex").asInt()==index)selected=q;
-            if(selected==null)throw V2Exception.invalid("请选择本场报告中实际覆盖该目标的一题，不能关联整场结论");
+            if(selected==null)throw RecoveryException.invalid("请选择本场报告中实际覆盖该目标的一题，不能关联整场结论");
             reportQuestion=selected;
             result.put("trainingLinkId",link.path("id").asText()).put("evidenceQuestionIndex",index).put("reportHash",db.hash(report));result.set("reportEvidence",selected.deepCopy());
         }
         var seen=new HashSet<String>();
         for(JsonNode binding:body.path("bindings")) {
-            String fid=required(binding,"findingId",100);if(!selectedFindings.contains(fid)||!seen.add(fid)||(allowed!=null&&!allowed.contains(fid)))throw V2Exception.invalid("证据绑定超出本次有效训练范围");
-            if(!binding.path("coverageConfirmed").asBoolean())throw V2Exception.invalid("请明确确认该证据覆盖了所选发现，不能仅凭整题正确结论自动推断");
+            String fid=required(binding,"findingId",100);if(!selectedFindings.contains(fid)||!seen.add(fid)||(allowed!=null&&!allowed.contains(fid)))throw RecoveryException.invalid("证据绑定超出本次有效训练范围");
+            if(!binding.path("coverageConfirmed").asBoolean())throw RecoveryException.invalid("请明确确认该证据覆盖了所选发现，不能仅凭整题正确结论自动推断");
             required(binding,"reason",1000);String verdict;
             if(checks!=null) {
                 String cid=required(binding,"checkId",100);JsonNode match=null;for(JsonNode check:checks)if(check.path("checkId").asText().equals(cid))match=check;
-                if(match==null)throw V2Exception.invalid("检查点不属于所选评估");verdict=match.path("status").asText();
+                if(match==null)throw RecoveryException.invalid("检查点不属于所选评估");verdict=match.path("status").asText();
             }else {
                 String kind=choice(required(binding,"reportKind",30),"correct","incorrect","missing","uncertain"),text=required(binding,"reportText",4000);
-                if(!contains(reportQuestion.path(kind),text))throw V2Exception.invalid("结论不属于所选报告题目");
+                if(!contains(reportQuestion.path(kind),text))throw RecoveryException.invalid("结论不属于所选报告题目");
                 verdict=kind.equals("correct")?"MET":kind.equals("uncertain")?"UNCERTAIN":"GAP";
             }
             statuses.addObject().put("findingId",fid).put("status",verdict.equals("MET")?"SUPPORTED":verdict.equals("GAP")?"GAP":"UNVERIFIED");
@@ -219,8 +219,32 @@ public class ReviewService {
     }
     public ObjectNode list(String cursor,int limit,String status) {
         var out=db.reviewPage(cursor,limit,status);
-        for(JsonNode n:out.path("items")) {var item=(ObjectNode)n;item.remove(List.of("dialogue","sourceReport","sourceVersions","lastEvidence","evidenceHistory"));}
+        for(JsonNode n:out.path("items")) {var item=(ObjectNode)n;attachTraining(item);item.remove(List.of("dialogue","sourceReport","sourceVersions","lastEvidence","evidenceHistory"));}
         return out;
+    }
+    /** 只读关联练习，供界面恢复作答；不改变复习状态或自动确认能力证据。 */
+    void attachTraining(ObjectNode item) {
+        var ids=db.ids("v2_training_links","source_id",item.path("id").asText());
+        for(String id:ids.reversed()) {
+            var link=db.get("v2_training_links",id);
+            if(!link.path("sourceKind").asText().equals("REVIEW")||!link.path("sourceReportHash").equals(item.path("reportHash"))||link.path("mock").asBoolean()!=item.path("mock").asBoolean())continue;
+            boolean valid=!link.path("findingIds").isEmpty();
+            for(JsonNode selected:link.path("findingIds")) {
+                boolean found=false;
+                for(JsonNode finding:item.path("findings"))if(finding.path("id").equals(selected)&&finding.path("confirmed").asBoolean()&&!finding.path("disputed").asBoolean())found=true;
+                if(!found)valid=false;
+            }
+            if(!valid)continue;
+            if(!link.hasNonNull("sessionId")&&(item.has("latestTraining")||link.path("sourceRevision").asInt()!=item.path("revision").asInt()))continue;
+            var summary=db.object();for(String key:List.of("id","sessionId","sourceRevision","findingIds"))summary.set(key,link.path(key).deepCopy());
+            if(link.hasNonNull("sessionId")) {
+                var session=db.database().session(link.path("sessionId").asText());
+                summary.set("sessionStatus",session.path("status"));summary.set("reportStatus",session.path("reportStatus"));
+                summary.set("endedAt",session.path("endedAt"));summary.set("updatedAt",session.path("updatedAt"));
+            }
+            if(!item.has("latestTraining"))item.set("latestTraining",summary);
+            if(!summary.path("sessionStatus").asText().equals("COMPLETED")) {item.set("latestTraining",summary);return;}
+        }
     }
     public ObjectNode skills() {
         db.enabled();var result=db.object();result.set("catalog",catalog);var items=result.putArray("items");
@@ -245,7 +269,7 @@ public class ReviewService {
 
     public ObjectNode source(String sessionId,int questionIndex) {db.enabled();var ids=db.reviewItemIds(sessionId,questionIndex);var out=db.object();if(ids.isEmpty())out.putNull("id");else out.put("id",ids.getFirst());return out;}
 
-    public ObjectNode get(String id) {return db.get("v2_review_items",id);}
+    public ObjectNode get(String id) {var item=db.get("v2_review_items",id);attachTraining(item);return item;}
 
     public ObjectNode history(String id,String cursor,int limit) {return ops.history("v2_review_items",id,cursor,limit);}
 

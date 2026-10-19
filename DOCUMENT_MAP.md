@@ -1,6 +1,6 @@
 # 文档职责地图
 
-- 最近审计：2026-10-18。
+- 最近审计：2026-10-19。
 - 地图 owner：本文件；当前 Release：V1。
 
 | 职责 | 实际路径 | 状态 | 定位依据与备注 |
@@ -34,7 +34,7 @@
 | V3 技术设计 | [TECH_DESIGN.md](docs/vibe/releases/v3/TECH_DESIGN.md) | 已实施 / 待人工验收 | Spring AI、受控检索、共享矩阵、分组复盘与单题补练、语音及服务端计时 |
 | V3 实施进度 | [IMPLEMENTATION_PLAN.md](docs/vibe/releases/v3/IMPLEMENTATION_PLAN.md) | VERIFYING | S0～S6历史与本轮E0～E6检查点 |
 | V3 实际验证与限制 | [VERIFICATION.md](docs/vibe/releases/v3/VERIFICATION.md) | PARTIAL | 软件测试、公开来源、合成真实模型及浏览器证据分别记录 |
-| V3 本机运行入口 | [README.md](v3/README.md) | 已接入日常dev | 日常5173/8080使用V3与原资料库；保留独立4173/18081入口 |
+| 全站本机运行入口 | [README.md](README.md#综合面试) | 已统一接线 | 业务模块共用backend、App和5173/8080；版本专用脚本已删除，旧HTTP地址作为同一实现的兼容别名 |
 | V3 错题复习与原题重练修复 | [修复记录](docs/vibe/releases/v3/REVIEW_PRACTICE_FIX.md) | 局部软件验收通过 | 原题案例、零创建恢复、自动草稿/对比及本次前端验证；不代表V3整体验收 |
 
 本文件仅作导航，正文事实由对应 owner 维护。后续版本按实际 Release 建立目录；V1 历史验收保留当时输入与配置边界。目标方案、前版变化和独立复盘按需创建，本次未建立空白文件。

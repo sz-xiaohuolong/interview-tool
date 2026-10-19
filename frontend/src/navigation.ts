@@ -14,6 +14,8 @@ function belongsTo(path: string, root: string) { return path === root || path.st
 
 export function navigationFor(path: string, pageTitle = '') {
   path = path.toLowerCase().replace(/\/+$/, '') || '/'
+  // 兼容旧书签，导航归属仍使用当前业务路径。
+  path = path.replace(/^\/interview-v3(?=\/|$)/, '/interviews')
   const training = trainingNavigation.find(item => belongsTo(path, item.to)
     || (item.to === '/jd-diagnostics' && belongsTo(path, '/sprints')))
   if (training) {
@@ -25,7 +27,7 @@ export function navigationFor(path: string, pageTitle = '') {
   }
   let primary: PrimarySection = 'overview'
   let breadcrumbs: LocationStep[] = [{ title: pageTitle || '练习概览' }]
-  if (belongsTo(path, '/configure')) {
+  if (belongsTo(path, '/configure') || belongsTo(path, '/interviews')) {
     primary = 'interview'
     breadcrumbs = [{ title: '开始面试', to: '/configure/quick' }, { title: pageTitle || '准备面试' }]
   } else if (belongsTo(path, '/sessions')) {

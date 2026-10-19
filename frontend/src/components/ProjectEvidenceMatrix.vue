@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { v2, writeV2, V2Error } from '../v2/api'
-import ModelRecovery from '../v2/ModelRecovery.vue'
+import { training, writeTraining, ApiError } from '../api/training'
+import ModelRecovery from './ModelRecovery.vue'
 import Notice from './Notice.vue'
 import type { ProjectEvidenceMatrix, ProjectGapPractice, ProjectCheckpointId } from '../project-evidence'
 
 const props = defineProps<{ matrix: ProjectEvidenceMatrix; sourceKind: 'SESSION' | 'V3'; sourceId: string }>()
-const router = useRouter(), gaps = ref<ProjectGapPractice[]>([]), busy = ref(''), error = ref(''), recovery = ref<V2Error | null>(null)
+const router = useRouter(), gaps = ref<ProjectGapPractice[]>([]), busy = ref(''), error = ref(''), recovery = ref<ApiError | null>(null)
 const base = computed(() => `/api/project-evidence/${encodeURIComponent(props.sourceKind)}/${encodeURIComponent(props.sourceId)}/gaps`)
 const labels = { CLEAR: '已讲清', PARTIAL: '待补强', UNCOVERED: '未覆盖' }
 const gapLabels: Record<string, string> = { RUNNING: '补练问题生成中', FAILED: '补练问题生成失败', INTERRUPTED: '补练问题生成中断' }
@@ -15,12 +15,12 @@ let readGeneration = 0
 function gap(id: ProjectCheckpointId) { return gaps.value.find(item => item.checkpointId === id) }
 function pending(item?: ProjectGapPractice) { return !!item && item.status !== 'READY' }
 function showRecovery(item?: ProjectGapPractice) {
-  if (item?.operationId) recovery.value = Object.assign(new V2Error(gapLabels[item.status] || '请查看已保存的操作'), { operationId: item.operationId })
+  if (item?.operationId) recovery.value = Object.assign(new ApiError(gapLabels[item.status] || '请查看已保存的操作'), { operationId: item.operationId })
 }
 async function load() {
   const generation = ++readGeneration
   try {
-    const result = await v2<{ items: ProjectGapPractice[] }>(base.value)
+    const result = await training<{ items: ProjectGapPractice[] }>(base.value)
     if (generation !== readGeneration) return
     gaps.value = result.items || []
   } catch (e) { if (generation === readGeneration) error.value = e instanceof Error ? e.message : '补练记录暂时无法读取，原矩阵仍可查看。' }
@@ -29,13 +29,13 @@ async function create(checkpointId: ProjectCheckpointId) {
   if (busy.value) return
   busy.value = checkpointId; error.value = ''; recovery.value = null
   try {
-    const saved = await writeV2<ProjectGapPractice>(`${base.value}/${checkpointId}`, {})
+    const saved = await writeTraining<ProjectGapPractice>(`${base.value}/${checkpointId}`, {})
     gaps.value = [...gaps.value.filter(item => item.checkpointId !== checkpointId), saved]
     if (saved.status === 'READY' && saved.caseId) await router.push(`/practice/${encodeURIComponent(saved.caseId)}`)
     else showRecovery(saved)
   } catch (e) {
     error.value = e instanceof Error ? e.message : '补练尚未完成，原报告保持。'
-    recovery.value = e instanceof V2Error ? e : null
+    recovery.value = e instanceof ApiError ? e : null
     await load()
   } finally { busy.value = '' }
 }

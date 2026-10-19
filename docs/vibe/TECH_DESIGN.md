@@ -1,154 +1,92 @@
 # 当前技术架构与接口约定
 
-本文说明当前代码中的 V1、V2模块与独立V3扩展。V1基础见第1～5节，V2接入见第6节，V3追加接入见第7节。产品应当如何工作，见 [产品行为规范](releases/v1/SPEC.md)；实际测过什么，见 [验证记录](releases/v1/VERIFICATION.md)。
+2026-10-19更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
 
-## 1. 各模块负责什么
+## 1. 统一职责与目录
 
-| 位置或模块 | 职责 |
+后端根包 `cn.interview` 仅保留 `Application`；所有业务均按 `controller`、`service`、`client`、`mapper`、`validation`、`dto`、`entity`、`config`、`exception`、`common` 分层。测试跟随被测职责，不存在版本包或版本前缀类。
+
+| 主要实现 | 职责 |
 |---|---|
-| `frontend/` | Vue 页面、API 客户端和样式；页面业务状态以服务端数据为准 |
-| `backend/` | 按 `controller` → `service` → `mapper` 分包：接收请求、处理业务、读写数据；根包只保留 `Application` |
-| `MaterialService` | 提取并保存上传资料 |
-| `InterviewService` | 管理面试会话、回答和状态变化 |
-| `LlmClient` | 统一调用大语言模型（LLM） |
-| 独立提示词 | 分别用于规划、提问、评估和押题 |
-| SQLite 与本地文件 | 数据库保存资料和完整会话快照；上传文件以 UUID 文件名存入本地 data/uploads |
+| `InterviewController` / `InterviewService` | 综合面试的后台准备、纠偏、开考、阶段、计时、追问与查证复盘 |
+| `FocusedInterviewController` / `FocusedInterviewService` | 项目深挖、简历单题、关联训练及原格式场次的兼容读写；共用现有项目矩阵和语音组件 |
+| `ReviewService`、`PracticeService`、`JdService`、`StoryService`、`DesignPracticeService` | 复习、单题、JD、故事、设计训练各自业务；不是不同应用版本 |
+| `OperationService` / `ModelTaskRunner` | 训练操作的幂等、修订号、执行代次、失败恢复与固定模型任务 |
+| `OpenAiJsonClient` | 业务模型任务唯一OpenAI结构化请求传输，复用已接入Spring AI 1.1.8；请求限时、无隐式重试、响应大小限制及安全错误处理 |
+| `InterviewModelClient`、`FocusedInterviewModelClient`、`TrainingModelClient` | 各业务的提示词、模型参数和输出协议适配；共用上述网络实现，不另建HTTP模型客户端 |
+| `InterviewOutputValidator` | 综合面试的结构、阶段、当前快照引用与证据校验；原结构校验和业务校验已合并，共用主题表 |
+| `FocusedInterviewOutputValidator` / `TrainingOutputValidator` | 项目/单题报告及训练评估各自的协议校验 |
+| `KnowledgeService` / `FixedHttpTransport` / `KnowledgeTransport` | 受控公开文档检索、正文缓存和固定域名下载；下载接口归client层，不反向依赖业务Service |
+| `SqliteStore` / `TrainingStore` / `InterviewSessionStore` | SQLite连接与共用资料、训练业务记录、综合面试原子JSON快照；存储格式不同，职责明确，不按版本选择实现 |
+| `ApiAdvice` / `ApiException` / `RecoveryException` | 同一异常响应出口，恢复字段在需要时追加；不再维护两套Advice |
 
-`mapper` 中的 `Store`、`V2Store` 沿用原 JDBC 实现，负责 SQL、事务与持久化；Controller 通过 Service 获取业务结果。资料和文档对象位于 `entity`，资料上下文位于 `dto`；模型调用、模型输出校验、Spring 配置、异常处理和通用工具分别位于 `client`、`validation`、`config`、`exception`、`common`。测试按被测职责分包，JDBC 和 Mock 的跨包测试访问由测试夹具提供，不开放生产字段。
+没有需要多实现切换的业务服务，保留具体Service类，不增加空ServiceImpl或VO层。Controller接收参数并返回响应，业务规则在Service，SQL在Mapper。共用事务、模型配置及项目证据接口继续复用。
 
-现有服务没有需要多实现切换的业务接口，因此保留具体 Service 类；暂未单独建立 ServiceImpl 和 VO 层，避免为目录完整而增加空层。HTTP 路径、JSON 字段、SQLite 结构及提示词继续沿用现有约定。
+前端只有 `src/App.vue` 和 `src/main.ts`。页面在 `pages/`，展示与操作组件在 `components/`，业务客户端在 `api/`，结构定义在 `models/`，业务路由注册在 `routing/`。`api.ts` 统一处理同源请求、JSON、上传、204、状态和恢复字段；`api/training.ts` 仅增加业务路径及幂等写入，`api/interviews.ts` 绑定综合动作。所有路由由同一router注册，不再切换版本App。
 
-启动模型参数由后端环境变量加载；右上角弹窗保存后，V1、V2 与 V3 通过共享 `ModelConfigurationService` 读取当前连接，每次调用固定一份不可变快照。配置持久化到本机 `model-config.json`，原子替换且权限为0600；恢复操作回到启动配置，不修改环境文件。V2继续校验评估协议，切换模型后拒绝混组。可选思考强度仅向支持该参数的服务传入；DeepSeek追问关闭思考。前端弹窗复用 Reka UI。完整契约及验证见[V3模型配置](releases/v3/SPEC.md#全站模型配置2026-10-18用户已确认)。
+## 2. 项目与单题面试
 
-## 2. 一场面试如何运行
+`FocusedInterviewService` 维护已有三种场次模式和原JSON契约，支持项目资料快照、简历押题后单题模拟、原快速场次及关联训练。创建先保存CREATED和待规划动作，规划成功后进入IN_PROGRESS；回答先持久化，再按题单和追问约束继续；完成进入COMPLETED并生成报告。
 
-1. 创建会话，保存待规划状态 CREATED。
-2. 模型规划本场题目并生成首问，会话进入面试中状态 IN_PROGRESS。
-3. 保存用户回答及待处理动作 pendingAction，再请求模型决定追问、切题或结束。服务端强制每道主问题最多追问两次。
-4. 题目完成或用户提前结束后，进入已结束状态 COMPLETED，生成统一报告。
+模型失败时保存FAILED或INTERRUPTED，回答和请求ID保留，显式重试读取原快照。启动恢复不会自动重新付费调用。所选资料、项目矩阵、原答和报告继续沿用已确认规则，旧历史不重算。
 
-模型服务失败时，会话保存为 FAILED 或 INTERRUPTED，重试沿用已保存的快照。服务启动时，会把上次未完成的生成标记为中断，供用户恢复，避免页面一直显示加载中。
+关联训练逻辑已直接合入该Service，使用 `ObjectProvider<TrainingLinkService>` 按需要取得来源服务。`TrainingLinkService` 原子预留场次与来源关系，再复用同一规划逻辑；已删除通过BeanDefinition替换子类的增量接线和重复Service类。
 
-资料、岗位描述（JD）和回答均作为不可信的 JSON 数据放在用户消息中。系统提示明确要求：这些文本不能覆盖面试规则。服务端还会检查模型返回的数据结构、类型、数组范围、分数和依据引用。
+## 3. 数据与资源
 
-会话 API 不返回模型内部决策和尚未进行的题单。会话使用开始时保存的资料副本，即“资料快照”；之后修改或删除原资料，不改变该场面试的记录。
-
-## 3. 数据如何保存
-
-| 表及字段 | 保存内容与关联规则 |
+| 存储或资源 | 当前用途及兼容边界 |
 |---|---|
-| `materials(id, kind, name, content, created_at, updated_at)` | 简历 RESUME、项目 PROJECT、岗位描述 JD |
-| `documents(id, material_id, name, storage_name, content, truncated, created_at)` | 上传文档；删除所属资料时，按外键关联删除文档记录 |
-| `sessions(id, payload, updated_at)` | 完整服务端会话 JSON：规划、资料快照、消息、防重复请求标识、阶段及报告状态 |
-| `predictions(id, resume_id, payload, created_at)` | 简历押题快照；删除资料不破坏历史会话 |
-| `reports(session_id, payload)` | 统一格式的评估报告 |
+| `DATA_DIR/interview.db` | 资料、附件索引、项目/单题场次、押题、报告及专项训练表；原五表、`v2_*`表名与数据格式保留 |
+| `DATA_DIR/uploads/` | UUID命名的上传资料，按既有边界提取文本 |
+| `DATA_DIR/v3/sessions/` | 综合面试JSON快照；路径仅是既有存储契约，不代表版本模块 |
+| `DATA_DIR/v3/knowledge/` | 公开技术文档缓存，不含私有资料搜索请求 |
+| `DATA_DIR/model-config.json` | 全站模型连接，原子保存、权限0600，不公开密钥 |
+| `prompts/` | 项目与单题模型提示词；`prompts/training/`为固定训练任务，`prompts/interview/`为综合面试阶段 |
+| `knowledge/sources.json` | 受控公开来源清单，内容未因路径整理改变 |
+| `training/skill-catalog.json` | 能力目录，内容和已保存ID保留 |
+| `db/migrations/001-training.sql` | 原训练增量结构，内容逐字保留以继续匹配已登记的SHA256校验和 |
 
-## 4. HTTP 接口约定
+本次没有Schema或个人库迁移。已保存的来源标签、模型评估协议版本、错误码和浏览器草稿键保持兼容；这些标识是数据契约，不生成另一套版本实现。
 
-所有 API 以 `/api` 开头，使用 JSON。时间使用 ISO-8601 格式，错误格式为 `{message, code}`，正常删除返回 HTTP 204。下面的路径省略 `/api` 前缀。
+## 4. HTTP与错误契约
 
-会话创建、回答和重试有一项特殊约定：模型服务失败时，接口仍返回已保存的 Session，HTTP 状态为 200；调用方应检查 status，它会是 FAILED 或 INTERRUPTED，并包含 error/pendingAction。这样前端能保留会话 ID，继续恢复。
+API只监听回环地址，经前端同源代理访问。写请求继续受Origin边界保护。时间使用ISO-8601；错误基础字段为 `message`、`code`，有恢复上下文时追加 `currentRevision`、`nextAction`、`resourceId`、`operationId`、`retryable` 等字段。
 
-报告生成失败时保留 reportStatus=FAILED。用户主动重试报告仍失败时，接口返回明确的 HTTP 错误。
-
-### 4.1 资料
-
-Material 的字段：`{id,kind,name,content,createdAt,updatedAt,documents:[{id,name,text,truncated,createdAt}]}`。
-
-- GET `/materials?kind=RESUME|PROJECT|JD`：返回 Material 数组；省略 kind 则返回全部。
-- POST `/materials`：输入 `{kind,name,content}`，创建资料。
-- PUT `/materials/{id}`：输入 `{name,content}`，修改资料。
-- DELETE `/materials/{id}`：删除资料。
-- POST `/materials/upload`：使用 multipart 表单 `kind,name(可选),file`，创建资料并保存文档。
-- POST `/materials/{id}/documents`：使用 multipart 表单 `file`，为资料添加文档。
-- DELETE `/materials/{id}/documents/{documentId}`：删除指定文档。
-
-### 4.2 简历押题
-
-- POST `/predictions`：输入 `{resumeId,role,jd}`，生成押题。
-- GET `/predictions?resumeId=...`：按时间倒序返回 PredictionSet 数组。
-- PredictionSet 的字段：`{id,resumeId,role,createdAt,mock,contextTruncated,questions:[{id,question,evidence,knowledgePoint,priority,answerOutline,followUps:[]}],risks:[]}`。
-
-### 4.3 面试会话
-
-- POST `/sessions`：输入 `{mode,role,level,durationMinutes,style,jd,materialId,predictionId,questionId,focus}`。mode 为 QUICK/RESUME/PROJECT，level 为 INTERN/JUNIOR/SENIOR，style 为 NORMAL/PRESSURE；其余字段可选。
-- GET `/sessions`：返回 Session 数组；GET `/sessions/{id}`：返回指定 Session。
-- POST `/sessions/{id}/answers`：输入 `{content,requestId,expectedMessageId}`，提交回答。
-- POST `/sessions/{id}/retry`：重试未完成的规划或面试官输出。
-- POST `/sessions/{id}/finish`：提前结束并生成报告。
-- GET `/sessions/{id}/report`：读取 Report；POST `/sessions/{id}/report`：生成或重试报告。
-
-主要返回对象：
-
-| 对象 | 字段与说明 |
-|---|---|
-| Session | `{id,status,mode,role,level,durationMinutes,style,createdAt,updatedAt,endedAt,questionIndex,followUpCount,totalQuestions,currentTopic,messages,mock,error,pendingAction,reportStatus,contextTruncated}` |
-| Message | `{id,role,content,questionIndex,followUp,createdAt}`；role 为 ASSISTANT/USER，主问题从 0 编号 |
-| Report | `{sessionId,summary,dimensions:[{name,score,reason}],questions:[{questionIndex,question,correct:[],incorrect:[],missing:[],uncertain:[],answerOutline,knowledgeExplanation,evidence:[]}],weaknesses:[],suggestions:[],mock,createdAt}`；原始回答从 Session 消息读取，不由模型重写 |
-
-### 4.4 配置状态
-
-GET `/health` 返回 `{status,provider,configured,model}`，不包含密钥（Key）或模型服务地址（Base URL）。
-
-## 5. 如何验证
-
-集成测试使用真实 SQLite 和 HTTP Controller。外部模型使用可控测试替身，覆盖成功、非法 JSON、模型服务错误和延迟。
-
-浏览器验收检查实际服务中的完整操作流程和刷新恢复。真实模型配置就绪后，还需单独检查提问、追问和复盘质量；测试替身通过不代表模型质量通过。
-
-## 6. V2 新增接入（已实现，整体验证 PARTIAL）
-
-V2 使用 `V2_ENABLED=true`（或 `app.v2.enabled=true`）启用，默认关闭。启动在 Store 实例化及 WAL/恢复写入前执行 `V2SchemaPreflight` 的只读检查；未迁移、未知结构或校验和异常拒绝启动。独立 `scripts/migrate-v2.py` 仅在明确维护参数和显式数据目录/备份目录下迁移，增加14张表而不批量回写旧记录。早期迁移在合成临时目录演练；2026-10-16用户追加授权后，已对原data执行完整备份、显式迁移并开启V2，原五表及附件不变。
-
-V2 最初通过新增源码增量接入；2026-10-16 后端目录整理后，配置位于 `config`，业务服务位于 `service`。`V2BootstrapConfiguration` 将唯一 interviewService 的 BeanDefinition 指向 `TrainingLinkedInterviewService` 子类，使用类引用取得完整类名；无 trainingLinkId 时直接调用原 super.create。有关联时 `TrainingLinkService` 原子预留旧会话与侧表，并复用原规划器。旧接口、Session schemaVersion=1、三模式及报告仍沿用原实现。
-
-新增 Review/Practice/Jd/Story/DesignPractice 五个业务服务，共用 `V2Store`、`V2Operations`、`V2InputPreparations`、`V2ModelRunner`、`V2LlmClient` 和 `V2OutputValidator`。短事务保存 revision、requestId、generation 与输入快照，网络等待在事务外；失败明确保存 operation/resource 指针，重启转 INTERRUPTED，只有用户显式重试才再次调用。新代次执行期间，旧 HTTP 成功或失败均拒绝写回，并向旧请求返回 V2_OPERATION_SUPERSEDED。六个固定任务共用1个并发名额，读取中限制模型响应为2000000字节，单记录上限2 MiB。
-
-新增接口位于 `/api/v2`，关闭时 `/status` 之外均拒绝；旧 `/api/sessions` 的来源分支也检查开关。状态接口与列表只返回必要摘要和指针，不泄漏完整个人正文或认证信息。各功能路径、请求字段、状态、数据模型详见 [V2 设计](releases/v2/TECH_DESIGN.md)。
-
-前端新增 `vite.config.js` 合并原 `.ts` 配置，以 HTML 入口扩展加载 `src/v2/main.ts`。状态关闭、旧后端或离线时回原 main；开启时注册独立路由并使用 V2App 包装原 AppLayout 和旧页面。五项训练导航、报告工具和来源配置均为新增组件，原 CSS 与原页面保持字节不变，新增样式只作用于 V2 类名。
-
-工程、恢复、合成迁移及浏览器证据见 [V2 验证记录](releases/v2/VERIFICATION.md)。Mock 仅验证软件流程；六类新增任务已有合成真实模型通过样本，故事和阶段编号两次历史结构失败经提示词澄清后复验，失败记录保留。KNOWLEDGE_AGENT 五阶段按记录版本核对，ORDER_SERVICE 建议质量未校准；内置浏览器另通过一条无资料 JD 真实链路。原库已另获授权完成迁移，日常5173/8080使用原data并启用V2，独立测试监听已关闭；本次未新增模型调用，V1既有真实证据不扩大为V2结论。
-
-
-### V2 导航与复盘展示（2026-10-17）
-
-用户批准导航方案 2 后，AppLayout 通过命名插槽接收 V2 专项入口，`navigation.ts` 统一计算主次归属和可返回的面包屑；V2 关闭仍为原四项入口。报告局部样式采用已批准 C 阅读布局。此次只修改前端展示，后端、接口、状态与数据保持。版本细节见 [V2 界面设计记录](releases/v2/UI_DESIGN.md) 和 [V2 技术设计第12节](releases/v2/TECH_DESIGN.md#12-导航与复盘-ui-的展示接入2026-10-17)。
-
-
-## 7. V3 综合面试的独立追加接入（2026-10-17）
-
-新增 `v3/pom.xml` 复用原Java源码、资源及测试作为编译输入，只把产物写入v3/target；原backend POM保持。Spring AI 1.1.8负责结构化模型调用，单次尝试不隐藏重试；分析、规划、追问和复盘为独立阶段，检索、状态编排、模型边界校验和存储按职责分包。用户限定只新增代码，故保留独立模块和启动入口，没有改写旧LLM客户端。
-
-`V3InterviewService` 使用慢任务和追问两个有界执行器，状态立即持久化。revision防过期提交，generation拒绝旧后台结果及旧轮截止；正常追问成功也增加generation，避免旧定时器打断下一轮。服务端7秒截止，切本题未问备用或中断，明确保留回答；重启后只标中断，不自动重新付费调用。每场最多128次尝试、累计400000声明输出上限，为复盘预留最后1次及6500声明输出额度。新增skip-stage显式进入相邻阶段，保留原答并标记已跳过；用量回调独立于正文校验，界面显示实际已报告的输入/输出/合计Token，缺失部分不估算。完整契约见V3 SPEC及TECH_DESIGN。
-
-`KnowledgeService` 以受控主题键选固定公开HTTPS来源，不把用户原文用作公网查询；限制DNS/重定向/响应大小和3秒获取期限。缓存48小时、手动刷新，本地按技术概念匹配节选。来源ID绑定正文hash，同版本保留各阶段实际所见片段，刷新后合并元数据并按获取时间重算过期；复盘结论必须引用实际已答ID与非过期官方原文，否则降为待核实。仅结构与逐字引用校验不能保证语义正确，真实质量另测。
-
-V3只在 `DATA_DIR/v3` 写原子JSON快照和公开知识缓存，不改SQLite表。所选简历/JD保留本场正文、资料名/id/更新时间/hash/截断标记；更正累积只作用本场，不回写资料。公共接口去掉原文、未问题单和内部状态，派生allowedActions供界面显示正确恢复动作。超长模型输入明确节选并提示，原始本场回答保留。
-
-前端新增 `src/v3` 和 `vite.v3.config.ts`；旧 `/configure/quick` 通过新增守卫进入 `/interview-v3`，带trainingLinkId的V2练习继续旧路径。原简历押题、项目深挖及专项训练沿用。按用户追加的本地接入要求，`scripts/dev.sh` 已选择V3构建与前端配置，日常5173/8080继续读取原data与.env.local；`scripts/dev-v3.sh` 保留默认4173/18081的独立入口，同一资料库只运行一个后端。具体契约、验证和限制分别由 [V3设计](releases/v3/TECH_DESIGN.md) 与 [V3验证](releases/v3/VERIFICATION.md)维护。
-
-### 2026-10-18 共享项目证据与实战扩展
-
-本轮已获准修改相关原代码。`ProjectEvidenceService`、`ProjectGapService`及校验器位于原backend职责包中，V3通过`ProjectEvidenceSource`适配；原backend独立构建不依赖V3。两类新场次创建时写入`experienceVersion:1`并保存唯一主项目。既有复盘模型任务同时生成七点矩阵，服务端验证真实相邻问答与连续原文。缺口沿用V2单题案例、操作恢复及SQLite表，以`contextOrigin:PROJECT_GAP`区分，不回写原报告；公开接口裁剪内部生成协议。
-
-`V3InterviewProgress`维护四阶段及作答时钟；公开响应按服务端时间推导剩余时长，写操作保存累计用时。模型与识别等待有界排除，到点保留末答机会。正常关闭先保存累计值，重启排除宕机时间；硬崩时最近未保存的作答片段可能少计。无版本字段的旧场次走原流程，不自动增加矩阵、阶段或调用。
-
-前端共用`SpeechInput.vue`封装浏览器内置识别，两条作答链路都支持；仅最终文字进入答案框，到点停止时将未确认文字保留为待校对草稿。应用不接收或保存音频、不下载语音模型。语音质量仍需实际浏览器和麦克风人工验收，事件替身只能验证界面状态及迟到结果保护。
-
-### 接口归属与防回归（2026-10-18）
-
-当前日常入口使用 V3，但新旧面试分别保存、分别提供接口；不能把“正式版本仍为 V1”理解成所有页面都应该调用旧面试接口，也不能把所有旧接口替换为 V3。
-
-| 调用范围 | 前端与后端入口 | 实际接口及读取边界 |
+| 业务 | 当前入口 | 兼容入口与边界 |
 |---|---|---|
-| V3 综合面试的准备、开考、回答、恢复与复盘 | `src/v3/api.ts` → `V3InterviewController` | `/api/v3/sessions` 及其子路径；列表为 `InterviewSessionSummary`，详情为 `InterviewSession` |
-| 旧场次、旧项目深挖、V2 关联训练 | 原面试页面、`v2/LinkedConfigure.vue` → `InterviewController` | `/api/sessions` 及其子路径；继续与报告使用旧路由 |
-| 共用练习记录 | `pages/History.vue` | V3 已注册时并行读取两种列表，按来源和 ID 区分身份，并跳到所属工作台；旧入口只读旧列表 |
-| 共用资料与运行状态 | 共用 `api.ts` | `/api/materials`、`/api/health` 仍有效，不随综合面试版本迁移 |
+| 综合准备、列表、详情、动作与删除 | `/api/interviews`、`/api/interviews/status` | `/api/v3/sessions`、`/api/v3/status`直接映射同一Controller和Service，不重复创建、不回退旧面试接口 |
+| 专项训练、单题案例、JD、故事、设计训练及操作恢复 | `/api/training` | `/api/v2`直接映射相同业务控制器，维持状态、幂等与恢复协议 |
+| 项目/单题及原格式场次 | `/api/sessions` | 原请求和报告路径保留，由FocusedInterviewController处理，不按ID猜测综合来源 |
+| 共用资料、健康与模型配置 | `/api/materials`、`/api/health`、`/api/model-config` | 全站共用，不因历史编号停用 |
 
-旧概览 `pages/Dashboard.vue` 当前仍只读取旧面试统计，不代表 V3 全量记录；若扩展其统计范围，须同时定义 V3 摘要的统计字段，不能把摘要中不存在的回答次数当成0。本次只固化接口归属和回归检查，没有改变概览的统计范围。
+综合和原场次删除仍为逻辑删除并返回204；故事删除沿用幂等和修订校验，返回200与JSON结果。列表摘要不等于完整场次，前端按真实返回的字段处理。历史记录身份包含来源与ID，相同ID不串接口。
 
-前端标准测试已有三层保护：`v3/api.contract.test.ts` 执行真实客户端，核对读取、创建及所有动作的 HTTP 路径、方法、同源约束和错误传播；`api-boundaries.test.ts` 扫描 V3 TypeScript 与 Vue 脚本中的旧面试路径字面量及模板前缀，阻止直接绕过 V3 客户端；`pages/History.routing.test.ts` 使用真实 `registerV3`，验证只有 V3 场次时仍可继续，以及旧列表成功不能掩盖 V3 失败。此前 `History.v3.test.ts` 保留状态、同 ID、排序、两侧失败与旧入口兼容回归。
+## 5. 模型配置与验证
 
-这些检查随 `npm --prefix frontend test` 自动执行，既有 `scripts/test.sh` 和 `scripts/test-v3.sh` 已调用该命令。源码扫描只覆盖已扫描的 V3 目录与可识别路径表达式，不证明任意动态拼接或新增共用页面均已正确接入；新增共用入口仍须按 AGENTS 中的约定补对应行为测试。两次隔离负向实验与最终结果见 [V3验证记录](releases/v3/VERIFICATION.md) 的接口防回归节。
+`ModelConfigurationService` 提供单次请求的不可变连接快照，三类业务适配器直接注入共用配置与同一传输Bean，训练客户端不依赖其他业务客户端；保存不会调用模型，列表和连接探测由用户主动触发。新的追问配置使用 `INTERVIEW_FOLLOWUP_MODEL` 和 `INTERVIEW_FOLLOWUP_REASONING_EFFORT`，旧 `V3_FAST_*` 变量作兼容读取，新配置优先。
+
+`OpenAiJsonClient` 使用Spring AI构造请求，单次最多一次尝试，不执行工具；响应读取中限制2000000字节，拒绝上游重定向，超时和认证/限流错误明确返回且不泄露响应正文。兼容服务未声明响应类型时按JSON解析，结束原因统一为小写；正文仍须通过完整JSON及业务校验。实际用量先报告，再校验正文，避免格式错误掩盖已发生的调用。Mock必须显式配置，缺密钥不降级。
+
+训练协议保留提示词哈希、参数、请求/返回模型与执行元信息，变化后拒绝混组。综合面试保留阶段输出限额和实际用量。只有项目/单题历史协议需要时才接受JSON代码围栏；训练和综合输出继续要求严格JSON。结构通过不证明技术判断正确。
+
+## 6. 专项训练与资料库维护
+
+训练业务共用 `TrainingStore`、`OperationService`、`InputPreparationService`、`ModelTaskRunner` 和固定任务枚举。短事务记录revision、requestId、generation及输入，网络等待在事务外。失败保留operation/resource指针，重启转INTERRUPTED，只有显式重试才再次调用；旧代次成功或失败均不能写回新状态。
+
+`TRAINING_ENABLED` / `app.training.enabled` 表示所选资料库是否已准备好训练结构，不选择不同代码版本；旧 `V2_ENABLED` / `app.v2.enabled` 作为兼容配置。`TrainingSchemaPreflight` 在SqliteStore创建、WAL及恢复写入前只读校验结构；未准备、未知结构或校验和异常时拒绝不安全启动。维护命令为 `scripts/prepare-training.py`，必须显式提供数据、备份目录及维护确认。不会对个人库自动迁移。
+
+App查询训练可用性决定导航和报告工具是否显示，不选择另一套App；综合面试不依赖该探测成功。训练、语音、项目矩阵和原报告功能以原需求与对应验收记录为准。
+
+## 7. 综合面试与入口边界
+
+综合面试是默认能力，不再依赖 `app.v3.enabled` 或版本Profile。`InterviewService` 使用准备/复盘及追问两个有界执行器；revision拒绝过期提交，generation拒绝迟到结果。正常追问结束也更新代次，旧定时器不能影响下一轮；重启保存中断，等待显式恢复，不自动调用模型。
+
+新场次保留四阶段、计划8/12题、不限时训练、20/30/45分钟计时实战、跳过阶段、语音待校对文本、末答保护、项目证据矩阵、原答定位和定向补练。每场最多128次模型尝试、累计400000声明输出上限，为复盘保留最后1次与6500声明输出额度；界面显示服务实际返回的输入/输出Token，缺失部分不估算。旧场次按已保存标识读取，不补算、不增加调用。
+
+知识检索仍仅以受控主题选择固定公开HTTPS来源，不传个人原文，限制DNS、响应大小、重定向和3秒获取期限；缓存48小时并可显式刷新。来源ID与正文哈希、各阶段实际片段绑定；逐字引用不等于语义正确，缺少有效官方依据时降为待核实。
+
+当前前端入口为 `/interviews`、`/interviews/:id` 和 `/history/interviews/:id/replay`。旧 `/interview-v3` 及旧综合回放地址作为同一路由的alias保留；普通 `/configure/quick` 保留参数和锚点进入综合准备，带trainingLinkId的关联训练仍走原业务配置。项目、简历、旧报告与回放继续可用。旧来源锚点可定位当前知识条目，本机草稿键保留历史格式。
+
+共用历史同时读取两种业务列表，按来源与ID处理继续、报告、回放和删除。概览当前仍只统计原格式场次，本次没有改变统计范围，也不把综合摘要的缺失字段强行算成0。
+
+标准验证入口为 `./scripts/test.sh` 与 `bash scripts/e2e.sh`。接口客户端契约、API边界、History路由、新旧别名、幂等与模型异常使用运行测试验证；源码检查只补充命名和职责审查。当前原始验证及缺口见 [本次记录](releases/v3/VERIFICATION.md)，正式版本与真实模型质量结论不因重构改变。

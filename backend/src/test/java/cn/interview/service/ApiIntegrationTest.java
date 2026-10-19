@@ -1,8 +1,8 @@
 package cn.interview.service;
 
-import cn.interview.client.LlmClient;
-import cn.interview.mapper.Store;
-import cn.interview.mapper.StoreTestAccess;
+import cn.interview.client.FocusedInterviewModelClient;
+import cn.interview.mapper.SqliteStore;
+import cn.interview.mapper.SqliteStoreTestAccess;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Files;
@@ -37,6 +37,13 @@ class ApiIntegrationTest {
     JsonNode session() throws Exception { return postJson("/api/sessions", Map.of("mode","QUICK","role","Java 后端","durationMinutes",5)); }
     JsonNode answer(JsonNode s, String key) throws Exception {
         return postJson("/api/sessions/"+s.path("id").asText()+"/answers", Map.of("content","我使用事务保证数据一致性，同时在失败时回滚。", "requestId",key,"expectedMessageId",s.path("messages").get(s.path("messages").size()-1).path("id").asText()));
+    }
+    @Test void deletingHistoryWorksWithoutTrainingSchema() throws Exception {
+        String id=session().path("id").asText();
+        mvc.perform(delete("/api/sessions/"+id)).andExpect(status().isNoContent());
+        mvc.perform(get("/api/sessions/"+id)).andExpect(status().isNotFound());
+        JsonNode history=json.readTree(mvc.perform(get("/api/sessions")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(history).noneMatch(s->s.path("id").asText().equals(id));
     }
     @Test void materialsPersistAndValidateInputs() throws Exception {
         JsonNode m = postJson("/api/materials", Map.of("kind","PROJECT","name","订单服务","content","Java、SQLite；个人负责订单接口。"));
@@ -121,14 +128,14 @@ class ApiIntegrationTest {
         assertThat(s.path("contextTruncated").asBoolean()).isTrue();assertThat(s.path("status").asText()).isEqualTo("IN_PROGRESS");
         mvc.perform(delete("/api/materials/"+id)).andExpect(status().isNoContent());
         s=answer(s,"project-answer");assertThat(s.path("status").asText()).isEqualTo("IN_PROGRESS");
-        Store reopened=new Store(DATA.toString(),json);
+        SqliteStore reopened=new SqliteStore(DATA.toString(),json);
         assertThat(reopened.session(s.path("id").asText()).path("context").asText()).contains("设计资料").hasSize(30000);
     }
     @Test void reopeningDatabaseRecoversPendingAnswerWithoutAddingAnotherAnswer() throws Exception {
         JsonNode s=session();s=answer(s,"restart-answer");String id=s.path("id").asText();
-        Store reopened=new Store(DATA.toString(),json);var saved=reopened.session(id);
+        SqliteStore reopened=new SqliteStore(DATA.toString(),json);var saved=reopened.session(id);
         ((com.fasterxml.jackson.databind.node.ArrayNode)saved.path("messages")).remove(2);saved.put("pendingAction","INTERVIEW");reopened.saveSession(saved);
-        LlmClient mock=new LlmClient(json,"mock","","","",1,"");InterviewService recovered=new InterviewService(reopened,new MaterialService(reopened),mock,json);recovered.recover();
+        FocusedInterviewModelClient mock=new FocusedInterviewModelClient(json,"mock","","","",1,"");FocusedInterviewService recovered=new FocusedInterviewService(reopened,new MaterialService(reopened),mock,json);recovered.recover();
         assertThat(recovered.get(id).path("status").asText()).isEqualTo("INTERRUPTED");
         assertThat(recovered.get(id).path("messages").size()).isEqualTo(2);
         assertThat(recovered.retry(id).path("messages").size()).isEqualTo(3);
@@ -146,7 +153,7 @@ class ApiIntegrationTest {
     @Test void savedPredictionWithAnswerLeakCannotBecomeInterviewQuestion() throws Exception {
         JsonNode resume=postJson("/api/materials",Map.of("kind","RESUME","name","旧押题记录","content","我负责 Java 后端事务处理。"));
         JsonNode p=postJson("/api/predictions",Map.of("resumeId",resume.path("id").asText()));
-        Store store=new Store(DATA.toString(),json);var saved=store.prediction(p.path("id").asText());((com.fasterxml.jackson.databind.node.ObjectNode)saved.path("questions").get(0)).put("question","请解释事务？参考答案：事务满足 ACID。");StoreTestAccess.jdbc(store).update("UPDATE predictions SET payload=? WHERE id=?",store.encode(saved),p.path("id").asText());
+        SqliteStore store=new SqliteStore(DATA.toString(),json);var saved=store.prediction(p.path("id").asText());((com.fasterxml.jackson.databind.node.ObjectNode)saved.path("questions").get(0)).put("question","请解释事务？参考答案：事务满足 ACID。");SqliteStoreTestAccess.jdbc(store).update("UPDATE predictions SET payload=? WHERE id=?",store.encode(saved),p.path("id").asText());
         mvc.perform(post("/api/sessions").contentType("application/json").content(json.writeValueAsString(Map.of("mode","RESUME","predictionId",p.path("id").asText(),"questionId",p.path("questions").get(0).path("id").asText())))).andExpect(status().isBadGateway());
     }
 

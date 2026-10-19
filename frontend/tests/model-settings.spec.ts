@@ -23,9 +23,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => { await new Promise<void>(resolve => server.close(() => resolve())) })
 
 test('全站配置保存、草稿保留、主动探测、密钥不回显及恢复启动配置', async ({ page, request }, testInfo) => {
-  test.skip(testInfo.project.name !== 'model-settings', '此组使用独立的 V3 日常入口配置。')
-  await page.goto('/interview-v3')
-  const draftText = page.locator('#v3-jd-text')
+  await page.goto('/interviews')
+  const draftText = page.locator('#interview-jd-text')
   await draftText.fill('岗位描述草稿')
   await page.getByLabel('打开模型配置').click()
   const dialog = page.getByRole('dialog')
@@ -39,7 +38,7 @@ test('全站配置保存、草稿保留、主动探测、密钥不回显及恢�
   await expect(dialog.getByText('已保存，后续模型请求使用此配置。')).toBeVisible()
   expect(calls).toBe(before)
   await expect(page.getByLabel('打开模型配置')).toContainText('synthetic-model')
-  const health = await (await request.get('/api/v3/status')).json()
+  const health = await (await request.get('/api/interviews/status')).json()
   expect(health).toMatchObject({ provider: 'openai', model: 'synthetic-model', configured: true })
   const visible = await (await request.get('/api/model-config')).text()
   expect(visible).not.toContain('synthetic-browser-key')

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { PhChatsCircle, PhSquaresFour, PhBooks, PhClockCounterClockwise, PhCaretRight, PhLockSimple, PhLightning } from '@phosphor-icons/vue'
+import { PhChatsCircle, PhSquaresFour, PhBooks, PhClockCounterClockwise, PhCaretRight, PhLightning } from '@phosphor-icons/vue'
 import { useRoute } from 'vue-router'
 import { computed, ref } from 'vue'
 import ModelSettingsDialog from './ModelSettingsDialog.vue'
 import { notifyModelConfigurationChanged, type ModelConfiguration } from '../model-settings'
 import { navigationFor } from '../navigation'
+import DailyQuote from './DailyQuote.vue'
 const props = defineProps<{ providerLabel: string; mock: boolean; configured: boolean }>()
 const emit = defineEmits<{ 'configuration-changed': [] }>()
 const settingsOpen = ref(false), savedSettings = ref<ModelConfiguration | null>(null)
@@ -42,7 +43,7 @@ const navigation = [
           <slot v-if="item.section === 'interview'" name="training-navigation" />
         </template>
       </nav></div>
-      <div class="sidebar-bottom"><PhLockSimple :size="18" style="margin-bottom: 10px" /><strong>你的私人练习空间</strong>资料与记录保存在本机。<br />真实练习使用你配置的模型服务。</div>
+      <DailyQuote />
     </aside>
     <div class="main-area">
       <header class="topbar">

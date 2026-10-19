@@ -27,11 +27,12 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'java -jar backend/target/interview-coach-1.0.0.jar',
+      command: 'java -jar backend/target/interview-coach-1.0.0.jar --app.knowledge.network-enabled=false',
       cwd: appRoot,
       url: 'http://127.0.0.1:18080/api/health',
       env: {
         PORT: '18080',
+        TRAINING_ENABLED: 'true',
         DATA_DIR: dataDir,
         LLM_PROVIDER: 'mock',
         LLM_API_KEY: '',

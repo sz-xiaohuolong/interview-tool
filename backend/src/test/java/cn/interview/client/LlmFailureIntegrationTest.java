@@ -45,7 +45,7 @@ class LlmFailureIntegrationTest {
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r) {
         r.add("app.data-dir",()->data);r.add("app.llm.base-url",()->"http://127.0.0.1:"+server.getAddress().getPort()+"/v1");
     }
-    @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired LlmClient llm;
+    @Autowired MockMvc mvc; @Autowired ObjectMapper json; @Autowired FocusedInterviewModelClient llm;
     @BeforeEach void reset(){code=200;delayed=false;}
     void output(String content) throws Exception { BODY.set(json.writeValueAsString(Map.of("choices",new Object[]{Map.of("message",Map.of("content",content))}))); }
     void plan() throws Exception { output("{\"questions\":[{\"question\":\"请说明事务的隔离级别？\",\"topic\":\"事务\",\"level\":\"L1\",\"evidence\":\"通用岗位知识\"},{\"question\":\"你会如何处理并发更新？\",\"topic\":\"并发\",\"level\":\"L2\",\"evidence\":\"通用岗位知识\"},{\"question\":\"假设流量增加十倍，你如何排查瓶颈？\",\"topic\":\"性能\",\"level\":\"L3\",\"evidence\":\"假设场景\"}]}"); }
@@ -60,7 +60,7 @@ class LlmFailureIntegrationTest {
     }
     @Test void blankReasoningEffortPreservesProviderDefault() throws Exception {
         output("{}");
-        LlmClient defaultClient=new LlmClient(json,"openai","http://127.0.0.1:"+server.getAddress().getPort()+"/v1","test-only-key","test-model",1,"");
+        FocusedInterviewModelClient defaultClient=new FocusedInterviewModelClient(json,"openai","http://127.0.0.1:"+server.getAddress().getPort()+"/v1","test-only-key","test-model",1,"");
         defaultClient.call("planner",json.createObjectNode());
         assertThat(json.readTree(REQUEST.get()).has("reasoning_effort")).isFalse();
     }

@@ -1,8 +1,8 @@
 package cn.interview.service;
 
-import cn.interview.mapper.Store;
-import cn.interview.mapper.V2Store;
-import cn.interview.testsupport.V2TestData;
+import cn.interview.mapper.SqliteStore;
+import cn.interview.mapper.TrainingStore;
+import cn.interview.testsupport.SyntheticTrainingData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
@@ -23,10 +23,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = {"app.llm.provider=openai", "app.llm.api-key=synthetic-test-key", "app.llm.model=synthetic-model", "app.v2.enabled=true"})
+@SpringBootTest(properties = {"app.llm.provider=openai", "app.llm.api-key=synthetic-test-key", "app.llm.model=synthetic-model", "app.training.enabled=true"})
 @AutoConfigureMockMvc
 class ProjectGapRecoveryTest {
-    static final Path DATA = V2TestData.migrated();
+    static final Path DATA = SyntheticTrainingData.migrated();
     static final AtomicInteger REQUESTS = new AtomicInteger();
     static final HttpServer SERVER;
     static {
@@ -51,8 +51,8 @@ class ProjectGapRecoveryTest {
     @AfterAll static void stop() { SERVER.stop(0); }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @Autowired Store legacy;
-    @Autowired V2Store db;
+    @Autowired SqliteStore legacy;
+    @Autowired TrainingStore db;
 
     JsonNode getJson(String path) throws Exception { return json.readTree(mvc.perform(get(path)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString()); }
     JsonNode postJson(String path, Object body) throws Exception { return json.readTree(mvc.perform(post(path).contentType("application/json").content(json.writeValueAsBytes(body))).andExpect(status().is2xxSuccessful()).andReturn().getResponse().getContentAsString()); }

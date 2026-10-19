@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import Report from '../pages/Report.vue'
+import Report from '../pages/FocusedInterviewReport.vue'
 
 const wrappers: ReturnType<typeof mount>[] = []
 afterEach(() => { wrappers.forEach(wrapper => wrapper.unmount()); wrappers.length = 0; sessionStorage.clear(); vi.unstubAllGlobals() })

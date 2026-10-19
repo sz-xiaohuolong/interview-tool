@@ -5,6 +5,10 @@ cd "$APP_ROOT"
 if [[ -x "$APP_ROOT/.runtime/node_modules/node/bin/node" ]]; then
   export PATH="$APP_ROOT/.runtime/node_modules/node/bin:$PATH"
 fi
+if [[ -x /usr/libexec/java_home ]]; then
+  export JAVA_HOME="$(/usr/libexec/java_home -v 21)"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
 if ! command -v npx >/dev/null 2>&1; then
   printf '请先安装 Node.js 22.12+ 与 npm，再运行浏览器验收。\n' >&2
   exit 1
@@ -18,6 +22,8 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+# 全站回归在合成库显式启用专项训练，不接触日常资料库。
+python3 scripts/prepare-training.py --data-dir "$INTERVIEW_E2E_DATA_DIR" --backup "$E2E_TEMP_ROOT/backup" --confirm-maintenance
 mvn -f backend/pom.xml package -DskipTests
 if [[ ! -d frontend/node_modules ]]; then
   npm --prefix frontend ci

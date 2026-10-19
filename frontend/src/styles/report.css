@@ -1,5 +1,5 @@
 /* 复盘阅读表面，沿用全局色板与原生交互。 */
-.report-page, .v2-route-surface:has(> .report-page) {
+.report-page, .training-route-surface:has(> .report-page) {
   --report-body-size: 20px;
   --report-label-size: 16px;
   display: grid;
@@ -11,13 +11,13 @@
   margin-inline: auto;
   padding: 28px 36px 56px;
 }
-.v2-route-surface > .report-page { display: contents; }
+.training-route-surface > .report-page { display: contents; }
 .report-reading { grid-column: 1; grid-row: 1 / 6; min-width: 0; }
 .report-overview { grid-column: 2; grid-row: 1; }
 .report-collect-tools { grid-column: 2; grid-row: 2; }
 .report-practice-tools { grid-column: 2; grid-row: 3; }
 .report-transcript { grid-column: 2; grid-row: 4; }
-.report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript {
+.report-page .report-overview, .training-route-surface:has(> .report-page) .training-context-tools, .report-page .report-transcript {
   min-width: 0; margin: 0; padding: 0 0 28px 24px;
   border: 0; border-left: 1px solid var(--border-subtle); border-radius: 0;
   background: transparent; font-size: var(--report-label-size); line-height: 1.8; overflow-wrap: anywhere;
@@ -48,6 +48,7 @@
 .report-page .analysis-block-correct h4::before { background: var(--success); }
 .report-page .analysis-block-incorrect h4::before { background: var(--danger); }
 .report-page .analysis-block-missing h4::before { background: var(--warning); }
+.report-page .report-category-intro { max-width: 72ch; margin: 0 0 12px; font-size: var(--report-body-size); line-height: 1.8; color: var(--text-secondary); overflow-wrap: anywhere; }
 .report-page .analysis-block ul { font-size: var(--report-body-size); line-height: 1.8; padding-left: 22px; color: var(--text-secondary); }
 .report-page .analysis-block li + li { margin-top: 12px; }
 .report-page .analysis-block > .tiny { font-size: 16px; }
@@ -85,16 +86,16 @@
 .report-page .report-score-guide { font-size: 16px; line-height: 1.8; }
 .report-page .report-score-guide summary { min-height: 44px; padding-block: 8px; }
 .report-page .report-score-guide p { margin-top: 8px; }
-.v2-route-surface:has(> .report-page) .v2-context-tools { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border-subtle); }
-.v2-route-surface:has(> .report-page) .v2-context-tools h2 { font-size: 18px; }
-.v2-route-surface:has(> .report-page) .v2-context-tools p { margin-top: 8px; font-size: 16px; line-height: 1.8; }
-.v2-route-surface:has(> .report-page) .v2-context-tools label { margin: 0; font-size: 16px; }
-.v2-route-surface:has(> .report-page) .v2-context-tools select { font-size: 16px; min-height: 48px; }
-.v2-route-surface:has(> .report-page) .v2-context-results { flex-direction: column; align-items: flex-start; gap: 12px; }
-.v2-route-surface:has(> .report-page) .v2-context-results .text-link { font-size: 16px; min-height: 44px; }
-.v2-route-surface:has(> .report-page) .v2-context-tools .notice { flex-basis: auto; font-size: 16px; margin: 0; }
-.report-page .btn, .v2-route-surface:has(> .report-page) .v2-context-tools .btn { min-height: 44px; font-size: 16px; line-height: 1.6; }
-.v2-route-surface:has(> .report-page) .v2-context-tools .btn { width: 100%; white-space: normal; text-align: center; }
+.training-route-surface:has(> .report-page) .training-context-tools { display: flex; flex-direction: column; align-items: stretch; gap: 16px; padding-top: 24px; border-top: 1px solid var(--border-subtle); }
+.training-route-surface:has(> .report-page) .training-context-tools h2 { font-size: 18px; }
+.training-route-surface:has(> .report-page) .training-context-tools p { margin-top: 8px; font-size: 16px; line-height: 1.8; }
+.training-route-surface:has(> .report-page) .training-context-tools label { margin: 0; font-size: 16px; }
+.training-route-surface:has(> .report-page) .training-context-tools select { font-size: 16px; min-height: 48px; }
+.training-route-surface:has(> .report-page) .training-context-results { flex-direction: column; align-items: flex-start; gap: 12px; }
+.training-route-surface:has(> .report-page) .training-context-results .text-link { font-size: 16px; min-height: 44px; }
+.training-route-surface:has(> .report-page) .training-context-tools .notice { flex-basis: auto; font-size: 16px; margin: 0; }
+.report-page .btn, .training-route-surface:has(> .report-page) .training-context-tools .btn { min-height: 44px; font-size: 16px; line-height: 1.6; }
+.training-route-surface:has(> .report-page) .training-context-tools .btn { width: 100%; white-space: normal; text-align: center; }
 .report-page .report-transcript { padding-top: 24px; border-top: 1px solid var(--border-subtle); }
 .report-page .report-transcript summary { display: flex; align-items: flex-start; gap: 8px; min-height: 44px; padding-block: 8px; font-size: 16px; line-height: 1.8; font-weight: 600; }
 .report-page .report-transcript summary svg { margin-top: 4px; }
@@ -104,18 +105,18 @@
 .report-page .report-transcript pre { font-size: 20px; line-height: 1.8; margin-top: 12px; }
 .report-page .report-transcript .tiny { font-size: 16px; }
 @media (max-width: 1280px) {
-  .report-page, .v2-route-surface:has(> .report-page) { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 24px; padding-inline: 26px; }
-  .report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript { padding-left: 20px; }
+  .report-page, .training-route-surface:has(> .report-page) { grid-template-columns: minmax(0, 1fr) 300px; column-gap: 24px; padding-inline: 26px; }
+  .report-page .report-overview, .training-route-surface:has(> .report-page) .training-context-tools, .report-page .report-transcript { padding-left: 20px; }
 }
 @media (max-width: 1100px) {
-  .report-page, .v2-route-surface:has(> .report-page) { display: flex; flex-direction: column; gap: 32px; }
-  .v2-route-surface > .report-page { display: contents; }
+  .report-page, .training-route-surface:has(> .report-page) { display: flex; flex-direction: column; gap: 32px; }
+  .training-route-surface > .report-page { display: contents; }
   .report-reading { order: 0; width: 100%; }
   .report-overview { order: 1; width: 100%; }
   .report-collect-tools { order: 2; width: 100%; }
   .report-practice-tools { order: 3; width: 100%; }
   .report-transcript { order: 4; width: 100%; }
-  .report-page .report-overview, .v2-route-surface:has(> .report-page) .v2-context-tools, .report-page .report-transcript { padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--border-subtle); }
+  .report-page .report-overview, .training-route-surface:has(> .report-page) .training-context-tools, .report-page .report-transcript { padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--border-subtle); }
   .report-page .report-transcript pre { max-width: 72ch; }
 }
 @media (max-width: 600px) {
@@ -124,7 +125,7 @@
   .app-shell:has(.report-page) .brand small { margin-top: 0; }
   .app-shell:has(.report-page) .sidebar .nav-link { min-height: 44px; }
   .app-shell:has(.report-page) .topbar { min-height: 44px; padding-block: 8px; }
-  .report-page, .v2-route-surface:has(> .report-page) { padding: 12px 16px 40px; gap: 28px; }
+  .report-page, .training-route-surface:has(> .report-page) { padding: 12px 16px 40px; gap: 28px; }
   .report-page .report-heading { margin-bottom: 16px; }
   .report-page .report-back { margin-bottom: 4px; }
   .report-page .report-heading h1 { font-size: 30px; }
@@ -140,5 +141,5 @@
   .report-page .report-next-steps h2 { font-size: 22px; }
 }
 @media (max-width: 360px) {
-  .report-page, .v2-route-surface:has(> .report-page) { padding-inline: 12px; }
+  .report-page, .training-route-surface:has(> .report-page) { padding-inline: 12px; }
 }

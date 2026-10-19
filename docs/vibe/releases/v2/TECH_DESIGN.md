@@ -350,7 +350,10 @@ COMPLETE 必须提供 coverageConfirmed:true。材料补充项还需 materialId/
 | POST `/stories/{id}/versions` | fields、expressionDraft 可选、expectedVersion、requestId | 新版本，不覆盖旧版 |
 | POST `/stories/{id}/confirm` | storyVersion、confirmations[fieldId]、expectedVersion、requestId | 每字段 confirmed，或 notApplicable/reason；来源变化需 acknowledgeSourcesChanged。个人行动/贡献不能以不适用替代 |
 | POST `/stories/{id}/archive` | restore 可选、expectedVersion、requestId | 默认归档；restore:true 恢复，历史保留 |
+| DELETE `/stories/{id}` | expectedVersion、requestId | 逻辑删除，返回200及 `{id,deletedAt,revision}`；同请求重放返回原结果，版本冲突或生成中拒绝删除。已删除故事不再进入列表或允许编辑、恢复和新建练习，版本快照及已有独立练习保留 |
 | GET `/stories/{id}/versions`、`/stories/{id}/versions/{versionId}` | 列表分页，或版本 ID | 版本摘要与当时事实、表达稿、来源及确认 |
+
+2026-10-18 追加单条删除：故事 JSON 保存 `deletedAt`，不迁移数据库、不级联删除资料或版本。SQL 在分页截取前排除已删除故事，避免删除记录占满一页。故事详情和故事版本入口返回404；已有练习继续使用其创建时冻结的事实快照。前端在“已保存故事”每行提供带确认提示的删除入口，失败保留条目，成功后只移除对应条目及本页旧编辑缓存，保留新建表单中尚未保存的内容。
 
 ### 5.6 分阶段设计训练
 

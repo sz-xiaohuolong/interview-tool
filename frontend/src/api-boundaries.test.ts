@@ -1,12 +1,12 @@
 import { expect, it } from 'vitest'
 import ts from 'typescript'
 
-const sources = import.meta.glob<string>(['./v3/**/*.ts', './v3/**/*.vue', '!./v3/**/*.test.ts'], {
+const sources = import.meta.glob<string>(['./api/interviews.ts', './pages/Interview*.vue', './components/Interview*.vue'], {
   eager: true, query: '?raw', import: 'default',
 })
 
-it('V3 源码不能直接使用旧面试路径，应通过 v3/api.ts 操作综合面试', () => {
-  expect(Object.keys(sources)).toContain('./v3/api.ts')
+it('综合面试 源码不能直接使用旧面试路径，应通过 api/interviews.ts 操作综合面试', () => {
+  expect(Object.keys(sources)).toContain('./api/interviews.ts')
   const violations: string[] = []
   for (const [path, source] of Object.entries(sources)) {
     const scripts = path.endsWith('.vue')
@@ -23,5 +23,5 @@ it('V3 源码不能直接使用旧面试路径，应通过 v3/api.ts 操作综�
     }
     visit(file)
   }
-  expect(violations, 'V3 面试请求与跳转应使用 V3 客户端和工作台；旧场次兼容应放在共用或旧版模块。').toEqual([])
+  expect(violations, '综合面试 面试请求与跳转应使用 综合面试 客户端和工作台；旧场次兼容应放在共用或旧版模块。').toEqual([])
 })

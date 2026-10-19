@@ -1,8 +1,8 @@
 package cn.interview.service;
 
-import cn.interview.mapper.Store;
-import cn.interview.mapper.V2Store;
-import cn.interview.testsupport.V2TestData;
+import cn.interview.mapper.SqliteStore;
+import cn.interview.mapper.TrainingStore;
+import cn.interview.testsupport.SyntheticTrainingData;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.nio.file.Path;
@@ -19,15 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest(properties = {"app.llm.provider=mock", "app.v2.enabled=true"})
+@SpringBootTest(properties = {"app.llm.provider=mock", "app.training.enabled=true"})
 @AutoConfigureMockMvc
 class ProjectEvidenceIntegrationTest {
-    static final Path DATA = V2TestData.migrated();
+    static final Path DATA = SyntheticTrainingData.migrated();
     @DynamicPropertySource static void config(DynamicPropertyRegistry r) { r.add("app.data-dir", DATA::toString); }
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
-    @Autowired Store store;
-    @Autowired V2Store db;
+    @Autowired SqliteStore store;
+    @Autowired TrainingStore db;
 
     JsonNode postJson(String path, Object body) throws Exception {
         return json.readTree(mvc.perform(post(path).contentType("application/json").content(json.writeValueAsBytes(body)))

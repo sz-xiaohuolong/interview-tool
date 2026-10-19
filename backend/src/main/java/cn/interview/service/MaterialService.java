@@ -4,14 +4,13 @@ import cn.interview.dto.Context;
 import cn.interview.entity.Document;
 import cn.interview.entity.Material;
 import cn.interview.exception.ApiException;
-import cn.interview.mapper.Store;
+import cn.interview.mapper.SqliteStore;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import org.apache.pdfbox.Loader;
@@ -27,8 +26,8 @@ import static cn.interview.common.Models.*;
 public class MaterialService {
     static final int TEXT_LIMIT=24000;
     static final int CONTEXT_LIMIT=30000;
-    final Store store;
-    public MaterialService(Store store){this.store=store;}
+    final SqliteStore store;
+    public MaterialService(SqliteStore store){this.store=store;}
     public List<Material> list(String kind){return store.materials(kind);}
     public synchronized Material create(JsonNode body){
         String kind=choice(required(body,"kind",20),"RESUME","PROJECT","JD");

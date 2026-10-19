@@ -36,15 +36,14 @@ async function finishInterview(page: Page) {
   await expect(page.getByRole('heading', { name: '四个维度，看清表现' })).toBeVisible()
 }
 
-test('快速面试：多行回答、刷新恢复、报告、历史与专项练习形成闭环', async ({ page }, testInfo) => {
+test('旧版场次兼容：多行回答、刷新恢复、报告、历史与专项练习入口', async ({ page }, testInfo) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '把你会的，讲得更好。' })).toBeVisible()
   await expect(page.getByText('当前为 Mock 测试模式：', { exact: false })).toBeVisible()
   await screenshot(page, testInfo, 'e2e-home.png')
-  await page.getByRole('link', { name: /快速岗位面试/ }).click()
-  await page.getByLabel('目标岗位', { exact: true }).selectOption('Java 后端工程师')
-  await page.getByRole('button', { name: '5 分钟', exact: true }).click()
-  await page.getByRole('button', { name: '开始面试', exact: true }).click()
+  const created = await page.request.post('/api/sessions', { data: { mode: 'QUICK', role: 'Java 后端工程师', durationMinutes: 5 } })
+  expect(created.ok()).toBe(true)
+  await page.goto(`/sessions/${(await created.json()).id}`)
   await expect(page).toHaveURL(/\/sessions\/[^/]+$/)
   const sessionId = new URL(page.url()).pathname.split('/').pop()!
   const answer = page.getByLabel('你的回答', { exact: true })
@@ -72,12 +71,12 @@ test('快速面试：多行回答、刷新恢复、报告、历史与专项练�
   await screenshot(page, testInfo, 'e2e-report.png')
   await page.getByRole('link', { name: '返回历史', exact: true }).click()
   await page.getByRole('button', { name: '已完成', exact: true }).click()
-  const historyEntry = page.locator(`a[href="/reports/${sessionId}"]`)
+  const historyEntry = page.locator(`a.history-entry[href="/reports/${sessionId}"]`)
   await expect(historyEntry).toContainText('已回答 2 次')
   await historyEntry.click()
   await page.getByRole('link', { name: '专项练习', exact: true }).first().click()
-  await expect(page).toHaveURL(/\/configure\/quick\?focus=/)
-  await expect(page.getByText('本次专项练习：', { exact: false })).toBeVisible()
+  await expect(page).toHaveURL(/\/interviews\?focus=/)
+  await expect(page.locator('[data-action="prepare"]')).toBeVisible()
 })
 
 test('简历：页面上传 Markdown、保存十道押题并从单题进入面试', async ({ page }) => {
@@ -145,8 +144,9 @@ test('390px 窄屏：首页、配置、资料、历史、对话与报告没有�
   await expect(page.getByRole('dialog')).toBeVisible()
   await expectNoOverflow(page)
   await page.getByRole('button', { name: '取消', exact: true }).click()
-  await page.goto('/configure/quick')
-  await page.getByRole('button', { name: '开始面试', exact: true }).click()
+  const created = await page.request.post('/api/sessions', { data: { mode: 'QUICK', role: 'Java 后端工程师', durationMinutes: 5 } })
+  expect(created.ok()).toBe(true)
+  await page.goto(`/sessions/${(await created.json()).id}`)
   await expect(page.getByLabel('你的回答')).toBeEnabled()
   await expectNoOverflow(page)
   await page.getByLabel('你的回答').fill('窄屏合成验收回答：通过失败用例验证接口边界。')
