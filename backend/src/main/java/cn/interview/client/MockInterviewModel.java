@@ -121,6 +121,12 @@ final class MockInterviewModel {
   }
 
   private void followup(ObjectNode input, ObjectNode result) {
+    if(input.path("strategyVersion").asInt()==1) {
+      var diagnosis=result.putObject("diagnosis").put("category","INCOMPLETE")
+          .put("answerQuote",clip(input.path("answer").asText(),60)).put("gap","合成观察：验证边界待补充")
+          .put("nextGoal","合成考查：验证方法").put("reason","Mock仅验证字段与引用，不作真实判断");
+      diagnosis.putArray("coveredPoints").add("合成观察：已有实现说明");
+    }
     if (input.path("experienceVersion").asInt() == 1 && input.path("stage").asText().equals("QUESTIONS")) {
       result.put("action", "NEXT").put("question", "").put("reply", "Mock 测试：感谢你的提问。一般可向招聘方确认技术职责与协作方式；具体公司内部信息无法获知。本场面试已结束。").putArray("sourceIds");
       return;
@@ -131,7 +137,10 @@ final class MockInterviewModel {
           .put("action", "FOLLOW_UP")
           .put(
               "question",
-              "Mock 测试：你提到“" + clip(input.path("answer").asText(), 180) + "”，请说明一个失败边界与实际验证步骤？");
+              "Mock 测试：围绕“" + clip(input.path("currentQuestion").path("content").asText(), 100)
+                  + "”，你提到“" + clip(input.path("answer").asText(), 80) + "”，"
+                  + (input.path("followUpCount").asInt()==0
+                      ? "请说明一个失败边界的触发条件？" : "你会怎样重复验证刚才的处理结果？"));
     result.putArray("sourceIds");
   }
 

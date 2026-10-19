@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "retrievalDate": "2026-10-19",
+  "normalization": "UTF-8 HTML正文可见文本，连续空白折叠；excerpt均经逐字匹配",
+  "sources": [
+    {
+      "id": "java-concurrent-map",
+      "title": "ConcurrentHashMap.computeIfAbsent 原子性",
+      "url": "https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ConcurrentHashMap.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "76110471033ab44fe2894584ad4744259dd67c3f1d276eadbe6705f8338db65a",
+      "excerptSha256": "89f54ab9bb277985114c0cae747b78cb1d4e0633e952870da01c2cf93b86b7c4",
+      "excerpt": "The entire method invocation is performed atomically.",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "java-volatile",
+      "title": "Java语言规范：volatile同步关系",
+      "url": "https://docs.oracle.com/javase/specs/jls/se21/html/jls-17.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "5352da1f94167b6db4c194a51e11e3d1d511f0292f62a44c56f7a92280bae9f1",
+      "excerptSha256": "a0952eb1b8ac49e413b3b0364b2a647f7e24323d1c7786d623d4fba8b3a6c0cb",
+      "excerpt": "A write to a volatile variable v ( §8.3.1.4 ) synchronizes-with all subsequent reads of v by any thread",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "spring-proxy",
+      "title": "Spring声明式事务代理边界",
+      "url": "https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/annotations.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "8e8d52343599f72e83f4881f3578612c7116d8fd45b0cabbf410d896d0d328a9",
+      "excerptSha256": "0466e94b20c1469c56e5b39ab342d54735c8315e27d902750018280385fbfff9",
+      "excerpt": "only external method calls coming in through the proxy are intercepted.",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "spring-rollback",
+      "title": "Spring默认回滚条件",
+      "url": "https://docs.spring.io/spring-framework/reference/data-access/transaction/declarative/rolling-back.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "4bd44846889b30f4ce1507940631a2590d7bd99e829690e85c7df0181adc73b8",
+      "excerptSha256": "96bf008cbe9107b3706a19f35e365dfce56af49ff069849c26e7b4218460b7f9",
+      "excerpt": "when the thrown exception is an instance or subclass of RuntimeException",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "postgres-isolation",
+      "title": "PostgreSQL隔离与重试",
+      "url": "https://www.postgresql.org/docs/current/transaction-iso.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "0b5013fde5e842c82664f2d9fe599f1c8ef7756e8c3ecc254b589e3be9e0d356",
+      "excerptSha256": "3f8c0bbeb39b4e07faf77d51798d29ed52cd955b6e2c726a02feb2878da6a1cc",
+      "excerpt": "Applications using this level must be prepared to retry transactions due to serialization failures.",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "cache-aside",
+      "title": "Microsoft Cache-Aside一致性边界",
+      "url": "https://learn.microsoft.com/en-us/azure/architecture/patterns/cache-aside",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "b4e8f4867d3e1c75238addc75700eba805777ef3c39a407c0196ba9ed48bc631",
+      "excerptSha256": "9c3fa452053c3900d8e803178f54f4fd91d5f304e84d641a0299585b897920ad",
+      "excerpt": "The Cache-Aside pattern doesn't guarantee consistency between the data store and the cache.",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "function-schema",
+      "title": "OpenAI工具调用严格模式",
+      "url": "https://platform.openai.com/docs/guides/function-calling",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "cef6f1e74488cf1bfb0a7593921bdf6e7d5859f4090ff4f0de915f86ad5dd040",
+      "excerptSha256": "ed85b7b52fe7e2120a0352ea594c32d1183ea6b3cd0b4f03aa3a5c6aa6d7429c",
+      "excerpt": "Setting strict to true will ensure function calls reliably adhere to the function schema, instead of being best effort.",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "rag-paper",
+      "title": "RAG原论文",
+      "url": "https://arxiv.org/abs/2005.11401",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "8fe67b6e6cba908511e7a7bb688a6306cd15309ae9096b4e57970469dce23e55",
+      "excerptSha256": "e50b7e3eb2615a8ba1bdf55001b81489f985ca0dbea2cda4211813c40c1f7ef5",
+      "excerpt": "We explore a general-purpose fine-tuning recipe for retrieval-augmented generation (RAG)",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    },
+    {
+      "id": "tool-privilege",
+      "title": "OWASP最小权限防护",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html",
+      "kind": "OFFICIAL",
+      "stale": false,
+      "fetchedAt": "2026-10-19",
+      "sourceBodySha256": "d98f86104c060cda10db3d21f66fd62b8340a9a4054852c7a229ef39b084a296",
+      "excerptSha256": "11014c92ca79339c67cc43154b664c4f26f1a0013dffcb5dd863e3b7af7d33b3",
+      "excerpt": "Grant minimal necessary permissions to LLM applications",
+      "scopeNote": "固定时点的官方短引；只能支持适用范围内的判断，不是唯一标准答案。"
+    }
+  ]
+}

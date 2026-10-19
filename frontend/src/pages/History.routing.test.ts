@@ -55,3 +55,15 @@ describe('真实 综合面试 路由下的共用历史入口', () => {
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 })
+
+ it('新快速记录显示业务类型和已知回答次数，继续仍走现代工作台', async () => {
+  vi.stubGlobal('fetch', async (url: string) => {
+    if (url === '/api/sessions') return respond([])
+    if (url === '/api/interviews') return respond([{ ...summary, sessionType: 'QUICK', answerCount: 4 }])
+    throw new Error(`出现未约定的接口：${url}`)
+  })
+  await render()
+  const entry = wrapper!.get('a[href="/interviews/same-id"]')
+  expect(entry.text()).toContain('快速练习')
+  expect(entry.text()).toContain('已回答 4 次')
+})

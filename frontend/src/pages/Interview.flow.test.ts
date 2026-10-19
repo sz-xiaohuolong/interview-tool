@@ -24,11 +24,11 @@ async function show(component: any, path: string) {
   return { wrapper, router }
 }
 
-it('综合面试 接管普通综合面试入口，但保留 专项训练 专项训练的原路由和查询', async () => {
+it('快速练习与关联训练保留原路由和查询，综合面试仍独立注册', async () => {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/configure/:mode', component: { template: '<div />' } }] })
   const dispose = registerInterviewRoutes(router)
   await router.push('/configure/quick?role=Java&level=SENIOR')
-  expect(router.currentRoute.value.path).toBe('/interviews')
+  expect(router.currentRoute.value.path).toBe('/configure/quick')
   expect(router.currentRoute.value.query).toEqual({ role: 'Java', level: 'SENIOR' })
   await router.push('/configure/quick?trainingLinkId=linked&role=Java')
   expect(router.currentRoute.value.path).toBe('/configure/quick')
@@ -513,4 +513,29 @@ it.each([true, false])('追问结束与跳过并发冲突时，仅在原阶段�
     expect(writes[1]?.body.requestId).not.toBe(writes[0]?.body.requestId)
     expect(wrapper.text()).not.toContain('本场状态已变化')
   } else expect(wrapper.text()).toContain('本场状态已变化')
+})
+
+ it('快速工作台直接回答与复盘，过程不出现四阶段、摘要确认或内部诊断', async () => {
+  const first = { id: 'quick-q1', role: 'ASSISTANT', questionId: 'q1', rootQuestionId: 'root-q1', questionKind: 'MAIN', content: '如何验证重试不会重复写入？', createdAt: '2026-10-19T00:00:00Z' }
+  const quick = session({ sessionType: 'QUICK', experienceVersion: 1, status: 'IN_PROGRESS', plannedQuestionCount: 5, resumeId: '', summary: {}, messages: [first], allowedActions: ['answers', 'finish'], diagnostics: [{ diagnosis: { reason: '内部诊断不得提前展示' } }] })
+  const writes: { url: string; body: Record<string, unknown> }[] = []
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials') return new Response('[]')
+    if (url === '/api/interviews/interview-test' && !options?.method) return new Response(JSON.stringify(quick))
+    if (url === '/api/interviews/interview-test/answers' && options?.method === 'POST') { writes.push({ url, body: JSON.parse(String(options.body)) }); return new Response(JSON.stringify({ ...quick, status: 'IN_PROGRESS', revision: 2, messages: [first, { id: 'quick-a1', role: 'USER', questionId: 'q1', content: '使用唯一键防止重复写入', createdAt: first.createdAt }, { ...first, id: 'quick-q2', questionId: 'q2', content: '唯一键冲突后如何响应？' }] })) }
+    if (url === '/api/interviews/interview-test/finish' && options?.method === 'POST') { writes.push({ url, body: JSON.parse(String(options.body)) }); return new Response(JSON.stringify({ ...quick, status: 'REPORTING', revision: 3, allowedActions: [] })) }
+    throw new Error(`出现未约定接口：${url}`)
+  })
+  const { wrapper } = await show(Session, '/interviews/interview-test')
+  expect(wrapper.text()).toContain('快速练习')
+  expect(wrapper.text()).toContain('5 道主问题')
+  expect(wrapper.text()).not.toContain('实际轮数灵活调整')
+  expect(wrapper.text()).not.toContain('内部诊断不得提前展示')
+  expect(wrapper.find('[aria-label="本场面试进度"], [data-action="confirm"], .interview-summary').exists()).toBe(false)
+  await wrapper.get('textarea').setValue('使用唯一键防止重复写入')
+  await wrapper.get('form').trigger('submit'); await flushPromises()
+  expect(wrapper.text()).toContain('唯一键冲突后如何响应？')
+  expect(writes[0]).toMatchObject({ url: '/api/interviews/interview-test/answers', body: { expectedQuestionId: 'q1', content: '使用唯一键防止重复写入' } })
+  await wrapper.get('[data-action=finish]').trigger('click'); await flushPromises()
+  expect(writes[1]?.url).toBe('/api/interviews/interview-test/finish')
 })

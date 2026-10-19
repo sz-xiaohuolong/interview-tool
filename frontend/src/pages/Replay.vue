@@ -16,7 +16,7 @@ const route = useRoute()
 const session = ref<Session | InterviewSession | null>(null)
 const loading = ref(true), error = ref(''), reload = ref(0)
 const answerCount = computed(() => session.value?.messages.filter(message => message.role === 'USER').length || 0)
-const modeLabel = computed(() => session.value && 'mode' in session.value ? modeNames[session.value.mode] : '综合面试')
+const modeLabel = computed(() => session.value && 'mode' in session.value ? modeNames[session.value.mode] : session.value?.sessionType === 'QUICK' ? '快速练习' : '综合面试')
 const reportHref = computed(() => {
   if (!session.value) return ''
   const id = encodeURIComponent(session.value.id)

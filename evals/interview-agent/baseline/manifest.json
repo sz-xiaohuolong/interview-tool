@@ -1,0 +1,32 @@
+{
+  "sourceCommit": "92261c9",
+  "description": "本项目综合面试原策略，非参考Skill；只用于离线回归，不接入业务服务",
+  "prompts": {
+    "FOLLOWUP": {
+      "path": "baseline/followup.txt",
+      "sha256": "3a763fee12016cb59703049d6ba8b003bcdbf1da298d9f3e27dd29404bb5f8b1",
+      "sourcePath": "backend/src/main/resources/prompts/interview/followup.txt"
+    },
+    "REVIEW": {
+      "path": "baseline/review.txt",
+      "sha256": "b36001e63f8e3e00e8845a2a56a711604db4541da1b7e564f0719ef746fc2685",
+      "sourcePath": "backend/src/main/resources/prompts/interview/review.txt"
+    }
+  },
+  "validator": {
+    "path": "baseline/output-validator.txt",
+    "sourcePath": "backend/src/main/java/cn/interview/validation/InterviewOutputValidator.java",
+    "sha256": "792e0d37cc3907097b030c7c32908318dbfa2b465e14c4a8994c3a248aa9d886"
+  },
+  "parameters": {
+    "temperature": 0.4,
+    "FOLLOWUP": {
+      "max_tokens": 800,
+      "timeoutSeconds": 6
+    },
+    "REVIEW": {
+      "max_tokens": 10000,
+      "timeoutSeconds": 150
+    }
+  }
+}

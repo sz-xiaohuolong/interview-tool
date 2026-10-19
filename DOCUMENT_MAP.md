@@ -37,4 +37,6 @@
 | 全站本机运行入口 | [README.md](README.md#综合面试) | 已统一接线 | 业务模块共用backend、App和5173/8080；版本专用脚本已删除，旧HTTP地址作为同一实现的兼容别名 |
 | V3 错题复习与原题重练修复 | [修复记录](docs/vibe/releases/v3/REVIEW_PRACTICE_FIX.md) | 局部软件验收通过 | 原题案例、零创建恢复、自动草稿/对比及本次前端验证；不代表V3整体验收 |
 
+| V4 专业Agent与快速练习 | [需求](docs/vibe/releases/v4/PROJECT_BRIEF.md) · [行为](docs/vibe/releases/v4/SPEC.md) · [设计](docs/vibe/releases/v4/TECH_DESIGN.md) · [计划](docs/vibe/releases/v4/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v4/VERIFICATION.md) | VERIFYING / WAITING_HUMAN / PARTIAL | 软件检查通过；原策略3次尝试后因网络或等待失败停批，局部材料已保存，完整6例基线及人工评分未完成，新策略未运行 |
+
 本文件仅作导航，正文事实由对应 owner 维护。后续版本按实际 Release 建立目录；V1 历史验收保留当时输入与配置边界。目标方案、前版变化和独立复盘按需创建，本次未建立空白文件。

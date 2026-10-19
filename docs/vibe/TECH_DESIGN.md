@@ -1,6 +1,6 @@
 # 当前技术架构与接口约定
 
-2026-10-19更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
+2026-10-19更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3/v4用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
 
 ## 1. 统一职责与目录
 
@@ -8,7 +8,7 @@
 
 | 主要实现 | 职责 |
 |---|---|
-| `InterviewController` / `InterviewService` | 综合面试的后台准备、纠偏、开考、阶段、计时、追问与查证复盘 |
+| `InterviewController` / `InterviewService` / `InterviewFlowPolicy` | 快速练习与综合面试共用准备、回答、幂等和查证复盘；业务流程策略区分自动首问与四阶段确认开考 |
 | `FocusedInterviewController` / `FocusedInterviewService` | 项目深挖、简历单题、关联训练及原格式场次的兼容读写；共用现有项目矩阵和语音组件 |
 | `ReviewService`、`PracticeService`、`JdService`、`StoryService`、`DesignPracticeService` | 复习、单题、JD、故事、设计训练各自业务；不是不同应用版本 |
 | `OperationService` / `ModelTaskRunner` | 训练操作的幂等、修订号、执行代次、失败恢复与固定模型任务 |
@@ -22,7 +22,7 @@
 
 没有需要多实现切换的业务服务，保留具体Service类，不增加空ServiceImpl或VO层。Controller接收参数并返回响应，业务规则在Service，SQL在Mapper。共用事务、模型配置及项目证据接口继续复用。
 
-前端只有 `src/App.vue` 和 `src/main.ts`。页面在 `pages/`，展示与操作组件在 `components/`，业务客户端在 `api/`，结构定义在 `models/`，业务路由注册在 `routing/`。`api.ts` 统一处理同源请求、JSON、上传、204、状态和恢复字段；`api/training.ts` 仅增加业务路径及幂等写入，`api/interviews.ts` 绑定综合动作。所有路由由同一router注册，不再切换版本App。
+前端只有 `src/App.vue` 和 `src/main.ts`。页面在 `pages/`，展示与操作组件在 `components/`，业务客户端在 `api/`，结构定义在 `models/`，业务路由注册在 `routing/`。`api.ts` 统一处理同源请求、JSON、上传、204、状态和恢复字段；`api/training.ts` 仅增加业务路径及幂等写入，`api/interviews.ts` 绑定快速与综合动作。所有路由由同一router注册，不再切换版本App。
 
 ## 2. 项目与单题面试
 
@@ -38,7 +38,7 @@
 |---|---|
 | `DATA_DIR/interview.db` | 资料、附件索引、项目/单题场次、押题、报告及专项训练表；原五表、`v2_*`表名与数据格式保留 |
 | `DATA_DIR/uploads/` | UUID命名的上传资料，按既有边界提取文本 |
-| `DATA_DIR/v3/sessions/` | 综合面试JSON快照；路径仅是既有存储契约，不代表版本模块 |
+| `DATA_DIR/v3/sessions/` | 综合面试与快速练习JSON快照；路径仅是既有存储契约，不代表版本模块 |
 | `DATA_DIR/v3/knowledge/` | 公开技术文档缓存，不含私有资料搜索请求 |
 | `DATA_DIR/model-config.json` | 全站模型连接，原子保存、权限0600，不公开密钥 |
 | `prompts/` | 项目与单题模型提示词；`prompts/training/`为固定训练任务，`prompts/interview/`为综合面试阶段 |
@@ -81,12 +81,20 @@ App查询训练可用性决定导航和报告工具是否显示，不选择另�
 
 综合面试是默认能力，不再依赖 `app.v3.enabled` 或版本Profile。`InterviewService` 使用准备/复盘及追问两个有界执行器；revision拒绝过期提交，generation拒绝迟到结果。正常追问结束也更新代次，旧定时器不能影响下一轮；重启保存中断，等待显式恢复，不自动调用模型。
 
-新场次保留四阶段、计划8/12题、不限时训练、20/30/45分钟计时实战、跳过阶段、语音待校对文本、末答保护、项目证据矩阵、原答定位和定向补练。每场最多128次模型尝试、累计400000声明输出上限，为复盘保留最后1次与6500声明输出额度；界面显示服务实际返回的输入/输出Token，缺失部分不估算。旧场次按已保存标识读取，不补算、不增加调用。
+综合新场次保留四阶段、计划8/12题、不限时训练、20/30/45分钟计时实战、跳过阶段、语音待校对文本、末答保护、项目证据矩阵、原答定位和定向补练。每场最多128次模型尝试、累计400000声明输出上限，为复盘保留最后1次与6500声明输出额度；界面显示服务实际返回的输入/输出Token，缺失部分不估算。旧场次按已保存标识读取，不补算、不增加调用。
 
 知识检索仍仅以受控主题选择固定公开HTTPS来源，不传个人原文，限制DNS、响应大小、重定向和3秒获取期限；缓存48小时并可显式刷新。来源ID与正文哈希、各阶段实际片段绑定；逐字引用不等于语义正确，缺少有效官方依据时降为待核实。
 
-当前前端入口为 `/interviews`、`/interviews/:id` 和 `/history/interviews/:id/replay`。旧 `/interview-v3` 及旧综合回放地址作为同一路由的alias保留；普通 `/configure/quick` 保留参数和锚点进入综合准备，带trainingLinkId的关联训练仍走原业务配置。项目、简历、旧报告与回放继续可用。旧来源锚点可定位当前知识条目，本机草稿键保留历史格式。
+当前前端入口为 `/interviews`、`/interviews/:id` 和 `/history/interviews/:id/replay`。旧 `/interview-v3` 及旧综合回放地址作为同一路由的alias保留；`/configure/quick` 进入快速配置，选择岗位与3/5/8道主问题后直接准备并开考；带trainingLinkId的关联训练仍走原业务配置。项目、简历、旧报告与回放继续可用。旧来源锚点可定位当前知识条目，本机草稿键保留历史格式。
 
-共用历史同时读取两种业务列表，按来源与ID处理继续、报告、回放和删除。概览当前仍只统计原格式场次，本次没有改变统计范围，也不把综合摘要的缺失字段强行算成0。
+共用首页和历史同时读取两种业务列表，按来源与ID处理继续、报告、回放和删除。现代列表新增sessionType与真实answerCount；首页统计合并成功读取的来源，缺失回答次数单列未知，列表失败明确提示统计不完整。
 
-标准验证入口为 `./scripts/test.sh` 与 `bash scripts/e2e.sh`。接口客户端契约、API边界、History路由、新旧别名、幂等与模型异常使用运行测试验证；源码检查只补充命名和职责审查。当前原始验证及缺口见 [本次记录](releases/v3/VERIFICATION.md)，正式版本与真实模型质量结论不因重构改变。
+标准验证入口为 `./scripts/test.sh` 与 `bash scripts/e2e.sh`。接口客户端契约、API边界、History路由、新旧别名、幂等与模型异常使用运行测试验证；源码检查只补充命名和职责审查。当前原始验证及缺口见 [V4记录](releases/v4/VERIFICATION.md)，正式版本与真实模型质量结论不因重构改变。
+
+## 8. 快速流程与专业诊断
+
+`sessionType` 缺省为 COMPREHENSIVE，新快速场次为 QUICK。`InterviewFlowPolicy` 负责配置与自动开始约束，`InterviewProgress` 只对综合场次启用四阶段和计时；共用原 Service、Controller、模型客户端与存储。快速不接收非空个人资料/JD，以岗位构造通用上下文并直接调用PLAN，精确题量后自动首问，无ANALYZE及READY确认。无数据库迁移。
+
+新场次 `strategyVersion=1` 在原FOLLOWUP响应内增加有界diagnosis，不增加调用；服务端核对分类、长度、当前原答连续短引及新追问目标。诊断带问题/回答ID、模型动作和实际动作，在有效generation及ANSWERING状态下与推进一并落盘；公共详情只在REPORT_READY展示。后续追问与复盘可用历史观察，但须重新对照原答及官方依据。原FOLLOWUP输出上限800、REVIEW上限10000保持不变。
+
+固定评测资产位于 `evals/interview-agent/`，原策略Prompt与校验器引用快照固定92261c9。评测的公共机械检查、生产行为测试和人工专业评分分别记录，固定上下文对照不代表多轮动态Agent全部质量。受限真实评测及人工停止点见V4计划和验证记录。

@@ -16,7 +16,7 @@ final class InterviewProgress {
   private final Clock clock;
 
   InterviewProgress(ObjectMapper json, Clock clock) { this.json = json; this.clock = clock; }
-  static boolean enabled(JsonNode s) { return s.path("experienceVersion").asInt() == 1; }
+  static boolean enabled(JsonNode s) { return s.path("experienceVersion").asInt() == 1 && InterviewFlowPolicy.forSession(s) != InterviewFlowPolicy.QUICK; }
   private boolean timed(JsonNode s) { return enabled(s) && s.path("interviewMode").asText().equals("TIMED"); }
   private ObjectNode state(ObjectNode s) {
     if (!s.path("timingState").isObject()) s.putObject("timingState").put("elapsedMs", 0);

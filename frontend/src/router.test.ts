@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 import router from './router'
 
 beforeEach(() => { vi.stubGlobal('scrollTo', vi.fn()) })
-afterEach(async () => { await router.replace('/'); vi.unstubAllGlobals() })
+afterEach(async () => { await router.replace('/'); await flushPromises(); vi.unstubAllGlobals() })
 
-it('默认路由直接进入综合面试并保留配置参数和锚点', async () => {
+it('快速练习入口独立保留配置参数和锚点', async () => {
   await router.push('/configure/quick?role=Java&level=SENIOR#prepare')
-  expect(router.currentRoute.value.path).toBe('/interviews')
+  expect(router.currentRoute.value.path).toBe('/configure/quick')
   expect(router.currentRoute.value.query).toEqual({ role: 'Java', level: 'SENIOR' })
   expect(router.currentRoute.value.hash).toBe('#prepare')
   await router.push('/interviews/same-id')

@@ -92,7 +92,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
               <p v-if="!report.weaknesses.length" class="tiny muted">目前没有足够证据列出薄弱项。可以继续完整练习。</p>
               <div v-for="(weakness, i) in report.weaknesses" :key="i" class="list-row">
                 <div class="list-body"><p>{{ weakness }}</p></div>
-                <RouterLink :to="{ path: '/configure/quick', query: { focus: weakness, role: session.role, level: session.level } }" class="btn btn-secondary btn-sm">专项练习 <PhArrowRight :size="13" /></RouterLink>
+                <RouterLink :to="{ path: '/interviews', query: { focus: weakness, role: session.role, level: session.level } }" class="btn btn-secondary btn-sm">专项练习 <PhArrowRight :size="13" /></RouterLink>
               </div>
             </section>
             <section class="panel">

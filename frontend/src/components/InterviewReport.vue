@@ -13,6 +13,8 @@ const router = useRouter(), container = ref<HTMLElement | null>(null), expanded 
 interface Gap { questionId: string; caseId: string; status: string; operationId?: string; latestAttempt?: { id: string; status: string } }
 const gaps = ref<Gap[]>([]), busy = ref(''), error = ref(''), recovery = ref<ApiError | null>(null)
 const report = computed(() => props.session.report!)
+const diagnostics = computed(() => props.session.status === 'REPORT_READY' ? (report.value.diagnostics || []).filter(item => item.diagnosis && props.session.messages.some(message => message.id === item.answerMessageId && message.role === 'USER' && message.questionId === item.questionId)) : [])
+const diagnosisLabels = { SUFFICIENT: '当时观察：回答较充分', INCOMPLETE: '内容待补充', INCORRECT: '技术表述待核对', UNCERTAIN: '判断待核实', CONTRADICTORY: '表述存在矛盾', NO_EVIDENCE: '缺少实现依据' }
 const assessment = computed(() => report.value.detailedAssessment)
 const assessmentSections = computed(() => assessment.value ? [
   { title: '亮点分析', items: assessment.value.strengths, empty: '尚无足够证据提炼亮点，可结合后续回答继续验证。' },
@@ -118,7 +120,7 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
       </div>
       <p v-else class="review-assessment-body">{{ report.summary }}</p>
       <p v-if="report.overview" class="review-meta">{{ report.overview.answeredCount }} 次作答 · {{ report.overview.mainQuestionCount }} 道主问题、{{ report.overview.followUpCount }} 次追问 · {{ endLabels[report.overview.endReason] || '结束原因未记录' }}<span v-if="session.plannedQuestionCount"> · 原计划 {{ session.plannedQuestionCount }} 道主问题</span></p>
-      <ol class="review-stages" aria-label="本场四阶段完成情况"><li v-for="stage in report.stages || []" :key="stage.id"><strong>{{ stage.label }}</strong><span>{{ stageLabels[stage.status] }} · {{ stage.answeredCount }} 次作答</span></li></ol>
+      <ol v-if="session.sessionType !== 'QUICK' && report.stages?.length" class="review-stages" aria-label="本场四阶段完成情况"><li v-for="stage in report.stages || []" :key="stage.id"><strong>{{ stage.label }}</strong><span>{{ stageLabels[stage.status] }} · {{ stage.answeredCount }} 次作答</span></li></ol>
       <p class="review-help">未进行或未作答表示本场尚未验证，不算答错。以下仅评价已提交文字；引用不代表经历真实性认证。</p>
     </section>
     <ProjectEvidenceMatrix v-if="report.matrix" class="review-matrix" :matrix="report.matrix" source-kind="V3" :source-id="session.id" />
@@ -143,6 +145,17 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
       </details>
       <p v-if="!groups.length" class="review-help">本场尚无已问问题，未生成逐题能力判断。</p>
     </section>
+    <details v-if="diagnostics.length" class="panel review-disclosure" data-followup-diagnostics>
+      <summary>查看追问依据</summary><p class="review-help">以下是当时的追问观察，请结合对应原答与最终逐题复盘核对。</p>
+      <article v-for="(item, index) in diagnostics" :key="`${item.answerMessageId}-${index}`" class="diagnosis-item">
+        <h3>{{ diagnosisLabels[item.diagnosis.category] }}</h3>
+        <blockquote v-if="item.diagnosis.answerQuote"><strong>原答摘录：</strong>“{{ item.diagnosis.answerQuote }}”</blockquote>
+        <p v-if="item.diagnosis.coveredPoints.length"><strong>当时识别的要点：</strong>{{ item.diagnosis.coveredPoints.join('；') }}</p>
+        <p v-if="item.diagnosis.gap"><strong>待核对：</strong>{{ item.diagnosis.gap }}</p>
+        <p v-if="item.diagnosis.nextGoal"><strong>后续考查目标：</strong>{{ item.diagnosis.nextGoal }}</p>
+        <p>{{ item.diagnosis.reason }}</p><button class="text-link" :data-diagnosis-locate="item.questionId" @click="locate(item.questionId)">核对对应原答</button>
+      </article>
+    </details>
     <details :key="session.id" class="panel review-disclosure" data-review-training>
       <summary>定向补练</summary><p class="review-help">结合本场岗位、项目与原回答生成一道新题。练习结果单独保存，原复盘保持本场记录。</p>
       <div v-for="f in gapTraining" :key="f.questionId" class="diagnosis-item">

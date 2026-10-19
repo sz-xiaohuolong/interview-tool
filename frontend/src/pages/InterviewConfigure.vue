@@ -22,7 +22,7 @@ onMounted(async () => {
   const results = await Promise.allSettled([request<Material[]>('/materials'), listSessions(), getInterviewStatus()])
   if (results[0].status === 'fulfilled') materials.value = results[0].value
   else state.materialError = `${errorMessage(results[0].reason)} 暂时无法选择资料，可刷新重试或进行通用练习。`
-  if (results[1].status === 'fulfilled') sessions.value = results[1].value
+  if (results[1].status === 'fulfilled') sessions.value = results[1].value.filter(session => session.sessionType !== 'QUICK')
   else state.historyError = errorMessage(results[1].reason)
   if (results[2].status === 'fulfilled') health.value = results[2].value
   state.loading = false
@@ -58,7 +58,7 @@ async function prepare() {
       </form>
       <aside class="configure-aside">
         <div class="panel"><h2>让准备充分，让对话流畅。</h2><ol class="reading-list"><li>深度分析简历与岗位，预取相关技术资料，通常需要 1～3 分钟。</li><li>查看简短摘要，纠正职责误解后，一键确认开考。</li><li>逐题对话，优先复用本场资料；回答提交后立即显示思考状态。</li><li>结束后异步查证复盘，关键评价可以回查具体来源。</li></ol><p class="form-help">准备和复盘期间可以离开页面，稍后从下面的记录继续。</p></div>
-        <div class="panel"><h3>继续使用已有功能</h3><nav class="interview-links" aria-label="已有练习入口"><RouterLink to="/configure/resume" class="text-link">简历押题</RouterLink><RouterLink to="/configure/project" class="text-link">项目深挖</RouterLink><RouterLink to="/review" class="text-link">专项训练</RouterLink><RouterLink to="/history" class="text-link">原有面试历史</RouterLink></nav></div>
+        <div class="panel"><h3>继续使用已有功能</h3><nav class="interview-links" aria-label="已有练习入口"><RouterLink to="/configure/quick" class="text-link">快速练习</RouterLink><RouterLink to="/configure/resume" class="text-link">简历押题</RouterLink><RouterLink to="/configure/project" class="text-link">项目深挖</RouterLink><RouterLink to="/review" class="text-link">专项训练</RouterLink><RouterLink to="/history" class="text-link">原有面试历史</RouterLink></nav></div>
       </aside>
     </div>
     <section class="section" aria-labelledby="interview-recent-title">

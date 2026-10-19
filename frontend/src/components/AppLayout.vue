@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { PhChatsCircle, PhSquaresFour, PhBooks, PhClockCounterClockwise, PhCaretRight, PhLightning } from '@phosphor-icons/vue'
 import { useRoute } from 'vue-router'
-import { computed, ref } from 'vue'
+import { computed, provide, ref } from 'vue'
 import ModelSettingsDialog from './ModelSettingsDialog.vue'
 import { notifyModelConfigurationChanged, type ModelConfiguration } from '../model-settings'
-import { navigationFor } from '../navigation'
+import { interviewNavigationKey, navigationFor, type InterviewNavigationContext } from '../navigation'
 import DailyQuote from './DailyQuote.vue'
 const props = defineProps<{ providerLabel: string; mock: boolean; configured: boolean }>()
 const emit = defineEmits<{ 'configuration-changed': [] }>()
@@ -18,10 +18,13 @@ function settingsSaved(value: ModelConfiguration) {
   emit('configuration-changed')
 }
 const route = useRoute()
-const location = computed(() => navigationFor(route.path, typeof route.meta.title === 'string' ? route.meta.title : ''))
+const currentInterview = ref<InterviewNavigationContext | null>(null)
+provide(interviewNavigationKey, currentInterview)
+const location = computed(() => navigationFor(route.path, typeof route.meta.title === 'string' ? route.meta.title : '', currentInterview.value?.id === String(route.params.id) ? currentInterview.value.sessionType : undefined))
 const navigation = [
   { to: '/', title: '练习概览', section: 'overview', icon: PhSquaresFour },
-  { to: '/configure/quick', title: '开始面试', section: 'interview', icon: PhChatsCircle },
+  { to: '/configure/quick', title: '快速练习', section: 'quick', icon: PhLightning },
+  { to: '/interviews', title: '综合面试', section: 'interview', icon: PhChatsCircle },
   { to: '/materials', title: '个人资料库', section: 'materials', icon: PhBooks },
   { to: '/history', title: '面试历史', section: 'history', icon: PhClockCounterClockwise },
 ]

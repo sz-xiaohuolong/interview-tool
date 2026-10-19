@@ -4,18 +4,33 @@ import { computed, onMounted, ref } from 'vue'
 import { PhArrowUpRight, PhArrowRight, PhLightning, PhFileText, PhStack, PhChatsCircle, PhLockSimple, PhClock } from '@phosphor-icons/vue'
 import { request, errorMessage } from '../api'
 import type { Health, Material, Session } from '../types'
-import { dateTime, modeNames, statusNames } from '../format'
+import { dateTime } from '../format'
+import { listSessions } from '../api/interviews'
+import type { InterviewSessionSummary } from '../models/interview'
+import { interviewRecords } from '../interview-records'
 import Notice from '../components/Notice.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingState from '../components/LoadingState.vue'
 const sessions = ref<Session[]>([]), materials = ref<Material[]>([]), health = ref<Health | null>(null), loading = ref(true), error = ref('')
-const completed = computed(() => sessions.value.filter(s => s.status === 'COMPLETED'))
-const answers = computed(() => sessions.value.reduce((n, s) => n + s.messages.filter(m => m.role === 'USER').length, 0))
-const recent = computed(() => sessions.value.slice(0, 4))
+const currentSessions = ref<InterviewSessionSummary[]>([]), recordsIncomplete = ref(false), materialsUnavailable = ref(false)
+const records = computed(() => interviewRecords(sessions.value, currentSessions.value))
+const completed = computed(() => records.value.filter(session => session.completed))
+const knownAnswers = computed(() => records.value.filter(session => session.answerCount !== undefined))
+const missingAnswerCounts = computed(() => records.value.length - knownAnswers.value.length)
+const answers = computed(() => knownAnswers.value.length ? knownAnswers.value.reduce((sum, session) => sum + session.answerCount!, 0) : missingAnswerCounts.value ? '未提供' : 0)
+const recent = computed(() => records.value.slice(0, 4))
 onModelConfigurationChanged(async () => { try { health.value = await request<Health>('/health') } catch { health.value = null } })
 onMounted(async () => {
-  try { [sessions.value, materials.value, health.value] = await Promise.all([request<Session[]>('/sessions'), request<Material[]>('/materials'), request<Health>('/health')]) }
-  catch (e) { error.value = errorMessage(e) } finally { loading.value = false }
+  const results = await Promise.allSettled([request<Session[]>('/sessions'), listSessions(), request<Material[]>('/materials'), request<Health>('/health')])
+  if (results[0].status === 'fulfilled') sessions.value = results[0].value
+  if (results[1].status === 'fulfilled') currentSessions.value = results[1].value
+  if (results[2].status === 'fulfilled') materials.value = results[2].value
+  else materialsUnavailable.value = true
+  if (results[3].status === 'fulfilled') health.value = results[3].value
+  recordsIncomplete.value = results[0].status === 'rejected' || results[1].status === 'rejected'
+  const names = ['原有面试记录', '快速练习与综合面试记录', '资料库', '模型状态']
+  error.value = results.flatMap((result, index) => result.status === 'rejected' ? [`${names[index]}加载失败：${errorMessage(result.reason)}`] : []).join('；')
+  loading.value = false
 })
 </script>
 <template>
@@ -28,14 +43,17 @@ onMounted(async () => {
     <template v-else>
       <div class="heading-row"><h2>今天，想练哪一种？</h2><span class="tiny muted">选择你的练习方式</span></div>
       <div class="mode-grid">
-        <RouterLink to="/configure/quick" class="mode-card featured"><span class="mode-number">01</span><PhLightning class="mode-icon" :size="30" weight="light" /><h3>快速岗位面试</h3><p>不用准备资料。选一个目标岗位，马上进入面试状态。</p><span class="card-arrow">开始练习 <PhArrowUpRight :size="16" /></span></RouterLink>
-        <RouterLink to="/configure/resume" class="mode-card"><span class="mode-number">02</span><PhFileText class="mode-icon" :size="30" weight="light" /><h3>简历针对押题</h3><p>从真实经历出发，提前准备最值得关注的问题。</p><span class="card-arrow">分析我的简历 <PhArrowUpRight :size="16" /></span></RouterLink>
-        <RouterLink to="/configure/project" class="mode-card"><span class="mode-number">03</span><PhStack class="mode-icon" :size="30" weight="light" /><h3>项目深度面试</h3><p>从整体架构到技术权衡，讲透你真正做过的项目。</p><span class="card-arrow">深入聊一个项目 <PhArrowUpRight :size="16" /></span></RouterLink>
+        <RouterLink to="/configure/quick" class="mode-card featured"><span class="mode-number">01</span><PhLightning class="mode-icon" :size="30" weight="light" /><h3>快速练习</h3><p>选择岗位和题量，从技术原理与工程场景直接开始。</p><span class="card-arrow">开始练习 <PhArrowUpRight :size="16" /></span></RouterLink>
+        <RouterLink to="/interviews" class="mode-card"><span class="mode-number">02</span><PhChatsCircle class="mode-icon" :size="30" weight="light" /><h3>综合面试</h3><p>结合岗位与个人经历，完整经历四阶段面试。</p><span class="card-arrow">准备综合面试 <PhArrowUpRight :size="16" /></span></RouterLink>
+        <RouterLink to="/configure/resume" class="mode-card"><span class="mode-number">03</span><PhFileText class="mode-icon" :size="30" weight="light" /><h3>简历针对押题</h3><p>从真实经历出发，提前准备最值得关注的问题。</p><span class="card-arrow">分析我的简历 <PhArrowUpRight :size="16" /></span></RouterLink>
+        <RouterLink to="/configure/project" class="mode-card"><span class="mode-number">04</span><PhStack class="mode-icon" :size="30" weight="light" /><h3>项目深度面试</h3><p>从整体架构到技术权衡，讲透你真正做过的项目。</p><span class="card-arrow">深入聊一个项目 <PhArrowUpRight :size="16" /></span></RouterLink>
       </div>
-      <div class="stat-strip"><div class="stat"><div class="stat-value">{{ completed.length }}<span class="tiny muted" style="margin-left: 7px">场</span></div><div class="stat-label">已完成面试</div></div><div class="stat"><div class="stat-value">{{ answers }}<span class="tiny muted" style="margin-left: 7px">次</span></div><div class="stat-label">已提交回答</div></div><div class="stat"><div class="stat-value">{{ materials.length }}<span class="tiny muted" style="margin-left: 7px">份</span></div><div class="stat-label">保存的个人资料</div></div></div>
+      <div class="stat-strip"><div class="stat"><div class="stat-value">{{ completed.length }}<span class="tiny muted" style="margin-left: 7px">场</span></div><div class="stat-label">已完成面试</div></div><div class="stat"><div class="stat-value">{{ answers }}<span v-if="typeof answers === 'number'" class="tiny muted" style="margin-left: 7px">次</span></div><div class="stat-label">已提交回答</div></div><div class="stat"><div class="stat-value">{{ materialsUnavailable ? '未读取' : materials.length }}<span v-if="!materialsUnavailable" class="tiny muted" style="margin-left: 7px">份</span></div><div class="stat-label">保存的个人资料</div></div></div>
+      <p v-if="recordsIncomplete" class="form-help">统计不完整：仅汇总已成功读取的面试记录。</p>
+      <p v-if="missingAnswerCounts" class="form-help">{{ missingAnswerCounts }} 场记录未提供回答次数，已从回答次数统计中排除。</p>
       <div class="two-columns section">
         <section><div class="heading-row"><h2>最近的练习</h2><RouterLink to="/history" class="text-link">全部记录 <PhArrowRight :size="14" /></RouterLink></div>
-          <div class="panel" style="padding-top: 4px; padding-bottom: 4px" v-if="recent.length"><RouterLink v-for="s in recent" :key="s.id" :to="s.status === 'COMPLETED' ? `/reports/${s.id}` : `/sessions/${s.id}`" class="list-row"><div class="list-icon"><PhChatsCircle :size="21" /></div><div class="list-body"><h3>{{ s.role }}</h3><p>{{ modeNames[s.mode] }} · {{ dateTime(s.createdAt) }}<span v-if="s.mock"> · 测试</span></p></div><span class="badge" :class="s.status === 'COMPLETED' ? '' : 'badge-orange'">{{ statusNames[s.status] }}</span><PhArrowUpRight :size="17" class="muted" /></RouterLink></div>
+          <div class="panel" style="padding-top: 4px; padding-bottom: 4px" v-if="recent.length"><RouterLink v-for="s in recent" :key="s.key" :to="s.href" class="list-row"><div class="list-icon"><PhChatsCircle :size="21" /></div><div class="list-body"><h3>{{ s.role }}</h3><p>{{ s.modeLabel }} · {{ dateTime(s.createdAt) }}<span v-if="s.mock"> · 测试</span></p></div><span class="badge" :class="s.done ? '' : 'badge-orange'">{{ s.statusLabel }}</span><PhArrowUpRight :size="17" class="muted" /></RouterLink></div>
           <div v-else class="panel"><EmptyState title="第一场练习，从这里开始" description="完成面试后，你的对话和复盘会保存在这里。" /></div>
         </section>
         <section><div class="heading-row"><h2>我的资料</h2><RouterLink to="/materials" class="text-link">管理 <PhArrowRight :size="14" /></RouterLink></div><div class="panel" style="padding-top: 4px; padding-bottom: 4px" v-if="materials.length"><RouterLink v-for="m in materials.slice(0, 3)" :key="m.id" :to="`/materials?kind=${m.kind}`" class="list-row"><div class="list-icon"><PhFileText :size="20" /></div><div class="list-body"><h3>{{ m.name }}</h3><p>{{ { RESUME: '简历', PROJECT: '项目', JD: '目标岗位' }[m.kind] }} · {{ m.documents.length }} 份附件</p></div><PhArrowUpRight :size="16" class="muted" /></RouterLink></div><div class="panel" v-else><EmptyState title="让练习更贴近你" description="添加简历或项目，获得更有针对性的问题。"><RouterLink to="/materials" class="btn btn-secondary btn-sm">添加个人资料</RouterLink></EmptyState></div></section>
@@ -44,3 +62,8 @@ onMounted(async () => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.dashboard-page .mode-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 800px) { .dashboard-page .mode-grid { grid-template-columns: minmax(0, 1fr); } }
+</style>

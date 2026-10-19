@@ -108,3 +108,15 @@ it('切换回放记录时清空旧内容，较晚返回的旧请求不能覆盖�
   expect(wrapper!.text()).toContain('新的面试')
   expect(wrapper!.text()).not.toContain('请介绍你的项目。')
 })
+
+ it('快速练习回放保留业务标签并从现代接口读取', async () => {
+  const fetcher = vi.fn(async (url: string) => {
+    if (url === '/api/interviews/same-id') return respond({ ...comprehensive, sessionType: 'QUICK' })
+    throw new Error(`出现未约定的接口：${url}`)
+  })
+  vi.stubGlobal('fetch', fetcher)
+  await open('/history/interviews/same-id/replay')
+  expect(wrapper!.get('.replay-summary').text()).toContain('快速练习')
+  expect(wrapper!.get('a[href="/interviews/same-id"]').text()).toContain('查看复盘')
+  expect(fetcher).toHaveBeenCalledTimes(1)
+})

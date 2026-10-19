@@ -71,3 +71,10 @@ describe('综合面试 面试客户端接口归属', () => {
     expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/interviews/shared-id', expect.any(Object))
   })
 })
+
+ it('快速练习保持业务类型与空资料，只创建现代会话', async () => {
+  const fetcher = mockEndpoint('/api/interviews', { id: 'quick-created' })
+  await createSession({ sessionType: 'QUICK', role: 'Java 后端工程师', level: 'JUNIOR', plannedQuestionCount: 5, resumeId: '', jdId: '', jd: '' }, 'quick-request')
+  expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/interviews', expect.objectContaining({ method: 'POST' }))
+  expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toEqual({ sessionType: 'QUICK', role: 'Java 后端工程师', level: 'JUNIOR', plannedQuestionCount: 5, resumeId: '', jdId: '', jd: '', requestId: 'quick-request' })
+})

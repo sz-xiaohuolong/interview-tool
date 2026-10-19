@@ -45,6 +45,12 @@ class KnowledgeEvidenceFlowTest {
                 }
             } else if (stage.equals("FOLLOWUP")) {
                 result.put("action", "NEXT").putArray("sourceIds");
+                if(input.path("strategyVersion").asInt()==1) {
+                    var diagnosis=result.putObject("diagnosis").put("category","UNCERTAIN")
+                        .put("answerQuote",input.path("answer").asText()).put("gap","").put("nextGoal","")
+                        .put("reason","合成来源测试，不评价内容");
+                    diagnosis.putArray("coveredPoints");
+                }
             } else if (stage.equals("REVIEW")) {
                 result.put("summary", "合成复盘，仅验证片段保存。").putArray("findings");
                 if (input.path("assessmentVersion").asInt() == 1) {

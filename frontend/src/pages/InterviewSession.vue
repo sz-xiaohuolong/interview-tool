@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ApiError, errorMessage, request } from '../api'
+import { interviewNavigationKey } from '../navigation'
 import type { Material } from '../types'
 import Notice from '../components/Notice.vue'
 import SpeechInput from '../components/SpeechInput.vue'
@@ -13,6 +14,7 @@ import { displayDate, getSession, levelLabels, mutateSession, requestId, statusL
 import type { InterviewConfig, InterviewSession, MutationBody, ReviewFinding, SessionAction } from '../models/interview'
 
 const route = useRoute(), id = String(route.params.id)
+const navigationContext = inject(interviewNavigationKey, null)
 const session = ref<InterviewSession | null>(null), materials = ref<Material[]>([])
 const state = reactive({ loading: true, error: '', pollError: '', busy: '' as SessionAction | '', sendingAnswer: false })
 const correction = ref(''), editConfiguration = ref(false), clearJd = ref(false), answer = ref(''), openingProject = ref('')
@@ -20,7 +22,8 @@ const config = ref<InterviewConfig>({ role: '', level: '', resumeId: '', jdId: '
 const now = ref(Date.now()), answerStarted = ref(0), messagesPanel = ref<HTMLElement | null>(null)
 const timingReceivedAt = ref(Date.now())
 const speech = ref<InstanceType<typeof SpeechInput> | null>(null)
-const enhanced = computed(() => session.value?.experienceVersion === 1)
+const quick = computed(() => session.value?.sessionType === 'QUICK')
+const enhanced = computed(() => !quick.value && session.value?.experienceVersion === 1)
 const remainingMs = computed(() => {
   const timing = session.value?.timing
   if (!timing?.enabled) return 0
@@ -42,7 +45,7 @@ const hasStarted = computed(() => messages.value.some(message => message.role ==
 const thinking = computed(() => state.sendingAnswer || session.value?.status === 'ANSWERING')
 const waitingSeconds = computed(() => Math.max(0, Math.floor((now.value - answerStarted.value) / 1000)))
 const beforeStart = computed(() => !!session.value && !hasStarted.value)
-const editable = computed(() => beforeStart.value && ['READY', 'FAILED', 'INTERRUPTED'].includes(session.value?.status || ''))
+const editable = computed(() => !quick.value && beforeStart.value && ['READY', 'FAILED', 'INTERRUPTED'].includes(session.value?.status || ''))
 const preparing = computed(() => !!session.value && !['READY', 'IN_PROGRESS', 'ANSWERING', 'REPORTING', 'REPORT_READY', 'COMPLETED', 'FAILED', 'INTERRUPTED', 'CANCELLED'].includes(session.value.status))
 const reviewRunning = computed(() => session.value?.status === 'REPORTING')
 const working = computed(() => preparing.value || thinking.value || reviewRunning.value)
@@ -69,7 +72,7 @@ const stageIndex = computed(() => {
   if (/ANAL|RESUME|分析/.test(phase)) return 1
   return 0
 })
-const stageLabel = computed(() => reviewRunning.value ? '核对问答与来源，生成逐题复盘' : ['排队等待', '分析简历与岗位', '检索相关知识', '准备本场题目'][stageIndex.value])
+const stageLabel = computed(() => reviewRunning.value ? '核对问答与来源，生成逐题复盘' : quick.value ? '正在准备岗位技术与工程场景问题' : ['排队等待', '分析简历与岗位', '检索相关知识', '准备本场题目'][stageIndex.value])
 const callCount = computed(() => session.value?.usage?.calls ?? session.value?.usage?.attempts)
 const hasTokenUsage = computed(() => typeof session.value?.usage?.promptTokens === 'number' || typeof session.value?.usage?.completionTokens === 'number')
 const tokenCount = (value: number | undefined) => typeof value === 'number' ? value.toLocaleString('zh-CN') : '未返回'
@@ -105,6 +108,7 @@ function setSession(value: InterviewSession) {
   if (session.value?.timing && value.timing && value.revision === session.value.revision && value.timing.serverNow < session.value.timing.serverNow) return
   timingReceivedAt.value = Date.now(); now.value = Date.now()
   session.value = value
+  if (navigationContext) navigationContext.value = { id: value.id, sessionType: value.sessionType || 'COMPREHENSIVE' }
   if (value.status === 'ANSWERING' && !answerStarted.value) answerStarted.value = Date.now()
   if (value.status !== 'ANSWERING' && !state.sendingAnswer) answerStarted.value = 0
   const activeQuestion = [...(value.messages || [])].reverse().find(message => message.role === 'ASSISTANT' && message.kind !== 'REPLY')
@@ -230,15 +234,15 @@ onMounted(async () => {
     if (rawDraft) { const value = JSON.parse(rawDraft); if (typeof value.content === 'string') { answer.value = value.content; draftQuestion = value.questionId || '' } }
   } catch { /* 损坏的本地草稿不影响读取服务端已保存的会话。 */ }
   clockTimer = setInterval(() => { if (thinking.value || session.value?.timing?.enabled) now.value = Date.now() }, 250)
-  void request<Material[]>('/materials').then(value => { if (!disposed) materials.value = value }).catch(() => {})
   await load()
+  if (!quick.value) void request<Material[]>('/materials').then(value => { if (!disposed) materials.value = value }).catch(() => {})
 })
-onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(clockTimer) })
+onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(clockTimer); if (navigationContext?.value?.id === id) navigationContext.value = null })
 </script>
 
 <template>
   <div class="page interview-page">
-    <header class="page-heading"><nav class="interview-actions" aria-label="综合面试导航"><RouterLink to="/interviews" class="text-link">← 综合面试与记录</RouterLink><RouterLink to="/" class="text-link">返回练习概览</RouterLink></nav><h1>{{ session?.role || '综合面试' }}</h1><p v-if="session">{{ levelLabels[session.level] || session.level }} · {{ enhanced ? session.interviewMode === 'TIMED' ? `${session.timeLimitMinutes} 分钟计时实战` : '不限时训练' : `${session.durationMinutes} 分钟目标` }}<span v-if="session.plannedQuestionCount"> · 计划 {{ session.plannedQuestionCount }} 道主问题，实际轮数灵活调整</span> · {{ displayDate(session.createdAt) }}</p></header>
+    <header class="page-heading"><nav class="interview-actions" :aria-label="quick ? '快速练习导航' : '综合面试导航'"><RouterLink :to="quick ? '/configure/quick' : '/interviews'" class="text-link">← {{ quick ? '快速练习' : '综合面试与记录' }}</RouterLink><RouterLink to="/" class="text-link">返回练习概览</RouterLink></nav><h1>{{ session?.role || '综合面试' }}</h1><p v-if="session">{{ levelLabels[session.level] || session.level }} · {{ quick ? '快速练习' : enhanced ? session.interviewMode === 'TIMED' ? `${session.timeLimitMinutes} 分钟计时实战` : '不限时训练' : `${session.durationMinutes} 分钟目标` }}<span v-if="session.plannedQuestionCount"> · {{ quick ? '' : '计划 ' }}{{ session.plannedQuestionCount }} 道主问题{{ quick ? '，追问另计' : '，实际轮数灵活调整' }}</span> · {{ displayDate(session.createdAt) }}</p></header>
     <Notice :message="state.error" kind="error" />
     <Notice :message="state.pollError" kind="warning" />
     <div v-if="state.pollError || state.error" class="interview-actions"><button class="btn btn-secondary" :disabled="state.busy !== ''" data-action="reload" @click="load">刷新已保存状态</button></div>
@@ -248,7 +252,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <details v-if="session.report?.version === 2 && session.warnings?.length" class="panel interview-report-warnings"><summary>查看本场准备与查证提示（{{ session.warnings.length }} 条）</summary><Notice v-for="(warning, index) in session.warnings" :key="index" :message="warning" kind="warning" /></details>
       <template v-else><Notice v-for="(warning, index) in session.warnings || []" :key="index" :message="warning" kind="warning" /></template>
       <Notice v-if="session.error" :message="session.error" kind="error" />
-      <p v-if="!session.resumeId && session.report?.version !== 2" class="interview-note">本场未选择简历，不会推断你没有提供的项目经历。</p>
+      <p v-if="!quick && !session.resumeId && session.report?.version !== 2" class="interview-note">本场未选择简历，不会推断你没有提供的项目经历。</p>
 
       <section v-if="enhanced && hasStarted && session.report?.version !== 2" class="panel interview-round-progress" aria-label="本场面试进度">
         <div class="heading-row"><h2>本场进度</h2><span v-if="session.timing?.enabled" class="interview-clock" data-interview-clock :class="{ urgent: remainingMs < 180000 }">剩余 {{ clockLabel }}</span><span v-else class="badge">不限时训练</span></div>
@@ -260,11 +264,11 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       </section>
 
       <section v-if="preparing || reviewRunning" class="panel interview-preparation" aria-labelledby="interview-progress-title" aria-live="polite" :data-phase="session.phase">
-        <div class="heading-row"><h2 id="interview-progress-title">{{ reviewRunning ? '正在查证复盘' : '正在为你深度准备' }}</h2><span class="spinner" aria-hidden="true"></span></div>
+        <div class="heading-row"><h2 id="interview-progress-title">{{ reviewRunning ? '正在查证复盘' : quick ? '正在准备本场问题' : '正在为你深度准备' }}</h2><span class="spinner" aria-hidden="true"></span></div>
         <p role="status">{{ stageLabel }}</p><p class="tiny muted">{{ session.phase }}</p>
-        <ol v-if="preparing" class="interview-steps" aria-label="准备阶段"><li v-for="(label, index) in ['排队', '分析简历与岗位', '检索知识', '准备题目']" :key="label" :aria-current="index === stageIndex ? 'step' : undefined" :class="{ active: index === stageIndex, passed: index < stageIndex }"><span>{{ index + 1 }}</span>{{ label }}</li></ol>
-        <p class="tiny muted">{{ reviewRunning ? '通常约 3 分钟。逐题核实依据，缺失或冲突会明确标记。' : '通常需要 1～3 分钟。任务在后台执行，可以先离开，回来后从记录继续。' }}</p>
-        <div class="interview-actions"><RouterLink to="/interviews" class="btn btn-secondary">返回记录，稍后再看</RouterLink><button class="btn btn-ghost" :disabled="!!state.busy" @click="mutate('cancel')">取消本场任务</button></div>
+        <ol v-if="preparing && !quick" class="interview-steps" aria-label="准备阶段"><li v-for="(label, index) in ['排队', '分析简历与岗位', '检索知识', '准备题目']" :key="label" :aria-current="index === stageIndex ? 'step' : undefined" :class="{ active: index === stageIndex, passed: index < stageIndex }"><span>{{ index + 1 }}</span>{{ label }}</li></ol>
+        <p class="tiny muted">{{ reviewRunning ? '通常约 3 分钟。逐题核实依据，缺失或冲突会明确标记。' : quick ? '题目准备好后直接开始。可以离开页面，稍后从统一历史继续。' : '通常需要 1～3 分钟。任务在后台执行，可以先离开，回来后从记录继续。' }}</p>
+        <div class="interview-actions"><RouterLink to="/history" class="btn btn-secondary">返回记录，稍后再看</RouterLink><button class="btn btn-ghost" :disabled="!!state.busy" @click="mutate('cancel')">取消本场任务</button></div>
       </section>
 
       <section v-if="session.summary && Object.keys(session.summary).length > 0 && editable" class="panel interview-summary" aria-labelledby="interview-summary-title">
@@ -286,7 +290,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 
       <ReportReview v-if="session.report?.version === 2" :session="session" />
       <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel interview-dialogue" aria-labelledby="interview-dialogue-title">
-        <header class="chat-header"><h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
+        <header class="chat-header"><h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : quick ? '围绕技术，讲清思路' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
         <div ref="messagesPanel" class="chat-messages interview-messages" role="log" aria-label="面试对话" aria-live="polite">
           <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }"><span class="avatar" aria-hidden="true">{{ message.role === 'USER' ? '你' : message.kind === 'REPLY' ? '答' : '问' }}</span><div><p class="message-meta">{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}<span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span></p><p class="message-content">{{ message.content }}</p></div></article>
         </div>

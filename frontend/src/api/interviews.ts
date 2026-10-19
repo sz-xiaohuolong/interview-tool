@@ -10,7 +10,7 @@ export const deleteSession = (id: string) => request<void>(`/interviews/${encode
 export function createSession(config: InterviewConfig, id: string) {
   return request<InterviewSession>('/interviews', {
     method: 'POST', signal: AbortSignal.timeout(12000),
-    body: JSON.stringify({ ...config, resumeId: config.resumeId || undefined, jdId: config.jdId || undefined, requestId: id }),
+    body: JSON.stringify({ ...config, resumeId: config.sessionType === 'QUICK' ? '' : config.resumeId || undefined, jdId: config.sessionType === 'QUICK' ? '' : config.jdId || undefined, requestId: id }),
   })
 }
 

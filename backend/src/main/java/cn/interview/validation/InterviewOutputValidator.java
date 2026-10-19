@@ -164,6 +164,33 @@ public class InterviewOutputValidator {
     return out;
   }
 
+  public ObjectNode followup(JsonNode raw, JsonNode sources, String answer, boolean required) {
+    var out=followup(raw,sources);
+    if(required || raw.has("diagnosis")) {
+      validateDiagnosis(raw.path("diagnosis"),answer,raw.path("action").asText());
+      out.set("diagnosis",raw.path("diagnosis").deepCopy());
+    }
+    return out;
+  }
+
+  /** 只验证引用与结构，诊断本身仍须对照原答和技术来源核实。 */
+  private static void validateDiagnosis(JsonNode d,String answer,String action) {
+    if(!d.isObject() || !Set.of("SUFFICIENT","INCOMPLETE","INCORRECT","UNCERTAIN","CONTRADICTORY","NO_EVIDENCE").contains(d.path("category").asText()))throw invalid();
+    var covered=d.path("coveredPoints");
+    if(!covered.isArray() || covered.size()>3)throw invalid();
+    for(var point:covered)diagnosisText(point,30,false);
+    diagnosisText(d.path("answerQuote"),80,false);
+    if(!answer.contains(d.path("answerQuote").asText()))throw invalid();
+    diagnosisText(d.path("gap"),70,true);diagnosisText(d.path("nextGoal"),60,true);
+    diagnosisText(d.path("reason"),70,false);
+    if(action.equals("FOLLOW_UP") && d.path("nextGoal").asText().isBlank())throw invalid();
+    if(d.toString().length()>650)throw invalid();
+  }
+
+  private static void diagnosisText(JsonNode value,int max,boolean blankAllowed) {
+    if(!value.isTextual() || value.asText().length()>max || (!blankAllowed && value.asText().isBlank()))throw invalid();
+  }
+
   public ObjectNode report(JsonNode raw, JsonNode messages, JsonNode sources) {
     var out = json.createObjectNode().put("summary", text(raw.path("summary"), 4000));
     var findings = out.putArray("findings");
@@ -334,6 +361,7 @@ public class InterviewOutputValidator {
         }
       }
       case "FOLLOWUP" -> {
+        if(input.path("strategyVersion").asInt()==1)validateDiagnosis(result.path("diagnosis"),input.path("answer").asText(),result.path("action").asText());
         String action = result.path("action").asText();
         if (!Set.of("FOLLOW_UP", "NEXT").contains(action)) invalidModelOutput();
         if (action.equals("FOLLOW_UP")) {

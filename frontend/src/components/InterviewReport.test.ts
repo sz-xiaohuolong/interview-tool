@@ -121,3 +121,17 @@ it('旧报告保留摘要，无观察时展示克制的空态', async () => {
   expect(wrapper.get('[data-detailed-assessment]').text()).toContain('尚无足够证据提炼亮点')
   expect(wrapper.get('[data-detailed-assessment]').text()).toContain('暂无可确认的改进项')
 })
+
+ it('快速复盘按原答展示折叠的追问依据，不呈现四阶段空壳', async () => {
+  const value: any = fixture(); value.sessionType = 'QUICK'; delete value.report.stages
+  value.report.diagnostics = [{ questionId: 'q1', answerMessageId: 'm2', action: 'FOLLOW_UP', diagnosis: { category: 'INCOMPLETE', coveredPoints: ['说明了失败返回'], answerQuote: '数据库超时后返回错误', gap: '没有说明重试边界', nextGoal: '核对幂等约束', reason: '区分一次失败与重复写入风险' } }]
+  await show(value)
+  expect(wrapper.find('[aria-label="本场四阶段完成情况"]').exists()).toBe(false)
+  const diagnosis = wrapper.get('[data-followup-diagnostics]')
+  expect(diagnosis.element.tagName).toBe('DETAILS')
+  expect(diagnosis.attributes('open')).toBeUndefined()
+  expect(diagnosis.text()).toContain('数据库超时后返回错误')
+  expect(diagnosis.text()).toContain('没有说明重试边界')
+  await diagnosis.get('[data-diagnosis-locate="q1"]').trigger('click')
+  expect(wrapper.get('[data-answer="q1"]').text()).toContain('数据库超时后返回错误')
+})

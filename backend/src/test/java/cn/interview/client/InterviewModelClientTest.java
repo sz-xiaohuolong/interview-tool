@@ -142,6 +142,34 @@ class InterviewModelClientTest {
         assertThat(requests.getFirst().path("reasoning_effort").asText()).isEqualTo("low");
     }
 
+    @Test void 专业策略在原追问请求返回合法诊断且输出上限保持八百() {
+        var response=json.createObjectNode().put("action","FOLLOW_UP").put("question","怎样验证回滚后的状态？");
+        response.putArray("sourceIds");
+        response.putObject("diagnosis").put("category","INCOMPLETE")
+            .put("answerQuote","通过事务回滚").put("gap","尚未说明状态核验")
+            .put("nextGoal","核对失败后的状态").put("reason","原答只有回滚方案")
+            .putArray("coveredPoints").add("事务回滚");
+        content=response.toString();
+
+        var result=gateway("openai","test-only-key","fast-test-model","low")
+            .call("FOLLOWUP",followup().put("strategyVersion",1),2);
+
+        assertThat(result.path("diagnosis")).isEqualTo(response.path("diagnosis"));
+        assertThat(requests).hasSize(1);
+        assertThat(requests.getFirst().path("max_tokens").asInt()).isEqualTo(800);
+        assertThat(requests.getFirst().path("model").asText()).isEqualTo("fast-test-model");
+        assertThat(requests.getFirst().path("messages").get(1).path("content").asText())
+            .contains("\"strategyVersion\":1","通过事务回滚");
+    }
+
+    @Test void 专业策略缺少诊断时拒绝输出且不发起额外请求() {
+        assertThatThrownBy(()->gateway("openai","test-only-key","fast-test-model","low")
+            .call("FOLLOWUP",followup().put("strategyVersion",1),2))
+            .isInstanceOfSatisfying(ApiException.class,error->assertThat(error.code).isEqualTo("V3_MODEL_INVALID"));
+        assertThat(requests).hasSize(1);
+        assertThat(requests.getFirst().path("max_tokens").asInt()).isEqualTo(800);
+    }
+
     @Test void 显式Mock也独立上报测试用量而不访问网络() {
         var reported = new java.util.ArrayList<ObjectNode>();
         var result = gateway("mock", "", "", "low").call("FOLLOWUP", followup(), 2, reported::add);

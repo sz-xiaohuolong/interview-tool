@@ -4,32 +4,17 @@ import { useRouter } from 'vue-router'
 import { PhArrowUpRight, PhChatsCircle, PhPlay, PhTrash } from '@phosphor-icons/vue'
 import { request, errorMessage } from '../api'
 import type { Session } from '../types'
-import { dateTime, modeNames, statusNames } from '../format'
-import { deleteSession as deleteComprehensiveSession, listSessions, statusLabels } from '../api/interviews'
+import { dateTime } from '../format'
+import { interviewRecords } from '../interview-records'
+import { deleteSession as deleteComprehensiveSession, listSessions } from '../api/interviews'
 import type { InterviewSessionSummary } from '../models/interview'
 import Notice from '../components/Notice.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingState from '../components/LoadingState.vue'
 const sessions = ref<Session[]>([]), loading = ref(true), error = ref(''), filter = ref('all'), deletingKey = ref('')
 const router = useRouter(), comprehensiveSessions = ref<InterviewSessionSummary[]>([])
-const shown = computed(() => [
-  ...sessions.value.map(s => ({
-    ...s, key: `legacy:${s.id}`, source: 'legacy' as const, done: s.status === 'COMPLETED',
-    modeLabel: modeNames[s.mode], statusLabel: statusNames[s.status],
-    answerCount: s.messages.filter(m => m.role === 'USER').length,
-    href: s.status === 'COMPLETED' ? `/reports/${s.id}` : `/sessions/${s.id}`,
-    replayHref: `/history/${encodeURIComponent(s.id)}/replay`,
-    actionLabel: s.status === 'COMPLETED' ? '查看复盘' : '继续面试',
-  })),
-  ...comprehensiveSessions.value.map(s => ({
-    ...s, key: `interview:${s.id}`, source: 'interview' as const, done: ['COMPLETED', 'REPORTING', 'REPORT_READY', 'CANCELLED'].includes(s.status),
-    modeLabel: '综合面试', statusLabel: statusLabels[s.status] || '任务处理中', answerCount: undefined,
-    href: `/interviews/${encodeURIComponent(s.id)}`,
-    replayHref: `/history/interviews/${encodeURIComponent(s.id)}/replay`,
-    actionLabel: ({ COMPLETED: '生成复盘', REPORTING: '查看进度', REPORT_READY: '查看复盘', CANCELLED: '查看记录', IN_PROGRESS: '继续面试', ANSWERING: '继续面试' } as Record<string, string>)[s.status] || '继续查看',
-  })),
-].filter(s => filter.value === 'all' || (filter.value === 'done' ? s.done : !s.done))
-  .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)))
+const shown = computed(() => interviewRecords(sessions.value, comprehensiveSessions.value)
+  .filter(session => filter.value === 'all' || (filter.value === 'done' ? session.done : !session.done)))
 onMounted(async () => {
   // 综合面试 启动时先注册路由；旧入口继续只加载旧接口。
   const enabled = router.getRoutes().some(route => route.path === '/interviews/:id')
@@ -38,7 +23,7 @@ onMounted(async () => {
     ...(enabled ? [listSessions().then(value => { comprehensiveSessions.value = value })] : []),
   ])
   error.value = results.flatMap((result, index) => result.status === 'rejected'
-    ? [`${index === 0 ? '旧版面试' : '综合面试'}记录加载失败：${errorMessage(result.reason)}`] : []).join('；')
+    ? [`${index === 0 ? '旧版面试' : '快速练习与综合面试'}记录加载失败：${errorMessage(result.reason)}`] : []).join('；')
   loading.value = false
 })
 async function deleteSession(session: { id: string; role: string; source: 'legacy' | 'interview'; key: string }) {

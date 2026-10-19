@@ -1,6 +1,9 @@
 import type { ProjectEvidenceMatrix } from '../project-evidence'
 
+export type InterviewSessionType = 'COMPREHENSIVE' | 'QUICK'
+
 export interface InterviewConfig {
+  sessionType?: InterviewSessionType
   role: string
   level: string
   resumeId: string
@@ -61,7 +64,23 @@ export interface ReviewFinding {
   sourceQuote?: string
 }
 
+export interface InterviewDiagnosis {
+  questionId: string
+  answerMessageId: string
+  action: string
+  effectiveAction?: string
+  diagnosis: {
+    category: 'SUFFICIENT' | 'INCOMPLETE' | 'INCORRECT' | 'UNCERTAIN' | 'CONTRADICTORY' | 'NO_EVIDENCE'
+    coveredPoints: string[]
+    answerQuote: string
+    gap: string
+    nextGoal: string
+    reason: string
+  }
+}
+
 export interface InterviewReport {
+  diagnostics?: InterviewDiagnosis[]
   version?: number
   detailedAssessment?: {
     version: 1
@@ -101,6 +120,8 @@ export interface InterviewTiming {
 }
 
 export interface InterviewSession {
+  sessionType?: InterviewSessionType
+  answerCount?: number
   id: string
   status: string
   phase: string
@@ -135,6 +156,6 @@ export interface InterviewSession {
 }
 
 export interface InterviewStatus { enabled: boolean; provider: string; configured: boolean; model?: string }
-export type InterviewSessionSummary = Pick<InterviewSession, 'id' | 'status' | 'phase' | 'role' | 'level' | 'createdAt' | 'updatedAt' | 'mock' | 'resumeId' | 'jdId'>
+export type InterviewSessionSummary = Pick<InterviewSession, 'id' | 'status' | 'phase' | 'role' | 'level' | 'createdAt' | 'updatedAt' | 'mock' | 'resumeId' | 'jdId' | 'sessionType' | 'answerCount'>
 export interface MutationBody { requestId: string; expectedRevision: number; [key: string]: unknown }
 export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'skip-stage' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume'

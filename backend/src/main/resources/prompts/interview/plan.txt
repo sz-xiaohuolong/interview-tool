@@ -6,3 +6,5 @@ id 全部唯一。topic 只用 JAVA_CORE、JAVA_CONCURRENCY、JVM、SPRING、DAT
 仅当 experienceVersion=1 时启用四阶段：总主问题仍恰好totalQuestions，每题额外给出stage，顺序必须INTRO→PROJECT→TECHNICAL→QUESTIONS，各阶段至少一题。INTRO邀请简短介绍与目标岗位相关的本人经历；PROJECT围绕mainProject/project的真实业务、职责、链路、选型、异常、压力验证与妥协，有疑点先问清，不能机械一次列七项；TECHNICAL针对岗位及已知项目提出技术与场景；QUESTIONS邀请候选人就岗位/工程实践反问，可明确无问题，不能假装知道招聘公司的内部信息。首尾通常各一题，其余合理分配项目和技术阶段。mainProject.hypothetical=true且没有真实项目时，PROJECT使用明确的假设场景，不把假设回答当经历证据。evidence还允许project中的连续逐字短引；有resume时至少一题仍须引用resume。没有experienceVersion时不添加stage或改变旧规划行为。
 
 输入有plannedQuestionCount时，totalQuestions是整场候选主问题的准备目标，并非必须逐题问完的数量，也不包括临场追问。两种面试模式使用相同规划规则；准备有区分度的候选问题，为后续按回答充分程度调整留出空间，不以凑题量重复考点。
+
+当sessionType=QUICK时优先采用快速练习规则：恰好totalQuestions道不同考点的岗位知识或工程场景主问题，直接从技术问题开始，不添加stage，不要求自我介绍、个人项目经历或候选人反问；假设场景明确标记，不把场景写成候选人做过的事。题量3/5/8是正常完成的主问题数，追问另计；以上四阶段和可减少候选题的规划仅适用于综合面试。

@@ -88,6 +88,7 @@ class InterviewConcurrencyTest {
         Thread.sleep(60);
         ObjectNode afterLate = service.get(session.path("id").asText());
         assertThat(afterLate.path("messages").toString()).isEqualTo(savedMessages);
+        assertThat(store.get(session.path("id").asText()).path("diagnostics").isEmpty()).isTrue();
         assertThat(afterLate.path("revision").asInt()).isGreaterThan(savedRevision);
         assertThat(afterLate.path("usage").path("reportedCalls").asInt())
             .isEqualTo(fallback.path("usage").path("reportedCalls").asInt() + 1);
@@ -132,6 +133,7 @@ class InterviewConcurrencyTest {
         Thread.sleep(300);
         ObjectNode afterLate = service.get(session.path("id").asText());
         assertThat(afterLate.path("status").asText()).isEqualTo("CANCELLED");
+        assertThat(store.get(session.path("id").asText()).path("diagnostics").isEmpty()).isTrue();
         assertThat(afterLate.path("revision").asInt()).isGreaterThan(revision);
         assertThat(afterLate.path("usage").path("reportedCalls").asInt())
             .isEqualTo(cancelled.path("usage").path("reportedCalls").asInt() + 1);

@@ -1,4 +1,10 @@
-export type PrimarySection = 'overview' | 'interview' | 'materials' | 'history' | 'training'
+import type { InjectionKey, Ref } from 'vue'
+import type { InterviewSessionType } from './models/interview'
+
+export interface InterviewNavigationContext { id: string; sessionType: InterviewSessionType }
+export const interviewNavigationKey: InjectionKey<Ref<InterviewNavigationContext | null>> = Symbol('当前面试导航')
+
+export type PrimarySection = 'overview' | 'quick' | 'interview' | 'materials' | 'history' | 'training'
 export interface LocationStep { title: string; to?: string }
 
 export const trainingNavigation = [
@@ -12,7 +18,7 @@ export const trainingNavigation = [
 
 function belongsTo(path: string, root: string) { return path === root || path.startsWith(`${root}/`) }
 
-export function navigationFor(path: string, pageTitle = '') {
+export function navigationFor(path: string, pageTitle = '', sessionType?: InterviewSessionType) {
   path = path.toLowerCase().replace(/\/+$/, '') || '/'
   // 兼容旧书签，导航归属仍使用当前业务路径。
   path = path.replace(/^\/interview-v3(?=\/|$)/, '/interviews')
@@ -27,12 +33,15 @@ export function navigationFor(path: string, pageTitle = '') {
   }
   let primary: PrimarySection = 'overview'
   let breadcrumbs: LocationStep[] = [{ title: pageTitle || '练习概览' }]
-  if (belongsTo(path, '/configure') || belongsTo(path, '/interviews')) {
+  if (path === '/configure/quick' || (belongsTo(path, '/interviews') && sessionType === 'QUICK')) {
+    primary = 'quick'
+    breadcrumbs = path === '/configure/quick' ? [{ title: '快速练习' }] : [{ title: '快速练习', to: '/configure/quick' }, { title: '练习工作台' }]
+  } else if (belongsTo(path, '/configure') || belongsTo(path, '/interviews')) {
     primary = 'interview'
-    breadcrumbs = [{ title: '开始面试', to: '/configure/quick' }, { title: pageTitle || '准备面试' }]
+    breadcrumbs = [{ title: '综合面试', to: '/interviews' }, { title: pageTitle || '准备面试' }]
   } else if (belongsTo(path, '/sessions')) {
     primary = 'interview'
-    breadcrumbs = [{ title: '开始面试', to: '/configure/quick' }, { title: pageTitle || '面试工作台' }]
+    breadcrumbs = [{ title: '综合面试', to: '/interviews' }, { title: pageTitle || '面试工作台' }]
   } else if (belongsTo(path, '/reports')) {
     primary = 'history'
     breadcrumbs = [{ title: '面试历史', to: '/history' }, { title: pageTitle || '面试复盘' }]
