@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createSession, deleteSession, getSession, getInterviewStatus, listSessions, mutateSession } from './interviews'
+import { createSession, deleteSession, getAgentPracticeOptions, getSession, getInterviewStatus, listSessions, mutateSession } from './interviews'
 import type { SessionAction } from '../models/interview'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -77,4 +77,12 @@ describe('综合面试 面试客户端接口归属', () => {
   await createSession({ sessionType: 'QUICK', role: 'Java 后端工程师', level: 'JUNIOR', plannedQuestionCount: 5, resumeId: '', jdId: '', jd: '' }, 'quick-request')
   expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/interviews', expect.objectContaining({ method: 'POST' }))
   expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toEqual({ sessionType: 'QUICK', role: 'Java 后端工程师', level: 'JUNIOR', plannedQuestionCount: 5, resumeId: '', jdId: '', jd: '', requestId: 'quick-request' })
+})
+
+it('Agent 复习预检使用专用同源 POST，输入只携带选题配置', async () => {
+  const options = { role: 'Agent 应用工程师', level: 'JUNIOR', plannedQuestionCount: 3, agentTopics: ['AGENT_CONTEXT_MEMORY'] }
+  const result = { eligible: true, requestedCount: 3, reviewAvailable: 1, newSupplementCount: 2, canStart: true, requiresAcknowledgement: true, message: '需要补新。' }
+  const fetcher = mockEndpoint('/api/interviews/agent-practice-options', result)
+  await expect(getAgentPracticeOptions(options)).resolves.toEqual(result)
+  expect(fetcher).toHaveBeenCalledExactlyOnceWith('/api/interviews/agent-practice-options', expect.objectContaining({ method: 'POST', credentials: 'same-origin', body: JSON.stringify(options) }))
 })

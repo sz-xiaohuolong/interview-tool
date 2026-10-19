@@ -22,7 +22,13 @@ public class InterviewOutputValidator {
           "AI_RAG",
           "AI_TOOLS",
           "AI_MEMORY",
-          "AI_EVALUATION");
+          "AI_EVALUATION",
+          "AGENT_ARCHITECTURE",
+          "AGENT_CONTEXT_MEMORY",
+          "AGENT_HARNESS_TOOL",
+          "AGENT_RAG",
+          "AGENT_EVALUATION",
+          "AGENT_FRAMEWORK");
   private final ObjectMapper json;
 
   public InterviewOutputValidator(ObjectMapper json) {
@@ -123,6 +129,37 @@ public class InterviewOutputValidator {
     if (!value.isTextual() || value.asText().isBlank() || value.asText().length() > max)
       throw invalid("第" + number + "道主问题的" + field + "缺失、格式错误或超过长度限制");
     return value.asText().strip();
+  }
+
+  /** 用服务端选定的稳定身份绑定考点，不能由模型自称已覆盖其他考点。 */
+  public ArrayNode agentQuestions(JsonNode raw, ArrayNode clean, JsonNode input) {
+    var points = input.path("agentPractice").path("points");
+    if (!points.isArray() || points.isEmpty()) return clean;
+    Map<String, JsonNode> allowed = new LinkedHashMap<>();
+    for (var point : points) allowed.put(point.path("id").asText(), point);
+    Set<String> used = new HashSet<>();
+    Set<String> questionTexts = new HashSet<>();
+    boolean quick = input.path("sessionType").asText().equals("QUICK");
+    for (int i = 0; i < clean.size(); i++) {
+      var question = (ObjectNode) clean.get(i);
+      var original = raw.path("questions").get(i);
+      if (!quick && !question.path("stage").asText().equals("TECHNICAL")) {
+        if (original.hasNonNull("pointId") && !original.path("pointId").asText().isBlank())
+          throw invalid("非技术阶段不应冒充目录考点覆盖");
+        continue;
+      }
+      String id = original.path("pointId").asText();
+      String normalizedQuestion = question.path("question").asText().replaceAll("[\\p{Z}\\s]+", "").toLowerCase(Locale.ROOT);
+      if (!questionTexts.add(normalizedQuestion)) throw invalid("主问题题干重复，不能用不同考点标识重复考查");
+      JsonNode point = allowed.get(id);
+      if (point == null || !used.add(id)) throw invalid("考点标识未选定、缺失或重复");
+      if (!original.path("topic").asText().equals(point.path("theme").asText()))
+        throw invalid("考点与题目主题不一致");
+      question.put("pointId", id).put("pointTheme", point.path("theme").asText())
+          .put("pointTitle", point.path("title").asText()).put("pointReview", point.path("review").asBoolean());
+    }
+    if (quick && used.size() != allowed.size()) throw invalid("主问题未覆盖本场选定考点");
+    return clean;
   }
 
   private ArrayNode planReferences(JsonNode refs, JsonNode sources, int number) {
@@ -359,6 +396,7 @@ public class InterviewOutputValidator {
             strings(backup.path("sourceIds"));
           }
         }
+        new InterviewOutputValidator(new ObjectMapper()).agentQuestions(result, ((ArrayNode) questions).deepCopy(), input);
       }
       case "FOLLOWUP" -> {
         if(input.path("strategyVersion").asInt()==1)validateDiagnosis(result.path("diagnosis"),input.path("answer").asText(),result.path("action").asText());

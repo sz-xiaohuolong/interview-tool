@@ -1,6 +1,24 @@
 import type { ProjectEvidenceMatrix } from '../project-evidence'
 
 export type InterviewSessionType = 'COMPREHENSIVE' | 'QUICK'
+export type AgentPracticePreference = 'NEW_FIRST' | 'REVIEW'
+
+export interface AgentPracticeOptionsRequest {
+  role: string
+  level: string
+  plannedQuestionCount: number
+  agentTopics: string[]
+}
+
+export interface AgentPracticeOptions {
+  eligible: boolean
+  requestedCount: number
+  reviewAvailable: number
+  newSupplementCount: number
+  canStart: boolean
+  requiresAcknowledgement: boolean
+  message: string
+}
 
 export interface InterviewConfig {
   sessionType?: InterviewSessionType
@@ -15,6 +33,10 @@ export interface InterviewConfig {
   timeLimitMinutes?: number
   projectId?: string
   projectBrief?: string
+  agentTopics?: string[]
+  practicePreference?: AgentPracticePreference
+  acceptReviewFill?: boolean
+  expectedNewSupplementCount?: number
 }
 
 export interface PreparationSummary {
@@ -80,6 +102,21 @@ export interface InterviewDiagnosis {
 }
 
 export interface InterviewReport {
+  topicCoverage?: {
+    askedCount: number
+    answeredCount: number
+    newCount: number
+    reviewCount: number
+    items: {
+      pointId: string
+      theme: string
+      title: string
+      questionId: string
+      rootQuestionId: string
+      review: boolean
+      answered: boolean
+    }[]
+  }
   diagnostics?: InterviewDiagnosis[]
   version?: number
   detailedAssessment?: {

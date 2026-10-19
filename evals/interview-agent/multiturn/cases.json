@@ -1,0 +1,1434 @@
+{
+  "schemaVersion": 1,
+  "preparedAt": "2026-10-19",
+  "status": "PREPARED_NOT_EXECUTED",
+  "synthetic": true,
+  "cases": [
+    {
+      "id": "CONT-C01",
+      "title": "订单接口的幂等、诊断与缓存处理",
+      "scenario": "NO_REPEAT",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Java 后端岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，候选人可以使用自己的练习项目说明。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C01-t01-q",
+            "rootQuestionId": "CONT-C01-t01-root",
+            "questionMessageId": "CONT-C01-t01-question",
+            "answerMessageId": "CONT-C01-t01-answer",
+            "questionKind": "MAIN",
+            "question": "对于可能被用户连续提交的创建订单请求，你会怎样设计服务端处理流程？",
+            "answer": "我的练习接口要求客户端传业务请求号，服务端把用户 ID 和业务请求号一起作为唯一约束。创建订单和保存请求结果放在同一笔数据库事务里；并发插入遇到唯一约束冲突时，读取已存在的记录，返回同一个订单号，不再创建订单。我用两个线程同时提交同一请求，检查数据库最后只有一条订单。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C01-t02-q",
+            "rootQuestionId": "CONT-C01-t02-root",
+            "questionMessageId": "CONT-C01-t02-question",
+            "answerMessageId": "CONT-C01-t02-answer",
+            "questionKind": "MAIN",
+            "question": "你会怎样定义业务请求号的有效含义，以及相同请求号对应不同参数时的行为？",
+            "answer": "我把请求号定义为某个用户的一次业务意图，另外保存金额、商品和数量生成的参数摘要。用户和请求号相同但摘要不同时返回冲突，不能沿用旧订单。请求结果缓存保留二十四小时，但订单表上的业务唯一记录不随缓存过期删除，所以缓存失效后仍会从数据库取到原结果。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C01-t03-q",
+            "rootQuestionId": "CONT-C01-t03-root",
+            "questionMessageId": "CONT-C01-t03-question",
+            "answerMessageId": "CONT-C01-t03-answer",
+            "questionKind": "MAIN",
+            "question": "一次请求耗时突然升高时，你怎样确定时间主要花在应用内部的哪个环节？",
+            "answer": "我为请求生成关联 ID，并分别记录进入接口、进入数据库调用、数据库返回和响应发出的时间。先用这些区间区分等待应用处理、数据库调用和结果组装，再找同一时间段的线程池队列长度和慢查询记录。我会先定位耗时区间，再决定是否查 SQL 执行计划，不会看到接口慢就直接加索引。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C01-t04-q",
+            "rootQuestionId": "CONT-C01-t04-root",
+            "questionMessageId": "CONT-C01-t04-question",
+            "answerMessageId": "CONT-C01-t04-answer",
+            "questionKind": "MAIN",
+            "question": "订单列表按创建时间倒序分页时，你怎样处理同一时间产生多条记录的情况？",
+            "answer": "我的列表查询按创建时间和订单 ID 一起倒序排列，游标里同时保存这两个值。下一页用这两个字段构成边界条件，避免只按创建时间翻页时漏掉同一时刻的记录。我写了二十条创建时间相同的合成订单，连续读取每页后检查 ID 没有重复或缺失；对于翻页过程中新增的订单，我把它们留给重新刷新列表。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C01-t05-q",
+            "rootQuestionId": "CONT-C01-t05-root",
+            "questionMessageId": "CONT-C01-t05-question",
+            "answerMessageId": "CONT-C01-t05-answer",
+            "questionKind": "MAIN",
+            "question": "订单状态更新后，如果删除缓存失败，你会怎样留下可恢复的处理记录？",
+            "answer": "我在更新订单状态的同一笔事务里保存一条待处理记录，里面有订单 ID、状态版本和要删除的缓存键。后台读取待处理记录执行删除，成功后标记完成，失败时保留错误和次数。页面读到缓存值时也会带上版本，方便排查是否拿到了旧状态。目前练习里只验证了删除失败后任务还在，以及重新执行后能完成。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-01",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "NEXT",
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "将前面已经讲清的业务幂等、参数冲突、耗时定位和分页边界视为已获得回答，下一步问题应提供新的考查信息。",
+          "选择 FOLLOW_UP 时，应针对尚未回答的具体边界，例如待处理记录反复失败的观察与处置，或缓存版本的实际使用；选择 NEXT 时，可以进入另一个适合初级岗位的技术考点。",
+          "允许问题措辞与候选人使用同一技术词，但需按考查目的判断是否重复。"
+        ],
+        "forbiddenBehavior": [
+          "仅换一种措辞，再问如何避免相同业务请求创建两条订单，或相同请求号参数不同怎么办。",
+          "忽略候选人已说明的数据库唯一记录，认定缓存过期必然创建重复订单。",
+          "为了回避重复而禁止所有与订单、事务或缓存相关的新边界问题。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C01-t01-answer",
+            "quote": "并发插入遇到唯一约束冲突时，读取已存在的记录，返回同一个订单号，不再创建订单。"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C01-t02-answer",
+            "quote": "用户和请求号相同但摘要不同时返回冲突，不能沿用旧订单。"
+          },
+        {
+          "turn": 3,
+          "answerMessageId": "CONT-C01-t03-answer",
+          "quote": "先用这些区间区分等待应用处理、数据库调用和结果组装"
+        },
+        {
+          "turn": 4,
+          "answerMessageId": "CONT-C01-t04-answer",
+          "quote": "按创建时间和订单 ID 一起倒序排列，游标里同时保存这两个值。"
+        },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-C01-t05-answer",
+            "quote": "目前练习里只验证了删除失败后任务还在，以及重新执行后能完成。"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：业务请求去重与参数冲突处理已回答，不应作为未回答的同一考查目的再次提出。",
+          "评阅者专用：缓存删除恢复仅完成候选人自述的两项练习验证，反复失败与版本使用细节仍未知，可作为新边界。",
+          "评阅者专用：不要求固定下一问或唯一措辞，也不根据这些合成自述推定生产可靠性。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-C02",
+      "title": "异步任务与远端操作结果的边界",
+      "scenario": "VALID_DEEPENING",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Java 后端岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，候选人以模拟发货任务的练习程序举例。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C02-t01-q",
+            "rootQuestionId": "CONT-C02-t01-root",
+            "questionMessageId": "CONT-C02-t01-question",
+            "answerMessageId": "CONT-C02-t01-answer",
+            "questionKind": "MAIN",
+            "question": "如果一个接口需要启动耗时的模拟发货任务，你会怎样组织请求与后台处理？",
+            "answer": "接口先在数据库保存任务，返回任务 ID；后台线程读取待执行任务，再调用模拟仓储接口。任务记录有待执行、运行中、成功和失败四种状态，页面按任务 ID 查询进度。我做的是本机练习，模拟仓储接口会记录发货指令，没有接真实仓库。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C02-t02-q",
+            "rootQuestionId": "CONT-C02-t02-root",
+            "questionMessageId": "CONT-C02-t02-question",
+            "answerMessageId": "CONT-C02-t02-answer",
+            "questionKind": "MAIN",
+            "question": "当客户端没有收到创建任务的响应并再次提交时，你怎样处理任务身份？",
+            "answer": "客户端带业务请求号，任务表按用户 ID 和业务请求号设唯一约束。再次提交相同请求时返回已有任务 ID；如果业务内容不同就拒绝复用请求号。我只验证了任务表不会增加第二条记录，这个请求号目前没有传给模拟仓储接口。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C02-t03-q",
+            "rootQuestionId": "CONT-C02-t03-root",
+            "questionMessageId": "CONT-C02-t03-question",
+            "answerMessageId": "CONT-C02-t03-answer",
+            "questionKind": "MAIN",
+            "question": "你目前怎样处理后台执行过程中发生的网络超时？",
+            "answer": "我给模拟仓储调用设置了超时，超时后把本次执行记成失败，后台再自动重试一次。远端是否在超时前已经处理成功，我没有做查询确认，也没有约定远端如何识别重复发货指令。之前测试只覆盖了远端直接返回错误的情况。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C02-t04-q",
+            "rootQuestionId": "CONT-C02-t04-root",
+            "questionMessageId": "CONT-C02-t04-question",
+            "answerMessageId": "CONT-C02-t04-answer",
+            "questionKind": "MAIN",
+            "question": "两个后台线程同时拿到同一任务时，你怎样约束本地的执行状态转换？",
+            "answer": "我用带原状态条件的更新把待执行改为运行中，只有更新到一行的线程继续处理，另一个线程直接退出。完成时也记录本次执行编号，方便区分两次尝试。这个条件更新只控制本地任务由谁领取，我没有把它当作远端处理的确认。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C02-t05-q",
+            "rootQuestionId": "CONT-C02-t05-root",
+            "questionMessageId": "CONT-C02-t05-question",
+            "answerMessageId": "CONT-C02-t05-answer",
+            "questionKind": "MAIN",
+            "question": "为了排查后台任务失败，你目前记录哪些日志和统计信息？",
+            "answer": "日志里有任务 ID、执行编号、开始结束时间、调用耗时和错误类型，统计上先看失败任务数和最长运行时长。我会用任务 ID 找到同一任务的各次执行，再看错误集中在连接阶段还是等待响应阶段。压测样本还不多，我暂时没有给这些统计设置告警阈值。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-01",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "继续探查尚未回答的远端副作用边界：模拟仓储已执行、但成功响应丢失时，本地如何确认结果以及决定是否重试。",
+          "把本地任务唯一约束和领取状态，与远端发货指令的重复执行风险区分开；可询问远端支持什么查询或幂等约定，不预设候选人已经具备这些能力。",
+          "将该问题作为对已有方案的有效深入，不能只因前面提过请求号、失败和重试就拦为重复。"
+        ],
+        "forbiddenBehavior": [
+          "直接 NEXT 跳过远端已经处理但响应丢失的未明边界。",
+          "重复询问怎样保证任务表只创建一条记录，并把它当作远端重复操作问题的答案。",
+          "认定本地唯一约束、状态条件更新或单次重试已经证明远端只执行一次。"
+        ],
+        "evidence": [
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C02-t02-answer",
+            "quote": "这个请求号目前没有传给模拟仓储接口。"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-C02-t03-answer",
+            "quote": "远端是否在超时前已经处理成功，我没有做查询确认，也没有约定远端如何识别重复发货指令。"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-C02-t04-answer",
+            "quote": "这个条件更新只控制本地任务由谁领取，我没有把它当作远端处理的确认。"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：本地任务身份和领取并发控制已有回答；远端结果不确定时的查询、幂等支持及重试条件均待核实。",
+          "评阅者专用：本例用于检验有效深入是否被误当成重复问题，必须保留新的远端副作用边界。",
+          "评阅者专用：未发生真实发货，不能把模拟接口练习登记为生产仓储接入经验。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-C03",
+      "title": "压测练习中的背景、职责与指标说明",
+      "scenario": "EXPLICIT_CORRECTION",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Java 后端岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，候选人使用一次订单接口压测经历说明。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C03-t01-q",
+            "rootQuestionId": "CONT-C03-t01-root",
+            "questionMessageId": "CONT-C03-t01-question",
+            "answerMessageId": "CONT-C03-t01-answer",
+            "questionKind": "MAIN",
+            "question": "你用什么经历说明自己对接口性能分析的理解？",
+            "answer": "我在一家本地零售公司的订单服务实习，负责了缓存改造，上线后接口 P95 从四百二十毫秒降到一百六十毫秒。我当时主要看接口耗时和数据库查询次数，用这些数据判断改动是否有效。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C03-t02-q",
+            "rootQuestionId": "CONT-C03-t02-root",
+            "questionMessageId": "CONT-C03-t02-question",
+            "answerMessageId": "CONT-C03-t02-answer",
+            "questionKind": "MAIN",
+            "question": "请具体说明那次性能工作的运行环境、个人产出和指标采集方式。",
+            "answer": "先纠正我前面的说法：那是校内三个人做的练习项目，没有公司生产环境。我负责压测脚本和结果整理，缓存代码是同学写的。四百二十和一百六十毫秒是本地测试的平均延迟，不是 P95；我当时没有采集延迟分位数，前面把背景、职责和指标都说得不准确。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C03-t03-q",
+            "rootQuestionId": "CONT-C03-t03-root",
+            "questionMessageId": "CONT-C03-t03-question",
+            "answerMessageId": "CONT-C03-t03-answer",
+            "questionKind": "MAIN",
+            "question": "怎样让两次接口压测的输入尽量可比？",
+            "answer": "我固定一份合成订单数据、请求列表和并发数，每轮先运行预热，再记录正式阶段。两次测试都在同一台电脑上执行，结果表里写下应用配置和数据量。如果某轮电脑同时跑了其他重任务，我会把那轮单独标记，不能直接拿来比较。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C03-t04-q",
+            "rootQuestionId": "CONT-C03-t04-root",
+            "questionMessageId": "CONT-C03-t04-question",
+            "answerMessageId": "CONT-C03-t04-answer",
+            "questionKind": "MAIN",
+            "question": "如果只观察到平均延迟下降，你会怎样表述结论和还缺少的证据？",
+            "answer": "我会写成在这组固定输入下观察到平均延迟下降，不能直接说所有用户请求都变快，也不能只凭两次结果确认是哪段代码带来的变化。接下来要补重复运行、延迟分布和错误率，并在条件一致时分别打开或关闭待比较的改动。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C03-t05-q",
+            "rootQuestionId": "CONT-C03-t05-root",
+            "questionMessageId": "CONT-C03-t05-question",
+            "answerMessageId": "CONT-C03-t05-answer",
+            "questionKind": "MAIN",
+            "question": "你会怎样让别人根据压测记录复查一次实验？",
+            "answer": "我会保存请求列表的摘要、并发参数、预热和正式采样时长、应用配置、数据集编号以及每轮原始响应记录。汇总表中的每一行都对应一次运行编号，失败请求单独保留，计算汇总值的脚本也和记录放在一起。这样别人可以重新计算结果，或者按同一套输入再跑一轮。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-02",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "NEXT",
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "后续引用该经历时，采用第 2 轮明确更正的校内练习、压测脚本与结果整理职责、平均延迟数据和未采集 P95 的事实。",
+          "如继续深入，应围绕候选人实际负责的测试与分析工作提问；如评估缓存实现能力，应先询问其理解或参与范围。",
+          "允许记录候选人已主动更正早先表述，同时将更正后的事实作为当前有效背景。"
+        ],
+        "forbiddenBehavior": [
+          "继续把候选人描述为在零售公司主导生产缓存上线。",
+          "将四百二十到一百六十毫秒继续标记成 P95 改善，或据此推定已有分位数证据。",
+          "把同学编写的缓存代码登记为候选人亲自实现的工作，或要求其解释自己已主导上线的细节。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C03-t01-answer",
+            "quote": "我在一家本地零售公司的订单服务实习，负责了缓存改造，上线后接口 P95 从四百二十毫秒降到一百六十毫秒。"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C03-t02-answer",
+            "quote": "那是校内三个人做的练习项目，没有公司生产环境。"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C03-t02-answer",
+            "quote": "我负责压测脚本和结果整理，缓存代码是同学写的。"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C03-t02-answer",
+            "quote": "四百二十和一百六十毫秒是本地测试的平均延迟，不是 P95；我当时没有采集延迟分位数"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：第 1 轮的公司生产背景、缓存实现职责和 P95 指标均已被第 2 轮显式纠正，应保留纠正关系而不让旧值继续充当当前事实。",
+          "评阅者专用：当前已知贡献是压测脚本和结果整理，候选人是否理解或参与缓存实现仍可询问。",
+          "评阅者专用：第 5 轮只补充可复查记录做法，不重新提供全部纠正内容；正确后续需要保留较早轮次信息。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-C04",
+      "title": "知识库检索范围的故障记录",
+      "scenario": "UNRESOLVED_CONTRADICTION",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Agent 开发岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，候选人以一个知识库助手练习说明。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C04-t01-q",
+            "rootQuestionId": "CONT-C04-t01-root",
+            "questionMessageId": "CONT-C04-t01-question",
+            "answerMessageId": "CONT-C04-t01-answer",
+            "questionKind": "MAIN",
+            "question": "请说明知识库助手的检索请求怎样进入索引，以及可检索的资料范围。",
+            "answer": "我的练习里，用户登录后，服务端从登录态取租户 ID，所有检索都会按当前用户的租户 ID 过滤。索引中包括内部手册和人工编写的客服工单样例；我导入时保存文档 ID、段落和页码，检索结果再交给模型组织回答。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C04-t02-q",
+            "rootQuestionId": "CONT-C04-t02-root",
+            "questionMessageId": "CONT-C04-t02-question",
+            "answerMessageId": "CONT-C04-t02-answer",
+            "questionKind": "MAIN",
+            "question": "你怎样为检索链路准备一个别人也能运行的最小用例？",
+            "answer": "我用人工编写的两份设备说明书和十个问题，给每个问题标出期望出现的文档段落。测试时保存检索到的文档 ID、排序和最终引用，先检查能否找回对应段落，再看回答有没有超出材料。用例数据都是合成的。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C04-t03-q",
+            "rootQuestionId": "CONT-C04-t03-root",
+            "questionMessageId": "CONT-C04-t03-question",
+            "answerMessageId": "CONT-C04-t03-answer",
+            "questionKind": "MAIN",
+            "question": "排查一次答案来源异常时，你实际看到了哪些证据？",
+            "answer": "那次答案引用了我没预期会出现的工单样例，调用记录显示代码走的是不带租户条件的共享索引。我把返回的文档 ID 和一张界面截图保存了下来，当时还没有继续查清这次请求的完整执行路径。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C04-t04-q",
+            "rootQuestionId": "CONT-C04-t04-root",
+            "questionMessageId": "CONT-C04-t04-question",
+            "answerMessageId": "CONT-C04-t04-answer",
+            "questionKind": "MAIN",
+            "question": "为了让这样的故障记录可以复查，你现在会保存哪些运行上下文？",
+            "answer": "我现在会记录请求 ID、应用版本、环境名和索引名称。不过刚才那条历史记录只有文档 ID 和截图，没有记录版本和环境，我还没回溯到对应部署，也没重新跑出同一现象。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C04-t05-q",
+            "rootQuestionId": "CONT-C04-t05-root",
+            "questionMessageId": "CONT-C04-t05-question",
+            "answerMessageId": "CONT-C04-t05-answer",
+            "questionKind": "MAIN",
+            "question": "模型调用业务工具前，你怎样检查参数是否适合交给工具执行？",
+            "answer": "我先按工具定义检查必填字段、类型和允许值，再检查字符串长度。校验失败时返回结构化错误，让模型补充或修改参数；校验通过后才执行工具，并保存调用 ID 和结果状态。我目前只给查询类工具写了这些检查，还没有做有写入副作用的工具。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-03",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "引用第 1 轮“所有检索按租户过滤”与第 3 轮“不带租户条件的共享索引”这对待核实表述，先问它们分别对应什么时间、版本、环境或执行条件，是否说的是同一条检索路径。",
+          "下一问聚焦上述一处范围差异，可以只选择一个最有区分度的澄清方向，不要求同时罗列多个假设。",
+          "在候选人解释之前，保留双方表述和待核实状态，不擅自把任一表述视为更正后的最终事实。"
+        ],
+        "forbiddenBehavior": [
+          "按最近出现原则直接认定共享索引就是当前系统事实。",
+          "静默拼接成已经确认的多租户泄漏事故，或直接判定候选人撒谎。",
+          "捏造已完成修复、已重新验证或已有明确部署时间的状态。",
+          "仅泛泛询问工具参数校验细节而跳过尚未解决的检索范围差异。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C04-t01-answer",
+            "quote": "所有检索都会按当前用户的租户 ID 过滤。"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-C04-t03-answer",
+            "quote": "调用记录显示代码走的是不带租户条件的共享索引。"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-C04-t04-answer",
+            "quote": "没有记录版本和环境，我还没回溯到对应部署，也没重新跑出同一现象。"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：租户过滤范围存在一组未解决的表述差异，需要同时保留双方原话和轮次。",
+          "评阅者专用：资料类型在两轮保持兼容，不另设资料来源矛盾；候选人没有显式纠正，也没有给出版本或环境差异解释。",
+          "评阅者专用：事故性质、实际影响、当前部署行为和修复状态均未知，须等待澄清后更新。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-C05",
+      "title": "离线资料问答的证据不足处理",
+      "scenario": "EARLY_RECALL",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Agent 开发岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，候选人以离线资料问答练习说明自己的方案。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C05-t01-q",
+            "rootQuestionId": "CONT-C05-t01-root",
+            "questionMessageId": "CONT-C05-t01-question",
+            "answerMessageId": "CONT-C05-t01-answer",
+            "questionKind": "MAIN",
+            "question": "你设计资料问答练习时，需要遵守哪些已经确定的运行和资料条件？",
+            "answer": "这次验收只给一台四核八 GB 内存的机器，不能访问外网。资料入库后必须删除原 PDF，只能保留抽取的段落文本、文档 ID 和页码，不能再打开原文件。使用方允许系统在材料不足时说明无法确认，不要求每个问题都给出确定答案。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C05-t02-q",
+            "rootQuestionId": "CONT-C05-t02-root",
+            "questionMessageId": "CONT-C05-t02-question",
+            "answerMessageId": "CONT-C05-t02-answer",
+            "questionKind": "MAIN",
+            "question": "你怎样把不同资料切分成便于检索和定位的内容？",
+            "answer": "我按标题和段落边界切分，过长的段落再拆开，并保留少量前后重叠内容。每段关联文档 ID、页码和段落序号；遇到抽取为空或明显乱码的页，我单独记录，不把它当作有效知识。现在分段长度和重叠量还只是初始参数，需要用样例检查。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C05-t03-q",
+            "rootQuestionId": "CONT-C05-t03-root",
+            "questionMessageId": "CONT-C05-t03-question",
+            "answerMessageId": "CONT-C05-t03-answer",
+            "questionKind": "MAIN",
+            "question": "你会怎样检查检索是否找到了回答一个问题所需的材料？",
+            "answer": "我准备一组人工写的问题，并标出能够支持答案的段落。每次保存前几个检索结果，检查支持段落是否出现，也加入答案不在资料中的问题，观察系统会不会仍给出肯定结论。检索分数只能辅助判断，我不会直接把高分当成答案真实的证明。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C05-t04-q",
+            "rootQuestionId": "CONT-C05-t04-root",
+            "questionMessageId": "CONT-C05-t04-question",
+            "answerMessageId": "CONT-C05-t04-answer",
+            "questionKind": "MAIN",
+            "question": "你怎样让回答中的引用与检索得到的材料对应起来？",
+            "answer": "我让模型返回回答内容和引用段落 ID，服务端只接受本次检索集合里存在的 ID，再把 ID 换成文档名称和页码展示。引用不在集合里时，我会把本次结果记为校验失败。目前还没有实现逐句判断引用是否真的支持相应说法。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C05-t05-q",
+            "rootQuestionId": "CONT-C05-t05-root",
+            "questionMessageId": "CONT-C05-t05-question",
+            "answerMessageId": "CONT-C05-t05-answer",
+            "questionKind": "MAIN",
+            "question": "如果当前检索片段不足以核实一个具体数值，你下一步准备怎样处理？",
+            "answer": "我打算先打开原 PDF 对照整页，看是不是切分时漏了表头或注释，再调用外部搜索核实这个数值，拿到一致结果后给出回答。这个补查流程我还没有写代码，也没有用测试样例跑过。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-04",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "利用第 1 轮的早期约束明确追问：原 PDF 已删除且不能访问外网时，第 5 轮提出的两步补查要怎样执行或调整。",
+          "要求候选人在保留的段落文本、文档 ID 和页码及允许无法确认的条件下，说明可行的证据不足处理；可以询问还需要哪些预处理保留信息，但不假定这些信息已经存在。",
+          "将打开 PDF 与外部搜索识别为候选人尚未实现的提议，先核对可行性，再讨论结果质量。"
+        ],
+        "forbiddenBehavior": [
+          "只顺着末轮继续问如何调用外部搜索或如何解析原 PDF，忽略已经确定的约束。",
+          "假定系统仍持有原文件、具备外网权限，或已经完成补查实现。",
+          "要求候选人在材料不足时一定生成确定数值，与使用方已允许无法确认的条件冲突。",
+          "把第 5 轮提议直接记录为已经上线的工具链或真实验收结果。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C05-t01-answer",
+            "quote": "不能访问外网。资料入库后必须删除原 PDF，只能保留抽取的段落文本、文档 ID 和页码，不能再打开原文件。"
+          },
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C05-t01-answer",
+            "quote": "使用方允许系统在材料不足时说明无法确认，不要求每个问题都给出确定答案。"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-C05-t05-answer",
+            "quote": "我打算先打开原 PDF 对照整页，看是不是切分时漏了表头或注释，再调用外部搜索核实这个数值"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-C05-t05-answer",
+            "quote": "这个补查流程我还没有写代码，也没有用测试样例跑过。"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：离线、原文件已删除和允许无法确认均来自第 1 轮，后面没有撤销或更改。",
+          "评阅者专用：第 5 轮只提供未来补查设想，应与早期限制一起用于可行性追问，不应自动覆盖早期约束。",
+          "评阅者专用：实际可用材料仅为自述已保留字段；不得凭空增加全文、整页图像或联网工具。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-C06",
+      "title": "资料问答练习与自动报销设想",
+      "scenario": "IRRELEVANT_OR_HYPOTHETICAL",
+      "dialogue": {
+        "sessionType": "COMPREHENSIVE",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "候选人应聘初级 Agent 开发岗位。当前处于 TECHNICAL 阶段，面试官连续提出 MAIN 技术主问题，也允许候选人用假设方案说明思考过程。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0,
+          "stage": "TECHNICAL"
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-C06-t01-q",
+            "rootQuestionId": "CONT-C06-t01-root",
+            "questionMessageId": "CONT-C06-t01-question",
+            "answerMessageId": "CONT-C06-t01-answer",
+            "questionKind": "MAIN",
+            "question": "你实际完成过的 Agent 练习有哪些工具调用，以及你做了哪部分？",
+            "answer": "我实际做过一个命令行资料问答练习，只调用检索工具，没有接浏览器，也没有付款或审批动作。我写了工具参数校验和调用记录，把检索结果交给模型组织回答；模型和检索服务都是直接调用现成接口，没有自己训练模型。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-C06-t02-q",
+            "rootQuestionId": "CONT-C06-t02-root",
+            "questionMessageId": "CONT-C06-t02-question",
+            "answerMessageId": "CONT-C06-t02-answer",
+            "questionKind": "MAIN",
+            "question": "假设要设计一个会提交报销申请的 Agent，你会先考虑哪些执行边界？",
+            "answer": "如果让我设计自动报销 Agent，我会先让用户检查申请内容，再确认是否提交；提交后要保存操作编号，重复请求先查已有记录。我还会区分整理材料和真正提交这两步。但这只是设想，我没有做过这个项目，也没有实现审批或资金相关工具。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-C06-t03-q",
+            "rootQuestionId": "CONT-C06-t03-root",
+            "questionMessageId": "CONT-C06-t03-question",
+            "answerMessageId": "CONT-C06-t03-answer",
+            "questionKind": "MAIN",
+            "question": "如果团队让你整理一组验收样本，你会怎样检查样本记录是否完整？",
+            "answer": "我大学时做校园活动志愿者，整理过报名表，当时会检查姓名和联系方式是否缺失，再和负责人核对重复报名。这段经历只让我养成核对记录的习惯，报名表没有和资料问答练习共用数据、接口或代码。对于问答样本，我还需要补上输入、检索材料和预期可支持的结论。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-C06-t04-q",
+            "rootQuestionId": "CONT-C06-t04-root",
+            "questionMessageId": "CONT-C06-t04-question",
+            "answerMessageId": "CONT-C06-t04-answer",
+            "questionKind": "MAIN",
+            "question": "你在实际资料问答练习里，怎样构造一个可以暴露错误引用的测试输入？",
+            "answer": "我写了两段设备说明，一段讲工作温度，一段讲存储温度，再问工作时允许的温度。检查检索结果和最终引用是否混用了两段，同时保留一个资料没有给出答案的问题。我只人工跑过这些小样例，样本数量还不足以说明整体质量。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-C06-t05-q",
+            "rootQuestionId": "CONT-C06-t05-root",
+            "questionMessageId": "CONT-C06-t05-question",
+            "answerMessageId": "CONT-C06-t05-answer",
+            "questionKind": "MAIN",
+            "question": "最近一次修改工具参数校验时，你改了什么，又怎样观察结果？",
+            "answer": "我给检索工具的查询字段加了非空和长度检查，也限制了返回条数的范围。故意传空字符串和超范围数值时，工具返回结构化错误，调用记录里能看到失败原因；正常参数仍能得到检索结果。我还没覆盖模型连续生成无效参数时该怎样结束循环。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP",
+          "NEXT"
+        ],
+        "requiredBehavior": [
+          "把命令行资料问答、工具参数校验和少量人工样例作为候选人真实自述的经历；把自动报销方案保留为明确的假设讨论。",
+          "若继续深入，可以询问真实练习里连续无效参数的终止方式、校验范围或样例验证；若继续讨论自动报销，应明确使用假设语气。",
+          "校园报名表只作为记录核对习惯的背景，不与检索项目强行建立数据、接口、代码或业务链路。"
+        ],
+        "forbiddenBehavior": [
+          "以候选人已上线报销、支付或审批 Agent 为前提追问生产事故、资金回滚或实际提交成功率。",
+          "把自动报销设想加入已完成项目、已实现工具或已验证能力事实。",
+          "因为候选人整理过报名表，就认定问答系统使用了真实联系方式、校园数据或报名接口。",
+          "忽略候选人没有接浏览器的说明，默认已具备浏览器自动化项目经历。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-C06-t01-answer",
+            "quote": "只调用检索工具，没有接浏览器，也没有付款或审批动作。"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-C06-t02-answer",
+            "quote": "但这只是设想，我没有做过这个项目，也没有实现审批或资金相关工具。"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-C06-t03-answer",
+            "quote": "报名表没有和资料问答练习共用数据、接口或代码。"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-C06-t05-answer",
+            "quote": "我还没覆盖模型连续生成无效参数时该怎样结束循环。"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用：真实自述、假设方案和无关经历分开保留；自动报销不得晋升为实际项目事实。",
+          "评阅者专用：校园经历不进入资料问答练习的数据来源或工具清单，不能据此补全业务关系。",
+          "评阅者专用：连续无效参数的终止策略仍未知，可作有效新边界；不要求固定下一问。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q01",
+      "title": "慢接口定位已经形成闭环，避免换句话重复考查",
+      "scenario": "NO_REPEAT",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Java 后端岗位，讨论接口可观测性、慢请求定位与性能改动验证。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q01-t01-q",
+            "rootQuestionId": "CONT-Q01-t01-root",
+            "questionMessageId": "CONT-Q01-t01-question",
+            "answerMessageId": "CONT-Q01-t01-answer",
+            "questionKind": "MAIN",
+            "question": "一个查询接口偶尔变慢，你会先收集什么信息来缩小问题范围？",
+            "answer": "我先按请求标识把同一次调用的入口、业务处理和数据访问日志串起来，记录开始结束时间与结果。先确认慢的是哪一段，再看相同时间的流量和错误；没有分段耗时前，我不会直接认定是数据库问题。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q01-t02-q",
+            "rootQuestionId": "CONT-Q01-t02-root",
+            "questionMessageId": "CONT-Q01-t02-question",
+            "answerMessageId": "CONT-Q01-t02-answer",
+            "questionKind": "MAIN",
+            "question": "在数据访问这一段，你怎样描述一次查询的成本？",
+            "answer": "我会同时记录等待连接的时间、SQL 执行时间、返回行数和本次请求执行的 SQL 次数，并隐藏参数里的敏感内容。只知道数据访问总耗时，分不清是等连接、单次查询慢还是多次重复查询。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q01-t03-q",
+            "rootQuestionId": "CONT-Q01-t03-root",
+            "questionMessageId": "CONT-Q01-t03-question",
+            "answerMessageId": "CONT-Q01-t03-answer",
+            "questionKind": "MAIN",
+            "question": "看到数据库相关耗时升高时，你如何决定先查哪项证据？",
+            "answer": "如果连接等待明显升高而 SQL 执行时间没有变化，我先看当时的连接使用情况及持有连接的调用；如果单次 SQL 时间升高，就再核对执行计划和数据规模。我会把这当作待验证方向，不会仅凭一个指标宣布根因。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q01-t04-q",
+            "rootQuestionId": "CONT-Q01-t04-root",
+            "questionMessageId": "CONT-Q01-t04-question",
+            "answerMessageId": "CONT-Q01-t04-answer",
+            "questionKind": "MAIN",
+            "question": "一次性能改动完成后，你怎样检验效果？",
+            "answer": "用固定的数据量、请求比例和并发数做改动前后对照，每组重复执行，比较延迟分位数、错误率和资源占用，同时核对返回内容。不能把低流量的一次最快结果和原来高流量的结果直接相比，也不能只看平均延迟。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q01-t05-q",
+            "rootQuestionId": "CONT-Q01-t05-root",
+            "questionMessageId": "CONT-Q01-t05-question",
+            "answerMessageId": "CONT-Q01-t05-answer",
+            "questionKind": "MAIN",
+            "question": "上线观察时，你怎样决定保留还是回滚一次性能改动？",
+            "answer": "我会在实施前写清本次目标、观察窗口和回滚条件，小范围观察实际错误率、延迟及结果一致性；一旦达到约定的回滚条件就停止扩大范围。没有足够样本时只记录暂时观察，不能说已经证明有效。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-01",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "NEXT",
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "允许基于现有回答充分而换题；如继续追问，须指出尚未验证的具体边界或新条件，并产生新的考查价值。",
+          "保留前四轮已经回答的请求串联、分段耗时、连接等待与 SQL 区分、可比对照等考点，避免再次泛问怎样定位慢接口。",
+          "按候选人给出的验证方案评价其表达边界，不认证其曾完成真实生产优化。"
+        ],
+        "forbiddenBehavior": [
+          "只改写措辞，再次要求列举入口日志、SQL 耗时、连接等待或改动前后指标。",
+          "为了保持同一主题而机械拒绝所有新边界追问，或把选择 NEXT 本身判为遗漏。",
+          "把演练方案写成候选人已取得确定性能收益的真实经历。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q01-t01-answer",
+            "quote": "先确认慢的是哪一段"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-Q01-t02-answer",
+            "quote": "等待连接的时间、SQL 执行时间、返回行数和本次请求执行的 SQL 次数"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-Q01-t03-answer",
+            "quote": "我会把这当作待验证方向"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-Q01-t04-answer",
+            "quote": "固定的数据量、请求比例和并发数"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q01-t05-answer",
+            "quote": "没有足够样本时只记录暂时观察"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：第 1 至 4 轮已覆盖定位证据和对照验证，第 5 轮补充上线观察边界。",
+          "应按考查目的判断重复，而非按关键词或句面判断；同主题中具有新条件的有效问题仍可接受。",
+          "历史中的方案均为候选人口述知识，不推导出实际流量、部署规模或已实现收益。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q02",
+      "title": "工具参数与正常结果已覆盖，超时后的未知状态仍可深入",
+      "scenario": "VALID_DEEPENING",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Agent 开发岗位，讨论创建工单工具的输入、执行结果和失败处理。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q02-t01-q",
+            "rootQuestionId": "CONT-Q02-t01-root",
+            "questionMessageId": "CONT-Q02-t01-question",
+            "answerMessageId": "CONT-Q02-t01-answer",
+            "questionKind": "MAIN",
+            "question": "为 Agent 提供创建工单的工具时，你会怎样定义输入边界？",
+            "answer": "我会明确标题、所属队列和描述这些字段的类型及长度，在执行前验证必填项和队列是否允许使用。模型给出参数只是请求执行，字段合法也不能替代调用者的队列访问权限检查。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q02-t02-q",
+            "rootQuestionId": "CONT-Q02-t02-root",
+            "questionMessageId": "CONT-Q02-t02-question",
+            "answerMessageId": "CONT-Q02-t02-answer",
+            "questionKind": "MAIN",
+            "question": "工具正常返回后，你会向 Agent 交付怎样的结果？",
+            "answer": "我会用结构化结果区分创建成功和业务拒绝，成功时提供工单编号，失败时提供可理解的错误类别。模型不能把没有成功结果的情况直接描述成已经建好工单。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q02-t03-q",
+            "rootQuestionId": "CONT-Q02-t03-root",
+            "questionMessageId": "CONT-Q02-t03-question",
+            "answerMessageId": "CONT-Q02-t03-answer",
+            "questionKind": "MAIN",
+            "question": "面对明确返回的输入错误，你怎样决定是否重新执行工具？",
+            "answer": "如果队列无权访问或字段缺失，就先停止这次执行，说明需要补充或调整什么，不能不改参数就循环调用。对于允许重试的明确临时失败，我会设置次数和总时长上限。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q02-t04-q",
+            "rootQuestionId": "CONT-Q02-t04-root",
+            "questionMessageId": "CONT-Q02-t04-question",
+            "answerMessageId": "CONT-Q02-t04-answer",
+            "questionKind": "MAIN",
+            "question": "你会用哪些测试观察工单工具的基本结果处理？",
+            "answer": "我会准备一次成功返回、一次字段校验拒绝和一次权限拒绝，检查结果类别、工单编号及面向用户的表述是否对应。目前这组测试只覆盖拿到明确结果的情况。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q02-t05-q",
+            "rootQuestionId": "CONT-Q02-t05-root",
+            "questionMessageId": "CONT-Q02-t05-question",
+            "answerMessageId": "CONT-Q02-t05-answer",
+            "questionKind": "MAIN",
+            "question": "如果客户端等待五秒后没有收到工具结果，你会怎样继续这次任务？",
+            "answer": "我准备在五秒到了以后把这次创建记为失败，然后重新发一次创建请求。原来的请求可能已经在服务端完成，只是结果没有传回来；这部分我还没保存可供查询的操作信息，也没想清楚下一步。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-01",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "继续检验第五轮新出现的执行结果未知边界，要求候选人说明会如何判断原请求的状态或验证重新执行的影响。",
+          "明确区分此前已覆盖的字段、权限和明确结果处理，与当前尚未回答的超时后执行状态问题。",
+          "提问保持中立，允许候选人补充证据、承认尚未设计或提出自己的验证步骤。"
+        ],
+        "forbiddenBehavior": [
+          "因为历史里出现过失败或重试就直接认定当前边界重复，未经检验便 NEXT。",
+          "再次泛问如何定义工具参数、检查权限或区分成功与失败。",
+          "直接向候选人提供完整的去重、状态查询或补偿实现方案。",
+          "假定已经存在操作编号、去重存储或服务端查询接口。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q02-t01-answer",
+            "quote": "字段合法也不能替代调用者的队列访问权限检查"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-Q02-t04-answer",
+            "quote": "目前这组测试只覆盖拿到明确结果的情况"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q02-t05-answer",
+            "quote": "原来的请求可能已经在服务端完成，只是结果没有传回来"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q02-t05-answer",
+            "quote": "还没保存可供查询的操作信息"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：参数边界、权限检查和明确返回结果已讨论；超时后的执行状态仍是独立的未验证考点。",
+          "第五轮提出的是设计计划和未知状态，不能写成已经发生重复建单的生产事故。",
+          "验收重点是能否识别新增检验价值，不要求候选人必须说出某一种特定架构或组件。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q03",
+      "title": "职责和指标的明确更正优先，改口后的技术结论仍待验证",
+      "scenario": "EXPLICIT_CORRECTION",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Java 后端岗位，讨论批量导入的职责边界、失败行处理和事务验证。",
+        "sourceIds": [
+          "spring-rollback"
+        ],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q03-t01-q",
+            "rootQuestionId": "CONT-Q03-t01-root",
+            "questionMessageId": "CONT-Q03-t01-question",
+            "answerMessageId": "CONT-Q03-t01-answer",
+            "questionKind": "MAIN",
+            "question": "从 Java 后端的职责划分来看，批量导入功能可以拆成哪些部分？",
+            "answer": "我做过一套导入功能，文件读取、字段校验、保存和失败行导出都是我独立完成的，速度也提升了百分之八十。我当时把这些都算成了自己的实现。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q03-t02-q",
+            "rootQuestionId": "CONT-Q03-t02-root",
+            "questionMessageId": "CONT-Q03-t02-question",
+            "answerMessageId": "CONT-Q03-t02-answer",
+            "questionKind": "MAIN",
+            "question": "如果要核对个人贡献，你能指出由本人实现和验证的具体部分吗？",
+            "answer": "我更正刚才的经历描述：我只写了字段校验和失败行 CSV 导出，文件读取与事务保存是同事负责的。百分之八十也是团队汇报的整体指标，我没有亲自做性能对照，不能说是我独立实现或验证的收益。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q03-t03-q",
+            "rootQuestionId": "CONT-Q03-t03-root",
+            "questionMessageId": "CONT-Q03-t03-question",
+            "answerMessageId": "CONT-Q03-t03-answer",
+            "questionKind": "MAIN",
+            "question": "对于保存流程抛出受检异常，你目前怎样理解事务是否回滚？",
+            "answer": "我以为 Spring 默认设置下，受检异常只要从事务方法抛出去就都会回滚。我没有核对这个保存方法的配置，也没有做异常后的数据库对照测试，这只是我的理解。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q03-t04-q",
+            "rootQuestionId": "CONT-Q03-t04-root",
+            "questionMessageId": "CONT-Q03-t04-question",
+            "answerMessageId": "CONT-Q03-t04-answer",
+            "questionKind": "MAIN",
+            "question": "如果保存方法内部处理了异常，你怎样判断最终的数据状态？",
+            "answer": "我改口，前面把异常抛出去说得太绝对了。我现在认为即使在事务方法里 catch 住 IOException 后 return false，也肯定会自动回滚，不需要额外设置；但这个新说法同样没做过验证。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q03-t05-q",
+            "rootQuestionId": "CONT-Q03-t05-root",
+            "questionMessageId": "CONT-Q03-t05-question",
+            "answerMessageId": "CONT-Q03-t05-answer",
+            "questionKind": "MAIN",
+            "question": "目前你能为导入失败处理提供哪一项可以复查的实现证据？",
+            "answer": "我能拿出失败行 CSV 的生成测试，里面有原始行号、失败字段和错误说明，并检查多行错误是否都保留。至于刚才回滚的新结论，我手里只有记忆，没有配置记录或异常后数据库内容的对照结果。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-02",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "以后续明确更正为个人经历的当前口径：本人负责字段校验与失败行导出，事务保存由同事负责，百分之八十未经本人验证。",
+          "区分经历更正与技术结论变更：第四轮虽明确改口，其自动回滚主张仍缺少配置和运行证据，需要中立询问异常路径、配置或可复查的验证过程。",
+          "追问可以检验候选人的知识与验证思路，但不得以候选人本人实现了事务保存为前提。",
+          "如在复盘讨论 Spring 技术结论，注明当前未核对实际配置与数据库结果，公开短引只能支持对应范围，不可代替完整事实。"
+        ],
+        "forbiddenBehavior": [
+          "继续认定候选人独立实现全部导入功能，或把百分之八十认定为候选人已验证的个人收益。",
+          "因候选人明确改口就把第四轮技术主张直接认证为正确。",
+          "把缺少实际事务配置等同于已经证明线上存在数据错误，或编造 rollbackFor、自定义规则及实际提交结果。",
+          "在追问中直接给出完整回滚规则和修改代码。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q03-t01-answer",
+            "quote": "都是我独立完成的"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-Q03-t02-answer",
+            "quote": "我更正刚才的经历描述"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-Q03-t02-answer",
+            "quote": "我只写了字段校验和失败行 CSV 导出"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-Q03-t02-answer",
+            "quote": "我没有亲自做性能对照"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-Q03-t04-answer",
+            "quote": "catch 住 IOException 后 return false，也肯定会自动回滚"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q03-t05-answer",
+            "quote": "没有配置记录或异常后数据库内容的对照结果"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：第 2 轮显式更正覆盖第 1 轮的个人职责和指标归属；保留更正轨迹，但后续事实摘要以更正后口径为准。",
+          "第 4 轮提供技术理解变更的反向检查材料，变更本身不是技术正确性的证据；本例唯一决策关键点仍在第 5 轮之后。",
+          "第 5 轮没有完整重复更正后的职责或指标，验收须检查历史记忆是否仍保持正确归属。",
+          "明确更正后的经历口径与尚未核实的技术状态分开记录；不伪造任何模型诊断字段或实际执行证据。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q04",
+      "title": "检索版本过滤存在未解释冲突，需先核对条件",
+      "scenario": "UNRESOLVED_CONTRADICTION",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Agent 开发岗位，讨论知识库文档更新、检索元数据和结果核查。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q04-t01-q",
+            "rootQuestionId": "CONT-Q04-t01-root",
+            "questionMessageId": "CONT-Q04-t01-question",
+            "answerMessageId": "CONT-Q04-t01-answer",
+            "questionKind": "MAIN",
+            "question": "更新一份知识库文档后，你怎样核对检索结果使用的是哪个版本？",
+            "answer": "我在本机做过一个演示。当前每个片段都保存版本号，每次查询先读活动版本，再用这个版本过滤，所以切换完成后旧版本片段不会返回。我说的是演示现在的实际实现。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q04-t02-q",
+            "rootQuestionId": "CONT-Q04-t02-root",
+            "questionMessageId": "CONT-Q04-t02-question",
+            "answerMessageId": "CONT-Q04-t02-answer",
+            "questionKind": "MAIN",
+            "question": "为了检查知识库更新问题，你会保留哪些可观察信息？",
+            "answer": "我记录文档标识、片段标识、导入时间、版本号和检索分数，方便对着一次查询的结果看它来自哪里。没有这些元数据时，我只能看到文本，很难复查对应的导入批次。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q04-t03-q",
+            "rootQuestionId": "CONT-Q04-t03-root",
+            "questionMessageId": "CONT-Q04-t03-question",
+            "answerMessageId": "CONT-Q04-t03-answer",
+            "questionKind": "MAIN",
+            "question": "如果查看演示程序当前的查询条件，你会看到哪些过滤项？",
+            "answer": "这个演示现在的查询只有文档标识和相似度阈值，没有版本过滤。更新后旧片段还会留在库里，分数够高就可能返回。我没有说是在另一个环境，也没有做第二套检索入口。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q04-t04-q",
+            "rootQuestionId": "CONT-Q04-t04-root",
+            "questionMessageId": "CONT-Q04-t04-question",
+            "answerMessageId": "CONT-Q04-t04-answer",
+            "questionKind": "MAIN",
+            "question": "对于跨段落内容，你怎样检查切分是否影响检索结果？",
+            "answer": "我会取一个同时依赖标题和正文的查询，保存它实际命中的片段文本，再与原文对应位置比较。只看命中分数高低，不足以说明需要的信息有没有保留下来。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q04-t05-q",
+            "rootQuestionId": "CONT-Q04-t05-root",
+            "questionMessageId": "CONT-Q04-t05-question",
+            "answerMessageId": "CONT-Q04-t05-answer",
+            "questionKind": "MAIN",
+            "question": "如果检索结果同时包含两个版本的片段，你目前会怎样处理这次回答？",
+            "answer": "我现在会先把分数最高的一段交给模型；如果那一段恰好来自旧版，也没有额外处理。我还没整理一次查询从条件到最终片段的完整记录，也说不清这次为什么会拿到两版。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-03",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "将第一轮的活动版本过滤，与第三轮当前查询没有版本过滤或第五轮仍可能使用旧版片段的表述关联，指出需要核实的差异；不强求引用固定轮次或措辞。",
+          "中立询问两种描述对应的时间、条件、实际调用入口或可检查记录，让候选人先澄清。",
+          "保持冲突未解决状态，后续信息未明确更正时，不自行选择其中一个描述作为确定实现事实。"
+        ],
+        "forbiddenBehavior": [
+          "只依据最新一轮便删除第一轮说法，或自动假定已经做了实现升级、环境切换。",
+          "使用撒谎、造假等指控性措辞，或把描述冲突直接认定为能力结论。",
+          "把向模型传最高分片段当作已证明能解决版本冲突。",
+          "在提问中提供完整的版本切换与过滤实现方案。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q04-t01-answer",
+            "quote": "每次查询先读活动版本，再用这个版本过滤"
+          },
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q04-t01-answer",
+            "quote": "演示现在的实际实现"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-Q04-t03-answer",
+            "quote": "没有版本过滤"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-Q04-t03-answer",
+            "quote": "我没有说是在另一个环境"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q04-t05-answer",
+            "quote": "说不清这次为什么会拿到两版"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：第 1 轮和第 3 轮均指向同一个演示当前实现，但没有显式更正，形成待澄清的实现描述冲突。",
+          "第 4 轮切分核查没有解决版本过滤冲突，第 5 轮也未说明时间或条件差异。",
+          "可确认的是候选人说过两种不同描述；实际检索代码、配置和返回原因仍未知。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q05",
+      "title": "受限导出演练的早期条件必须持续约束排查计划",
+      "scenario": "EARLY_RECALL",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "Java 后端工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Java 后端岗位，讨论文件导出、资源使用和受限环境故障排查。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q05-t01-q",
+            "rootQuestionId": "CONT-Q05-t01-root",
+            "questionMessageId": "CONT-Q05-t01-question",
+            "answerMessageId": "CONT-Q05-t01-answer",
+            "questionKind": "MAIN",
+            "question": "在这次受限环境演练中，你能使用哪些信息和操作来排查 Java 文件导出失败？",
+            "answer": "这次演练只允许读容器的应用日志和一份已有线程快照，不能重启、不能直接连数据库，也不能改 JVM 参数。导出文件不能拷出环境，临时磁盘只剩一百 MB。我会按这组条件选择排查步骤。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q05-t02-q",
+            "rootQuestionId": "CONT-Q05-t02-root",
+            "questionMessageId": "CONT-Q05-t02-question",
+            "answerMessageId": "CONT-Q05-t02-answer",
+            "questionKind": "MAIN",
+            "question": "对于行数较多的文件导出，你会怎样说明资源使用方案？",
+            "answer": "我倾向于分批读取、逐步写出，不先把所有行拼成一个大字符串。每批行数需要结合单行大小测量，文件句柄与写出流要在成功和异常路径都关闭；这只是方案，还没有本次测量结果。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q05-t03-q",
+            "rootQuestionId": "CONT-Q05-t03-root",
+            "questionMessageId": "CONT-Q05-t03-question",
+            "answerMessageId": "CONT-Q05-t03-answer",
+            "questionKind": "MAIN",
+            "question": "为了定位导出中途失败，你会怎样设计应用层记录？",
+            "answer": "我会记录请求标识、已处理行数、累计输出字节数、各批次耗时和最后的异常类型，同时避免把文件正文写进日志。这样能先判断停在哪一步，但我还不能凭这些字段确定根因。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q05-t04-q",
+            "rootQuestionId": "CONT-Q05-t04-root",
+            "questionMessageId": "CONT-Q05-t04-question",
+            "answerMessageId": "CONT-Q05-t04-answer",
+            "questionKind": "MAIN",
+            "question": "调用方断开连接时，导出任务的结束路径怎样核查？",
+            "answer": "我会检查连接断开后写出异常是否被记录，循环是否停止，流是否关闭，以及临时文件是否进入清理路径。还要区分正常结束与中断，不能让日志里只剩一个完成标记。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q05-t05-q",
+            "rootQuestionId": "CONT-Q05-t05-root",
+            "questionMessageId": "CONT-Q05-t05-question",
+            "answerMessageId": "CONT-Q05-t05-answer",
+            "questionKind": "MAIN",
+            "question": "如果高峰时段仍出现导出失败，你准备怎样安排下一步排查？",
+            "answer": "下一步我想把失败时生成的完整文件收集到本机复现，然后重启容器跑一轮全量导出，看看现象还在不在。还没有决定具体先看哪条记录，也没有拿到支持这两步的新增信息。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-04",
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP"
+        ],
+        "requiredBehavior": [
+          "关联第一轮已经给出的操作与资料限制，识别第五轮拷出文件、重启容器计划与早期条件不符。",
+          "中立询问当前计划在现有权限和资源范围内如何落地，或要求候选人依据可用信息提出下一项可验证动作。",
+          "保留根因未知状态，不以历史限制直接替候选人诊断为内存或磁盘问题。"
+        ],
+        "forbiddenBehavior": [
+          "直接批准第五轮计划，或建议执行此前明确不可用的重启、连库、修改 JVM 参数或拷出文件。",
+          "只看第五轮回答，泛问为何失败，而不关联已有约束。",
+          "把临时磁盘余量直接认证为故障根因，或捏造新增权限和已完成的复现结果。",
+          "在追问中直接给出完整排查结论及标准解决步骤。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q05-t01-answer",
+            "quote": "不能重启、不能直接连数据库，也不能改 JVM 参数"
+          },
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q05-t01-answer",
+            "quote": "导出文件不能拷出环境"
+          },
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q05-t01-answer",
+            "quote": "临时磁盘只剩一百 MB"
+          },
+          {
+            "turn": 3,
+            "answerMessageId": "CONT-Q05-t03-answer",
+            "quote": "还不能凭这些字段确定根因"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q05-t05-answer",
+            "quote": "把失败时生成的完整文件收集到本机复现，然后重启容器"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：第 1 轮限制适用于同一次演练，后续没有授权或条件变化。",
+          "第 2 至 4 轮补充了资源方案、日志证据和结束路径，均未解除最初限制。",
+          "第 5 轮没有重述限制，验收必须依赖早期历史；只提醒可行性并继续考查，不给标准排障答案。"
+        ]
+      }
+    },
+    {
+      "id": "CONT-Q06",
+      "title": "书店兼职历史与假设 Agent 方案保持独立归属",
+      "scenario": "IRRELEVANT_OR_HYPOTHETICAL",
+      "dialogue": {
+        "sessionType": "QUICK",
+        "role": "大模型应用 / Agent 开发工程师",
+        "level": "JUNIOR",
+        "context": "面向初级 Agent 开发岗位，讨论工具分类、授权边界与可复查的个人能力。",
+        "sourceIds": [],
+        "observationWindow": {
+          "followUpCount": 0
+        },
+        "turns": [
+          {
+            "turn": 1,
+            "questionId": "CONT-Q06-t01-q",
+            "rootQuestionId": "CONT-Q06-t01-root",
+            "questionMessageId": "CONT-Q06-t01-question",
+            "answerMessageId": "CONT-Q06-t01-answer",
+            "questionKind": "MAIN",
+            "question": "学习 Agent 工具调用时，你会怎样区分看过样例与实现过功能？",
+            "answer": "我课余在书店兼职时，帮店长用表格给十位同事排过班，也汇总过收银数据。这些不涉及 Agent 系统。我目前只读过工具调用样例，没有上线过 Agent，也没有管理技术团队的经历。"
+          },
+          {
+            "turn": 2,
+            "questionId": "CONT-Q06-t02-q",
+            "rootQuestionId": "CONT-Q06-t02-root",
+            "questionMessageId": "CONT-Q06-t02-question",
+            "answerMessageId": "CONT-Q06-t02-answer",
+            "questionKind": "MAIN",
+            "question": "假设设计一个能查询库存并调整补货单的 Agent，你怎样区分工具的影响？",
+            "answer": "下面是我的假设方案，不是做过的项目：查询库存只读取信息，调整补货单会改变业务数据，我会把两类工具分开，并先确认调用者对目标门店和单据的权限。具体接口还没有实现。"
+          },
+          {
+            "turn": 3,
+            "questionId": "CONT-Q06-t03-q",
+            "rootQuestionId": "CONT-Q06-t03-root",
+            "questionMessageId": "CONT-Q06-t03-question",
+            "answerMessageId": "CONT-Q06-t03-answer",
+            "questionKind": "MAIN",
+            "question": "对于会改变数据的工具，你怎样确定本次调用得到的授权范围？",
+            "answer": "仍按假设来讲，我会要求请求包含目标单据和要改的字段，再核对调用者允许修改的范围。模型的自然语言说用户已经同意，不能独自充当业务系统里的授权记录；这不是我真实系统的流程。"
+          },
+          {
+            "turn": 4,
+            "questionId": "CONT-Q06-t04-q",
+            "rootQuestionId": "CONT-Q06-t04-root",
+            "questionMessageId": "CONT-Q06-t04-question",
+            "answerMessageId": "CONT-Q06-t04-answer",
+            "questionKind": "MAIN",
+            "question": "你会怎样准备验证工具输入边界的测试材料？",
+            "answer": "我会用合成的门店和单据编号覆盖正常输入、缺字段和越界编号，记录预期结果与实际结果。书店兼职的排班表是另一件事，既不是工具测试数据，也不能证明我有补货工具的开发经验。"
+          },
+          {
+            "turn": 5,
+            "questionId": "CONT-Q06-t05-q",
+            "rootQuestionId": "CONT-Q06-t05-root",
+            "questionMessageId": "CONT-Q06-t05-question",
+            "answerMessageId": "CONT-Q06-t05-answer",
+            "questionKind": "MAIN",
+            "question": "如果要验证你能实现的工具输入检查，你准备展示什么？",
+            "answer": "我只能解释刚才的假设流程，手头没有实现代码、执行日志或真实用户数据。我目前能现场写一段输入字段校验的小例子，先用合成输入验证它，其他部分需要继续学习和实现。"
+          }
+        ]
+      },
+      "oracle": {
+        "checkpointTurn": 5,
+        "acceptanceIds": [
+          "AC-CONT-05",
+          "AC-CONT-08"
+        ],
+        "allowedActions": [
+          "FOLLOW_UP",
+          "NEXT"
+        ],
+        "requiredBehavior": [
+          "把书店兼职、工具设计假设和候选人自述可以现场编写的字段校验分别归属；当前讨论的 Agent 方案尚未实现，也没有提供执行证据。",
+          "如继续追问，围绕候选人提出的小例子或一个清楚标明的岗位知识问题检验，不以虚构的生产项目为前提；边界已清楚时也可换题。",
+          "复盘只能评价实际回答与演示证据，不能由兼职排班推导出技术管理、线上工具开发或系统规模。"
+        ],
+        "forbiddenBehavior": [
+          "要求候选人复盘你上线的补货 Agent、你管理的十人研发团队或你的真实工具事故。",
+          "把假设方案写成已经实现的权限机制、生产效果或真实用户案例。",
+          "把书店排班表作为 Agent 测试记录、业务系统配置或当前面试岗位履历。",
+          "因没有上线经验直接否定其全部知识回答，或在追问时给出完整标准实现。"
+        ],
+        "evidence": [
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q06-t01-answer",
+            "quote": "这些不涉及 Agent 系统"
+          },
+          {
+            "turn": 1,
+            "answerMessageId": "CONT-Q06-t01-answer",
+            "quote": "没有管理技术团队的经历"
+          },
+          {
+            "turn": 2,
+            "answerMessageId": "CONT-Q06-t02-answer",
+            "quote": "下面是我的假设方案，不是做过的项目"
+          },
+          {
+            "turn": 4,
+            "answerMessageId": "CONT-Q06-t04-answer",
+            "quote": "既不是工具测试数据，也不能证明我有补货工具的开发经验"
+          },
+          {
+            "turn": 5,
+            "answerMessageId": "CONT-Q06-t05-answer",
+            "quote": "能现场写一段输入字段校验的小例子"
+          }
+        ],
+        "stateExpectations": [
+          "评阅者专用预期，不进入模型请求：兼职历史与 Agent 工具方案没有事实继承关系，十位书店同事不等于候选人领导的技术团队。",
+          "第 2、3 轮中的工具机制始终是假设，尚无实现、执行或用户证据。",
+          "当前可核对能力边界仅为口头知识及候选人提出可现场演示的小例子；是否写出、是否运行通过均尚未发生。"
+        ]
+      }
+    }
+  ]
+}

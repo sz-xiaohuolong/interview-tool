@@ -3,7 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import App from './App.vue'
-import InterviewSession from './pages/InterviewSession.vue'
+import InterviewSession from './pages/interview/InterviewSession.vue'
 import { request } from './api'
 
 vi.mock('./api', async importOriginal => ({

@@ -1,12 +1,19 @@
 import { expect, it } from 'vitest'
 import ts from 'typescript'
 
-const sources = import.meta.glob<string>(['./api/interviews.ts', './pages/Interview*.vue', './components/Interview*.vue'], {
+const sources = import.meta.glob<string>(['./api/interviews.ts', './pages/interview/Interview*.vue', './pages/interview/QuickPractice*.vue', './components/interview/Interview*.vue'], {
   eager: true, query: '?raw', import: 'default',
 })
 
 it('综合面试 源码不能直接使用旧面试路径，应通过 api/interviews.ts 操作综合面试', () => {
-  expect(Object.keys(sources)).toContain('./api/interviews.ts')
+  expect(Object.keys(sources)).toEqual(expect.arrayContaining([
+    './api/interviews.ts',
+    './pages/interview/InterviewConfigure.vue',
+    './pages/interview/InterviewSession.vue',
+    './pages/interview/QuickPracticeConfigure.vue',
+    './components/interview/InterviewConfigurationFields.vue',
+    './components/interview/InterviewReport.vue',
+  ]))
   const violations: string[] = []
   for (const [path, source] of Object.entries(sources)) {
     const scripts = path.endsWith('.vue')

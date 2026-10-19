@@ -1,6 +1,6 @@
 package cn.interview.validation;
 
-import cn.interview.client.TrainingModelClient;
+import cn.interview.client.training.TrainingModelClient;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 /** 补练必须是包含原答锚点的新题，来源观察不冒充标准答案。 */

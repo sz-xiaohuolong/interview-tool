@@ -1,11 +1,14 @@
 import { request } from '../api'
-import type { InterviewConfig, InterviewSession, InterviewSessionSummary, MutationBody, SessionAction, InterviewStatus } from '../models/interview'
+import type { AgentPracticeOptions, AgentPracticeOptionsRequest, InterviewConfig, InterviewSession, InterviewSessionSummary, MutationBody, SessionAction, InterviewStatus } from '../models/interview'
 
 export function requestId() { return crypto.randomUUID() }
 export const getInterviewStatus = () => request<InterviewStatus>('/interviews/status')
 export const listSessions = () => request<InterviewSessionSummary[]>('/interviews')
 export const getSession = (id: string) => request<InterviewSession>(`/interviews/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(2000) })
 export const deleteSession = (id: string) => request<void>(`/interviews/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const getAgentPracticeOptions = (config: AgentPracticeOptionsRequest) => request<AgentPracticeOptions>('/interviews/agent-practice-options', {
+  method: 'POST', body: JSON.stringify(config), signal: AbortSignal.timeout(12000),
+})
 
 export function createSession(config: InterviewConfig, id: string) {
   return request<InterviewSession>('/interviews', {
@@ -21,6 +24,15 @@ export function mutateSession(id: string, action: SessionAction, body: MutationB
 }
 
 export const levelLabels: Record<string, string> = { INTERN: '实习生', JUNIOR: '初级', SENIOR: '中高级' }
+export const agentTopicLabels: Record<string, string> = {
+  AGENT_ARCHITECTURE: '架构与规划',
+  AGENT_CONTEXT_MEMORY: '上下文与记忆',
+  AGENT_HARNESS_TOOL: '工具与执行控制',
+  AGENT_RAG: 'RAG',
+  AGENT_EVALUATION: '评测与质量',
+  AGENT_FRAMEWORK: '框架实践 / 模型接入',
+}
+export function isAgentRole(role: string) { return /agent|大模型|人工智能|智能体|\bllm\b|\brag\b|ai\s*应用/i.test(role) }
 export const statusLabels: Record<string, string> = {
   QUEUED: '排队中', PREPARING: '准备中', ANALYZING: '分析简历', RETRIEVING: '检索知识', PLANNING: '准备题目',
   READY: '待确认开考', IN_PROGRESS: '面试进行中', ANSWERING: '面试官思考中', REPORTING: '查证复盘中',

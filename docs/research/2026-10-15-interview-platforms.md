@@ -422,10 +422,10 @@ flowchart LR
 |---|---|---|
 | R1 | [项目定位](../vibe/PROJECT.md)；[V1 需求背景](../vibe/releases/v1/PROJECT_BRIEF.md) | 本地单人、目标岗位、非目标及范围 |
 | R2 | [V1 产品行为](../vibe/releases/v1/SPEC.md) | 三条训练路径、追问、报告和已有专项练习 |
-| R3 | [当前技术契约](../vibe/TECH_DESIGN.md)；[接口控制器](../../backend/src/main/java/cn/interview/InterviewController.java) | 输入、会话、报告和押题能力 |
-| R4 | [报告页](../../frontend/src/pages/Report.vue)；[配置页](../../frontend/src/pages/Configure.vue) | 薄弱项到专项练习的真实链接及参数 |
-| R5 | [会话服务](../../backend/src/main/java/cn/interview/InterviewService.java)；[规划提示词](../../backend/src/main/resources/prompts/planner.txt) | `jd` / `focus`、状态恢复和提问约束 |
-| R6 | [类型定义](../../frontend/src/types.ts)；[评估提示词](../../backend/src/main/resources/prompts/evaluator.txt) | 原回答、四维评分、遗漏和未知的区别 |
-| R7 | [数据库结构](../../backend/src/main/resources/schema.sql)；[历史页](../../frontend/src/pages/History.vue) | 持久化范围和历史展示 |
+| R3 | [当前技术契约](../vibe/TECH_DESIGN.md)；[接口控制器](../../backend/src/main/java/cn/interview/controller/interview/FocusedInterviewController.java) | 输入、会话、报告和押题能力 |
+| R4 | [报告页](../../frontend/src/pages/interview/FocusedInterviewReport.vue)；[配置页](../../frontend/src/pages/interview/FocusedInterviewConfigure.vue) | 薄弱项到专项练习的真实链接及参数 |
+| R5 | [会话服务](../../backend/src/main/java/cn/interview/service/interview/FocusedInterviewService.java)；[规划提示词](../../backend/src/main/resources/prompts/focused/planner.txt) | `jd` / `focus`、状态恢复和提问约束 |
+| R6 | [类型定义](../../frontend/src/types.ts)；[评估提示词](../../backend/src/main/resources/prompts/focused/evaluator.txt) | 原回答、四维评分、遗漏和未知的区别 |
+| R7 | [数据库结构](../../backend/src/main/resources/schema.sql)；[历史页](../../frontend/src/pages/history/History.vue) | 持久化范围和历史展示 |
 
 REA 分析文件来源：面试鸭 S03 页面实际引用的 `/_next/static/chunks/5170-cf08d881cd2e5733.js`；Hello Interview S08 的 Bitly 入口实际引用的公共 chunks。完整请求 URL、SHA-256、所选文件及 Evidence 均保存在本地证据索引和原始分析中。

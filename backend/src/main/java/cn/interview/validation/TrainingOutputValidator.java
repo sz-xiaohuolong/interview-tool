@@ -1,7 +1,7 @@
 package cn.interview.validation;
 
-import cn.interview.client.TrainingModelClient;
-import cn.interview.client.ModelTask;
+import cn.interview.client.training.TrainingModelClient;
+import cn.interview.client.training.ModelTask;
 import cn.interview.common.ContentHash;
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;

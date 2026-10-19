@@ -1,6 +1,6 @@
 package cn.interview.validation;
 
-import cn.interview.client.TrainingModelClient;
+import cn.interview.client.training.TrainingModelClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 

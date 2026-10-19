@@ -1,7 +1,7 @@
 package cn.interview.config;
 
 import cn.interview.Application;
-import cn.interview.service.FocusedInterviewService;
+import cn.interview.service.interview.FocusedInterviewService;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;

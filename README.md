@@ -56,6 +56,8 @@ LLM_REASONING_EFFORT=
 - **复盘**：主动结束或完成规划后查看逐题分析、原始对话与改进建议。综合面试提供阶段回顾、技术依据与项目矩阵；旧模式保留四维评价及原有报告。
 - **继续练习**：首页和历史保留进行中的会话，刷新后从服务端恢复。模型失败时保留已提交回答，使用“重试”继续。
 
+Agent岗位可在折叠设置中多选六类主题，选择未练优先或复习已练。复习池为空时先提示切换；数量不足时显示补新数量，确认后再开始。结束后的考点回顾区分新练／复习、是否作答，并可定位原始问题；考点记录不表示已经掌握。目录位于 `backend/src/main/resources/knowledge/agent-interview-topics.json`，当前六类各10项；场景由本项目编写，逐项保留官方／一手来源。
+
 旧模式的 5 / 10 / 20 分钟是题数强度，分别约 3 / 5 / 8 道主问题，并非强制倒计时。综合面试两种模式均按 8 / 12 道主问题规划，默认8题，允许根据追问和阶段覆盖调整实际轮数；计时实战另选 20 / 30 / 45 分钟，默认30分钟，确认开考后开始服务端倒计时。旧模式的压力风格仍要求专业、克制，不进行人身评价。
 
 综合面试可选择一个主项目或填写简述，正常经过开场介绍、项目深挖、岗位技术与场景、候选人反问。新建项目深挖及 综合面试的复盘提供七项项目证据矩阵，缺口可进入单题补练。作答支持打字和浏览器语音听写，识别后可以修改，再手动提交；应用不保存音频、不下载语音模型，浏览器可能在线处理语音。旧历史不会补算矩阵或计时。详细规则见下文“综合面试”和 [V3 行为规范](docs/vibe/releases/v3/SPEC.md)。
@@ -71,7 +73,7 @@ LLM_REASONING_EFFORT=
 - 岗位与职级必填。简历、JD 可从原资料库选择，也可补充JD；可选择一个主项目或填写简述，无简历时仍可围绕真实项目面试。无任何资料和真实项目时明确显示通用基准及假设场景。
 - 准备阶段显示排队、分析、检索与题目准备，通常目标1～3分钟，最多5分钟。可离开后从记录恢复。
 - 开考前核对技术栈、职责和待澄清点；更正仅用于本场，重新准备后可直接确认开考。
-- 提交答案立即进入思考状态。即时追问只复用本地证据；服务端7秒截止，为轮询和渲染留出余量。未及时取得有效追问时，使用本题未问过的相关备用题并明确标记；无备用题时保留回答，提供重试或下一题。
+- 提交答案立即进入思考状态。即时追问只复用本地证据；模型请求默认等待30秒，服务端整轮31秒截止。可通过 `INTERVIEW_FOLLOWUP_DEADLINE_MS` 调整整轮毫秒数（100～121000，模型请求最长120秒），旧 `app.v3.fast-deadline-ms` 仍兼容，新配置优先。未及时取得有效追问时，使用本题未问过的相关备用题并明确标记；无备用题时保留回答，提供重试或下一题。
 - 复盘目标约3分钟，仅评价已答题。没有可核对的官方依据、来源过期或冲突时标记待核实。逐字引用的存在不自动证明模型判断正确，仍可打开原始来源核对。
 - 每场至多128次模型尝试，累计声明输出上限400000 tokens；其中最后1次及6500输出声明额度预留给复盘，失败和显式重试也计数。界面显示模型服务实际返回的累计输入、输出及合计Token，缺失部分明确标记，不估算。
 - 公开检索仅访问预置技术来源，不向搜索网站传简历、公司或项目原文。模型分析仍会把所选资料和回答发送给本机配置的模型服务。
@@ -130,28 +132,35 @@ KNOWLEDGE_LIVE_TESTS=true JAVA_HOME="$(/usr/libexec/java_home -v 21)" \
        └─ LLM 客户端：OpenAI 兼容 HTTP / 显式 Mock
 ```
 
-后端根包 `cn.interview` 只保留启动类，综合面试、项目/单题面试与专项训练都按同一职责分层组织：
+后端根包 `cn.interview` 只保留启动类；在现有职责层内按业务分包，面试规则和固定任务单独组织：
 
 ```text
 backend/src/main/java/cn/interview/
   ├─ Application.java
   ├─ controller/   请求接收与 HTTP 响应
-  ├─ service/      业务规则、状态流转与模型任务协调
+  │   └─ interview/、training/、material/、model/
+  ├─ service/      业务用例与状态流转
+  │   └─ interview/、training/、material/、knowledge/、model/
+  ├─ domain/interview/  面试流程策略、阶段计时与输入预算
+  ├─ task/         固定模型任务调度、处理接口与并发限制
   ├─ mapper/       SQLite 访问与启动前结构检查
   ├─ entity/       资料和文档数据对象
   ├─ dto/          层间传递的资料上下文
-  ├─ client/       模型调用、显式 Mock 与并发限制
+  ├─ client/       外部调用与显式测试替身
+  │   └─ interview/、training/、transport/、model/、mock/
   ├─ validation/   模型输出校验
   ├─ config/       Spring 配置与请求边界
   ├─ exception/    业务异常与统一错误响应
-  └─ common/       参数工具、标识和内容摘要
+  └─ common/       参数工具、标识、内容摘要与创建响应封装
 ```
 
 现有服务直接使用具体类，暂不拆分 Service 接口与 ServiceImpl；JSON 接口沿用现有格式，后续出现独立响应对象时再建立 VO。测试按被测职责放入对应包，跨包测试夹具只保存在测试源码中。
 
-前端页面位于 `src/pages/`，共用组件位于 `src/components/`，业务客户端位于 `src/api/`，结构定义位于 `src/models/`；不存在版本目录或版本App。后端 `OpenAiJsonClient` 统一模型传输，`InterviewService` 负责综合面试，`FocusedInterviewService` 负责项目深挖、简历单题及相应历史场次。专项训练按具体业务服务组织。
+前端页面位于 `src/pages/`，按 `home/`、`history/`、`interview/`、`training/`、`material/` 归类；组件位于 `src/components/`，按 `common/`、`layout/`、`interview/`、`training/`、`material/`、`model/` 归类。测试跟随页面或组件就近放置。业务客户端仍位于 `src/api/`，结构定义位于 `src/models/`；共用一个 App、启动入口和路由，页面地址保持兼容。
 
-提示词统一保存在 `backend/src/main/resources/prompts/`，训练提示词在 `prompts/training/`，综合面试提示词在 `prompts/interview/`。服务端校验模型 JSON，强制追问上限与状态规则；回答包含请求 ID 和问题 ID，避免重复提交与过期页面写入。报告保存原始对话引用，区分明确错误、没有提到、资料不足。
+后端 `client/transport/OpenAiJsonClient` 统一模型传输，`service/interview/InterviewService` 负责综合面试，`FocusedInterviewService` 负责项目深挖、简历单题及相应历史场次。专项训练服务位于 `service/training/`；其中 `OperationService` 负责业务操作幂等与恢复记录，`task/ModelTaskRunner` 负责固定任务执行。`client/mock/` 仅在显式 Mock 模式下使用，不会因缺少密钥而自动启用。
+
+提示词统一保存在 `backend/src/main/resources/prompts/`：`focused/` 用于项目与简历单题面试，`training/` 用于训练固定任务，`interview/` 用于综合面试与快速练习。服务端校验模型 JSON，强制追问上限与状态规则；回答包含请求 ID 和问题 ID，避免重复提交与过期页面写入。报告保存原始对话引用，区分明确错误、没有提到、资料不足。`DATA_DIR/v3/sessions/` 和 `DATA_DIR/v3/knowledge/` 保留为已有持久化路径，本次目录整理不迁移历史数据。
 
 文档统一索引见 [DOCUMENT_MAP.md](DOCUMENT_MAP.md)。项目级文档包括[项目定位](docs/vibe/PROJECT.md)、[当前架构](docs/vibe/TECH_DESIGN.md)、[当前进度](docs/vibe/PROGRESS.md)与[决策记录](docs/vibe/DECISIONS.md)。V1 文档位于 `docs/vibe/releases/v1/`：[需求背景与范围](docs/vibe/releases/v1/PROJECT_BRIEF.md)、[完整产品行为与验收](docs/vibe/releases/v1/SPEC.md)、[实施计划](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md)、[实际验证记录](docs/vibe/releases/v1/VERIFICATION.md)。
 
