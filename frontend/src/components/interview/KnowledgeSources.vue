@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { PhCaretRight } from '@phosphor-icons/vue'
-import { displayDate, publicSourceUrl } from '../../api/interviews'
+import { agentTopicLabels, displayDate, publicSourceUrl } from '../../api/interviews'
 import type { KnowledgeSource } from '../../models/interview'
 
-const props = defineProps<{ sources: KnowledgeSource[] }>()
+const props = defineProps<{ sources: KnowledgeSource[]; agentTopics?: string[]; plannedQuestionCount?: number }>()
 const disclosure = ref<HTMLDetailsElement | null>(null)
+const selectedAgentTopics = computed(() => [...new Set(props.agentTopics || [])]
+  .filter(id => Object.hasOwn(agentTopicLabels, id)).map(id => ({ id, label: agentTopicLabels[id] })))
 
 function revealSource() {
   let targetId: string
@@ -37,12 +39,18 @@ watch(() => JSON.stringify(props.sources.map(source => source.id)), revealSource
       <summary class="interview-sources-summary">
         <h2 id="interview-sources-title">
           <PhCaretRight class="interview-sources-caret" aria-hidden="true" />
-          <span class="interview-sources-heading">本场知识依据 <span class="interview-sources-count">{{ sources.length }} 项</span></span>
+          <span class="interview-sources-heading">本场知识依据 <span class="interview-sources-count">{{ sources.length }} 份资料</span></span>
           <span class="interview-sources-toggle" aria-hidden="true"><span class="when-closed">展开查看</span><span class="when-open">收起</span></span>
         </h2>
       </summary>
       <div class="interview-sources-list">
-        <p class="form-help interview-sources-help">题库用于发现考点，技术结论结合官方资料核对。来源不足或冲突会明确标注。</p>
+        <div v-if="selectedAgentTopics.length" class="interview-agent-scope" data-agent-practice-scope>
+          <h3>本场 Agent 练习范围</h3>
+          <ul aria-label="已选 Agent 主题"><li v-for="topic in selectedAgentTopics" :key="topic.id" :data-agent-topic="topic.id" class="badge badge-gray">{{ topic.label }}</li></ul>
+          <p class="form-help">已选 {{ selectedAgentTopics.length }} 类主题<template v-if="plannedQuestionCount">，计划 {{ plannedQuestionCount }} 道主问题</template>。按题量从所选范围抽查，不保证每类都考到；具体考点覆盖在复盘中查看。</p>
+        </div>
+        <p class="form-help interview-sources-help">下方列出本场获取的参考资料，份数不代表已选主题数或实际考点覆盖数。题库用于发现考点，技术结论结合官方资料核对。来源不足或冲突会明确标注。</p>
+        <p v-if="!sources.length" class="form-help interview-sources-help">本场尚无可展示的参考资料，技术结论仍需核实。</p>
         <details v-for="source in sources" :id="`interview-source-${source.id}`" :key="source.id" :data-source="source.id" class="interview-source">
           <summary><PhCaretRight class="interview-source-caret" aria-hidden="true" /><span>{{ source.title }}<span class="interview-source-kind">{{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></span></summary>
           <div class="interview-source-content">
@@ -77,6 +85,10 @@ summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outli
 .interview-sources-disclosure[open] > summary .interview-sources-caret, .interview-source[open] > summary .interview-source-caret { transform: rotate(90deg); }
 .interview-sources-disclosure[open] > summary { border-bottom: 1px solid var(--border-subtle); border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
 .interview-sources-list { padding: 0 20px; }
+.interview-agent-scope { padding-top: 20px; }
+.interview-agent-scope h3 { font-size: 16px; font-weight: 600; }
+.interview-agent-scope ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 12px 0; }
+.interview-agent-scope .form-help { line-height: 1.8; }
 .interview-sources-help { max-width: 72ch; margin: 20px 0 8px; font-size: 14px; line-height: 1.8; color: var(--text-secondary); }
 .interview-source { padding: 20px 0; scroll-margin-top: 24px; }
 .interview-source + .interview-source { border-top: 1px solid var(--border-subtle); }

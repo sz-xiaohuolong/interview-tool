@@ -49,7 +49,7 @@ it('知识依据聚合默认收起，位于结束操作之后；展开不提交�
   await wrapper.get('#interview-answer').setValue('待校对的并发处理方案')
   const disclosure = wrapper.get<HTMLDetailsElement>('.interview-sources-disclosure')
   expect(disclosure.element.open).toBe(false)
-  expect(disclosure.get('summary').text()).toContain('1 项')
+  expect(disclosure.get('summary').text()).toContain('1 份资料')
   expect(wrapper.get('[data-action="finish"]').element.compareDocumentPosition(disclosure.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   disclosure.get<HTMLElement>('summary').element.click(); await flushPromises()
   expect(disclosure.element.open).toBe(true)

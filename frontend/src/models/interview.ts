@@ -174,6 +174,7 @@ export interface InterviewSession {
   jdId?: string
   durationMinutes: number
   plannedQuestionCount?: number
+  agentTopics?: string[]
   experienceVersion?: number
   reviewVersion?: number
   interviewMode?: 'TRAINING' | 'TIMED'

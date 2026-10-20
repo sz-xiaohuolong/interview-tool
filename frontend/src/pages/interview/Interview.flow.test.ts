@@ -16,6 +16,32 @@ const session = (extra: Record<string, unknown> = {}) => ({
   messages: [], sources: [], warnings: [], error: '', report: null, usage: {}, metrics: {}, ...extra,
 })
 
+it.each([true, false])('快速练习显示保存的六类主题，并区分五题抽查和参考资料数量：有资料=%s', async (hasSources) => {
+  const agentTopics = ['AGENT_ARCHITECTURE', 'AGENT_CONTEXT_MEMORY', 'AGENT_HARNESS_TOOL', 'AGENT_RAG', 'AGENT_EVALUATION', 'AGENT_FRAMEWORK']
+  const current = session({
+    sessionType: 'QUICK', role: '大模型应用 / Agent 开发工程师', status: 'IN_PROGRESS',
+    resumeId: '', plannedQuestionCount: 5, agentTopics, topics: agentTopics.slice(0, 5),
+    messages: [{ id: 'q1', role: 'ASSISTANT', questionId: 'q1', content: '请解释工作流与自主执行的选择依据。' }],
+    sources: hasSources ? [{ id: 'agent-doc', title: '合成 Agent 官方参考资料', url: 'https://example.org/agent', kind: 'OFFICIAL', topics: ['AGENT_ARCHITECTURE'], excerpt: '合成技术摘录。' }] : [],
+  })
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/interviews/interview-test' && !options?.method) return new Response(JSON.stringify(current))
+    throw new Error(`未约定的请求：${options?.method || 'GET'} ${url}`)
+  })
+  const { wrapper } = await show(Session, '/interviews/interview-test')
+  const scope = wrapper.get('[data-agent-practice-scope]')
+  expect(scope.findAll('[data-agent-topic]')).toHaveLength(6)
+  expect(scope.text()).toContain('框架实践 / 模型接入')
+  expect(scope.text()).toContain('已选 6 类主题')
+  expect(scope.text()).toContain('计划 5 道主问题')
+  expect(scope.text()).toContain('不保证每类都考到')
+  expect(wrapper.get('.interview-sources-count').text()).toBe(`${hasSources ? 1 : 0} 份资料`)
+  expect(wrapper.text()).toContain('具体考点覆盖在复盘中查看')
+  expect(wrapper.findAll('[data-source]')).toHaveLength(hasSources ? 1 : 0)
+  expect(wrapper.find('[data-followup-diagnostics]').exists()).toBe(false)
+  if (!hasSources) expect(wrapper.text()).toContain('本场尚无可展示的参考资料')
+})
+
 async function show(component: any, path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/interviews', component: Configure }, { path: '/interviews/:id', component: Session }, { path: '/materials', component: { template: '<div />' } }, { path: '/:pathMatch(.*)*', component: { template: '<div />' } }] })
   await router.push(path); await router.isReady()
