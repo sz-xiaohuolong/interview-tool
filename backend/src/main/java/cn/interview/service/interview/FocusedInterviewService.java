@@ -9,6 +9,7 @@ import cn.interview.service.material.MaterialService;
 import cn.interview.service.material.ProjectEvidenceService;
 import cn.interview.service.training.TrainingLinkService;
 import cn.interview.validation.FocusedInterviewOutputValidator;
+import cn.interview.service.source.CodeExplorationService;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,6 +28,9 @@ public class FocusedInterviewService {
     private org.springframework.beans.factory.ObjectProvider<TrainingLinkService> trainingLinks;
     @org.springframework.beans.factory.annotation.Autowired
     void trainingLinks(org.springframework.beans.factory.ObjectProvider<TrainingLinkService> links) { this.trainingLinks = links; }
+    private CodeExplorationService source;
+    @org.springframework.beans.factory.annotation.Autowired
+    void source(CodeExplorationService service){this.source=service;}
     static final List<String> PUBLIC_FIELDS=List.of("id","status","mode","role","level","durationMinutes","style","createdAt","updatedAt","endedAt","questionIndex","followUpCount","totalQuestions","currentTopic","messages","mock","error","pendingAction","reportStatus","contextTruncated","experienceVersion","mainProject");
     public FocusedInterviewService(SqliteStore store,MaterialService materials,FocusedInterviewModelClient llm,ObjectMapper json){this.store=store;this.materials=materials;this.llm=llm;this.json=json;}
     public Map<String,Object> health(){return llm.health();}
@@ -34,7 +38,10 @@ public class FocusedInterviewService {
     /** 规划已原子预留的关联场次，返回与普通创建相同的公开视图。 */
     public ObjectNode startLinkedSession(ObjectNode session){plan(session);return publicView(session);}
     @PostConstruct void recover(){for(ObjectNode s:store.sessions()){if(s.hasNonNull("deletedAt"))continue;boolean changed=false;String pending=s.path("pendingAction").asText();if(!pending.isEmpty()&&!s.path("status").asText().equals("COMPLETED")){s.put("status",pending.equals("PLAN")?"FAILED":"INTERRUPTED").put("error","上次生成因服务重启而中断，输入已保存，请重试");changed=true;}if(s.path("reportStatus").asText().equals("GENERATING")){s.put("reportStatus","FAILED").put("error","报告生成因服务重启而中断，请重试报告");changed=true;}if(changed)store.saveSession(s);}}
-    public ObjectNode publicView(ObjectNode s){ObjectNode out=json.createObjectNode();for(String field:PUBLIC_FIELDS)if(s.has(field))out.set(field,s.get(field));return out;}
+    public ObjectNode publicView(ObjectNode s){ObjectNode out=json.createObjectNode();for(String field:PUBLIC_FIELDS)if(s.has(field))out.set(field,s.get(field).deepCopy());
+        if(s.path("sourceCode").isObject())out.set("sourceCode",CodeExplorationService.summary(s.path("sourceCode")));
+        for(var message:out.path("messages"))if(message instanceof ObjectNode m){m.put("hasCodeEvidence",!m.path("codeEvidenceIds").isEmpty());m.remove("codeEvidenceIds");}
+        return out;}
     public List<ObjectNode> list(){return store.sessions().stream().filter(s->!s.hasNonNull("deletedAt")).map(this::publicView).toList();}
     public ObjectNode get(String id){return publicView(activeSession(id));}
     ObjectNode activeSession(String id){ObjectNode s=store.session(id);if(s.hasNonNull("deletedAt"))throw ApiException.missing("面试不存在或已删除");return s;}
@@ -68,18 +75,23 @@ public class FocusedInterviewService {
             if(!m.kind().equals(mode.equals("PROJECT")?"PROJECT":"RESUME"))throw ApiException.bad("所选资料类型与面试模式不匹配");ensureContent(m);context=materials.context(m,jd);if(mode.equals("PROJECT"))selectedProject=m;
         }
         String id=id(),now=now();ObjectNode s=json.createObjectNode().put("schemaVersion",1).put("id",id).put("status","CREATED").put("mode",mode).put("role",role).put("level",level).put("style",style).put("durationMinutes",duration).put("createdAt",now).put("updatedAt",now).put("questionIndex",0).put("followUpCount",0).put("totalQuestions",selected!=null?1:duration==5?3:duration==10?5:8).put("currentTopic","").put("mock",llm.isMock()).put("error","").put("pendingAction","PLAN").put("reportStatus","NONE").put("contextTruncated",context.truncated()).put("context",context.text()).put("jd",jd).put("focus",focus);
-        if(selectedProject!=null){var projectContext=materials.context(selectedProject,"");s.put("experienceVersion",1);s.putObject("mainProject").put("id",selectedProject.id()).put("name",selectedProject.name()).put("brief",projectContext.text()).put("hypothetical",false).put("updatedAt",selectedProject.updatedAt()).put("truncated",projectContext.truncated());}
+        if(selectedProject!=null){var association=CodeExplorationService.association(selectedProject.repository());if(association!=null)s.set("sourceCode",association);var projectContext=materials.context(selectedProject,"");s.put("experienceVersion",1);s.putObject("mainProject").put("id",selectedProject.id()).put("name",selectedProject.name()).put("brief",projectContext.text()).put("hypothetical",false).put("updatedAt",selectedProject.updatedAt()).put("truncated",projectContext.truncated());}
         s.putNull("endedAt");s.putArray("messages");s.putObject("requests");s.putArray("plan");store.saveSession(s);
         if(selected!=null){ObjectNode q=json.createObjectNode().put("question",selected.path("question").asText()).put("topic",selected.path("knowledgePoint").asText()).put("level","L2").put("evidence",selected.path("evidence").asText());((ArrayNode)s.path("plan")).add(q);begin(s);store.saveSession(s);}else plan(s);
         return publicView(s);
     }
     void ensureContent(Material m){if(m.content().isBlank()&&m.documents().isEmpty())throw ApiException.bad("资料没有可用正文，请先填写项目内容或上传文档");}
-    ObjectNode input(ObjectNode s){ObjectNode in=json.createObjectNode();for(String key:List.of("mode","role","level","style","durationMinutes","totalQuestions","context","jd","focus","messages","questionIndex","followUpCount","currentTopic"))in.set(key,s.get(key));if(s.has("experienceVersion")){in.set("experienceVersion",s.path("experienceVersion"));in.set("mainProject",s.path("mainProject"));}int next=s.path("questionIndex").asInt()+1;if(next<s.path("plan").size())in.set("nextPlannedQuestion",s.path("plan").get(next));return in;}
+    ObjectNode input(ObjectNode s){ObjectNode in=json.createObjectNode();for(String key:List.of("mode","role","level","style","durationMinutes","totalQuestions","context","jd","focus","messages","questionIndex","followUpCount","currentTopic"))in.set(key,s.get(key));if(s.has("experienceVersion")){in.set("experienceVersion",s.path("experienceVersion"));in.set("mainProject",s.path("mainProject"));}if(s.path("sourceCode").isObject())in.set("sourceCode",s.path("sourceCode").deepCopy());int next=s.path("questionIndex").asInt()+1;if(next<s.path("plan").size())in.set("nextPlannedQuestion",s.path("plan").get(next));return in;}
     void plan(ObjectNode s) {
+        if(s.path("sourceCode") instanceof ObjectNode code){
+            try{var sourceContext=json.createObjectNode().put("role",s.path("role").asText()).put("project",s.path("mainProject").path("brief").asText().substring(0,Math.min(6000,s.path("mainProject").path("brief").asText().length())));source.prepare(code,sourceContext,snapshot->{s.set("sourceCode",snapshot);store.saveSession(s);});s.set("sourceCode",code);}
+            catch(ApiException error){failed(s,error,"FAILED");return;}
+        }
         ObjectNode before=s.deepCopy();
         try {
             ObjectNode p=llm.call("planner",input(s));
             FocusedInterviewOutputValidator.plan(p,s.path("totalQuestions").asInt(),s.path("mode").asText().equals("PROJECT"),s.path("context").asText());
+            CodeExplorationService.bindQuestions(p,(ArrayNode)p.path("questions"),s.path("sourceCode"),false);
             s.set("plan",p.get("questions"));
             begin(s);
         } catch(RuntimeException e) {
@@ -92,13 +104,21 @@ public class FocusedInterviewService {
     void begin(ObjectNode s) {
         JsonNode q=s.path("plan").get(0);
         s.put("status","IN_PROGRESS").put("pendingAction","").put("error","").put("currentTopic",q.path("topic").asText());
-        message(s,"ASSISTANT",q.path("question").asText(),false);
+        message(s,"ASSISTANT",q.path("question").asText(),false);codeReferences(s,q);
     }
     void restore(ObjectNode state,ObjectNode before) { state.removeAll();state.setAll(before); }
     ApiException modelFailure(RuntimeException error) {
         return error instanceof ApiException known?known:ApiException.model("模型结果处理失败，当前输入已保存，请重试");
     }
     void message(ObjectNode s,String role,String content,boolean followUp){((ArrayNode)s.path("messages")).addObject().put("id",id()).put("role",role).put("content",content).put("questionIndex",s.path("questionIndex").asInt()).put("followUp",followUp).put("createdAt",now());}
+    void codeReferences(ObjectNode s,JsonNode question){
+        var refs=CodeExplorationService.references(question,s.path("sourceCode"));
+        ((ObjectNode)s.path("messages").get(s.path("messages").size()-1)).set("codeEvidenceIds",refs);
+    }
+    public synchronized ObjectNode continueWithoutSource(String id){
+        var s=activeSession(id);if(!s.path("status").asText().equals("FAILED")||!s.path("pendingAction").asText().equals("PLAN"))throw ApiException.conflict("当前不能切换为资料面试");
+        CodeExplorationService.skip((ObjectNode)s.path("sourceCode"));store.saveSession(s);plan(s);return publicView(s);
+    }
     void failed(ObjectNode s,ApiException e,String status){s.put("status",status).put("error",e.getMessage());store.saveSession(s);}
     void sameProvider(ObjectNode s){if(s.path("mock").asBoolean()!=llm.isMock())throw ApiException.conflict("当前模型模式与本场面试不同，请切回原模式或新建面试");}
     public synchronized ObjectNode answer(String id,JsonNode body){ObjectNode s=activeSession(id);String content=required(body,"content",6000),requestId=required(body,"requestId",120),expected=required(body,"expectedMessageId",100);
@@ -115,6 +135,7 @@ public class FocusedInterviewService {
         try {
             ObjectNode decision=llm.call("interviewer",input(s));
             FocusedInterviewOutputValidator.decision(decision);
+            CodeExplorationService.validateQuestionPresentation(decision,s.path("sourceCode"));
             String action=decision.path("action").asText();
             int index=s.path("questionIndex").asInt(),follow=s.path("followUpCount").asInt(),count=s.path("totalQuestions").asInt();
             if(action.equals("FOLLOW_UP")&&follow>=2)action=index+1<count?"NEXT":"END";
@@ -122,12 +143,12 @@ public class FocusedInterviewService {
             if(!finish) {
                 if(action.equals("FOLLOW_UP")) {
                     s.put("followUpCount",follow+1).put("currentTopic",decision.path("topic").asText());
-                    message(s,"ASSISTANT",decision.path("question").asText(),true);
+                    message(s,"ASSISTANT",decision.path("question").asText(),true);codeReferences(s,decision);
                 } else {
                     JsonNode next=s.path("plan").get(index+1);
                     String question=decision.path("action").asText().equals("NEXT")?decision.path("question").asText():next.path("question").asText();
                     s.put("questionIndex",index+1).put("followUpCount",0).put("currentTopic",next.path("topic").asText());
-                    message(s,"ASSISTANT",question,false);
+                    message(s,"ASSISTANT",question,false);codeReferences(s,decision.path("action").asText().equals("NEXT")?decision:next);
                 }
                 s.put("status","IN_PROGRESS").put("pendingAction","").put("error","");
             }
@@ -167,6 +188,7 @@ public class FocusedInterviewService {
             store.saveSession(s);
             throw failure;
         }
+        CodeExplorationService.attachReport(report,s);
         report.put("sessionId",s.path("id").asText()).put("mock",s.path("mock").asBoolean()).put("createdAt",now());
         s.put("reportStatus","READY").put("error","");
         store.atomic(()->{store.saveReport(s.path("id").asText(),report);store.saveSession(s);return null;});

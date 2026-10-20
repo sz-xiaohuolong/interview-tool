@@ -5,3 +5,4 @@ CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, payload TEXT NOT NULL,
 CREATE TABLE IF NOT EXISTS predictions (id TEXT PRIMARY KEY, resume_id TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_predictions_resume ON predictions(resume_id,created_at);
 CREATE TABLE IF NOT EXISTS reports (session_id TEXT PRIMARY KEY REFERENCES sessions(id), payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS project_repositories (material_id TEXT PRIMARY KEY REFERENCES materials(id) ON DELETE CASCADE, payload TEXT NOT NULL);

@@ -8,6 +8,7 @@ import Notice from '../../components/common/Notice.vue'
 import SpeechInput from '../../components/interview/SpeechInput.vue'
 import ProjectEvidenceMatrix from '../../components/material/ProjectEvidenceMatrix.vue'
 import ConfigurationFields from '../../components/interview/InterviewConfigurationFields.vue'
+import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import ReportReview from '../../components/interview/InterviewReport.vue'
 import KnowledgeSources from '../../components/interview/KnowledgeSources.vue'
 import { displayDate, getSession, levelLabels, mutateSession, requestId, statusLabels } from '../../api/interviews'
@@ -253,10 +254,11 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
     <div v-if="state.pollError || state.error" class="interview-actions"><button class="btn btn-secondary" :disabled="state.busy !== ''" data-action="reload" @click="load">刷新已保存状态</button></div>
     <p v-if="state.loading" role="status" class="muted">正在恢复本场面试…</p>
     <template v-if="session">
+      <SourceCodeEvidence :source="session.sourceCode" />
       <div class="interview-meta"><span class="badge">{{ statusLabels[session.status] || '任务处理中' }}</span><span v-if="session.mock" class="badge badge-orange">Mock 测试 · 非真实模型评估</span><span class="tiny muted">离开或刷新后可继续查看</span></div>
       <section v-if="session.status === 'FAILED' || session.status === 'INTERRUPTED'" class="interview-recovery" aria-labelledby="interview-recovery-title">
         <Notice v-if="session.error" :message="session.error" kind="error" />
-        <h2 id="interview-recovery-title">已保留输入与已提交的回答</h2><p class="form-help">恢复由你明确发起，不会自动重复调用模型。重试会计入本场调用上限。</p><div class="interview-actions"><button v-if="canRetry" class="btn btn-primary" :disabled="!!state.busy" data-action="retry" @click="mutate('retry')">{{ state.busy === 'retry' ? '正在恢复…' : '重试本次任务' }}</button><button v-if="canSkip" class="btn btn-secondary" :disabled="!!state.busy" data-action="next" @click="mutate('next')">跳至下一道准备问题</button><button class="btn btn-ghost" :disabled="!!state.busy" @click="load">刷新已保存状态</button></div>
+        <h2 id="interview-recovery-title">已保留输入与已提交的回答</h2><p class="form-help">恢复由你明确发起，不会自动重复调用模型。重试会计入本场调用上限。</p><div class="interview-actions"><button v-if="canRetry" class="btn btn-primary" :disabled="!!state.busy" data-action="retry" @click="mutate('retry')">{{ state.busy === 'retry' ? '正在恢复…' : '重试本次任务' }}</button><button v-if="session.allowedActions?.includes('continue-without-source')" class="btn btn-secondary" :disabled="!!state.busy" @click="mutate('continue-without-source')">仅使用项目资料继续</button><button v-if="canSkip" class="btn btn-secondary" :disabled="!!state.busy" data-action="next" @click="mutate('next')">跳至下一道准备问题</button><button class="btn btn-ghost" :disabled="!!state.busy" @click="load">刷新已保存状态</button></div>
       </section>
       <Notice v-else-if="session.error" :message="session.error" kind="error" />
       <details v-if="warningRecords.length" class="interview-session-notices"><summary><span>本场提示记录</span><span class="interview-notice-count">{{ warningRecords.length }} 项提示 · {{ session.warnings?.length }} 条记录</span></summary><ul><li v-for="warning in warningRecords" :key="warning.message"><span class="interview-notice-text">{{ warning.message }}</span><span v-if="warning.count > 1" class="interview-notice-count">记录 {{ warning.count }} 次</span></li></ul></details>
@@ -300,7 +302,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel interview-dialogue" aria-labelledby="interview-dialogue-title">
         <header class="chat-header"><h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : quick ? '围绕技术，讲清思路' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
         <div ref="messagesPanel" class="chat-messages interview-messages" role="log" aria-label="面试对话" aria-live="polite">
-          <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }"><span class="avatar" aria-hidden="true">{{ message.role === 'USER' ? '你' : message.kind === 'REPLY' ? '答' : '问' }}</span><div><p class="message-meta">{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}<span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span></p><p class="message-content">{{ message.content }}</p></div></article>
+          <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }"><span class="avatar" aria-hidden="true">{{ message.role === 'USER' ? '你' : message.kind === 'REPLY' ? '答' : '问' }}</span><div><p class="message-meta">{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}<span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span></p><p class="message-content">{{ message.content }}</p><p v-if="message.hasCodeEvidence" class="tiny muted">本题有源码依据 · 复盘中查看</p></div></article>
         </div>
         <div v-if="thinking" class="interview-thinking" data-thinking role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><div><strong>面试官思考中</strong><p class="tiny">{{ state.sendingAnswer ? '正在保存并处理本次回答，请勿重复提交。' : '回答已保存，正在针对你的表述组织追问。' }}<span v-if="waitingSeconds"> 已等待 {{ waitingSeconds }} 秒。</span></p><template v-if="waitingSeconds >= 8 && !state.sendingAnswer"><p class="tiny">仍在生成追问，回答已保存。页面会自动更新，也可刷新查看最新状态。</p><button class="btn btn-secondary" :disabled="!!state.busy" @click="load">刷新已保存状态</button></template></div></div>
         <form v-if="['IN_PROGRESS', 'ANSWERING'].includes(session.status) || state.sendingAnswer" class="composer" @submit.prevent="submitAnswer">

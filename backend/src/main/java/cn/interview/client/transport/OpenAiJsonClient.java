@@ -42,6 +42,25 @@ public class OpenAiJsonClient {
 
   public Reply exchange(ModelSettings settings, String prompt, ObjectNode input,
       int maxTokens, int timeoutSeconds, boolean fast, java.util.function.Consumer<ObjectNode> reportUsage) {
+    try {
+      ChatResponse response = chat(settings, List.of(new SystemMessage(prompt), new UserMessage(json.writeValueAsString(input))),
+          null, maxTokens, timeoutSeconds, fast, reportUsage);
+      return new Reply(response.getResult().getOutput().getText(), response.getResult().getMetadata().getFinishReason() == null ? null : response.getResult().getMetadata().getFinishReason().toLowerCase(java.util.Locale.ROOT),
+          response.getMetadata().getModel(), response.getMetadata().get("system-fingerprint"));
+    } catch (com.fasterxml.jackson.core.JsonProcessingException error) {
+      throw failure("MODEL_INVALID_INPUT", "模型输入无法序列化");
+    }
+  }
+
+  public ChatResponse exchangeTools(ModelSettings settings, List<org.springframework.ai.chat.messages.Message> messages,
+      List<org.springframework.ai.tool.ToolCallback> callbacks, int maxTokens, int timeoutSeconds,
+      java.util.function.Consumer<ObjectNode> reportUsage) {
+    return chat(settings, messages, callbacks, maxTokens, timeoutSeconds, false, reportUsage);
+  }
+
+  private ChatResponse chat(ModelSettings settings, List<org.springframework.ai.chat.messages.Message> messages,
+      List<org.springframework.ai.tool.ToolCallback> callbacks, int maxTokens, int timeoutSeconds, boolean fast,
+      java.util.function.Consumer<ObjectNode> reportUsage) {
     String provider = settings.provider(), apiKey = settings.apiKey(), model = settings.model(), fastModel = settings.fastModel();
     if (!"openai".equals(provider) || apiKey.isBlank() || model.isBlank())
       throw new ApiException(503, "MODEL_NOT_CONFIGURED", "模型尚未配置，请检查本机模型配置，没有使用 Mock。");
@@ -75,9 +94,9 @@ public class OpenAiJsonClient {
               .model(fast && !fastModel.isBlank() ? fastModel : model)
               .temperature(0.4)
               .maxTokens(maxTokens)
-              .internalToolExecutionEnabled(false)
-              .responseFormat(
-                  ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build());
+              .internalToolExecutionEnabled(false);
+      if (callbacks == null) options.responseFormat(ResponseFormat.builder().type(ResponseFormat.Type.JSON_OBJECT).build());
+      else options.toolCallbacks(callbacks);
       options.extraBody(settings.extraBody(fast));
       String effort = settings.effort(fast);
       if (!effort.isBlank()) options.reasoningEffort(effort.strip());
@@ -89,9 +108,7 @@ public class OpenAiJsonClient {
               .build();
       ChatResponse response =
           chat.call(
-              new Prompt(
-                  List.of(
-                      new SystemMessage(prompt), new UserMessage(json.writeValueAsString(input)))));
+              new Prompt(messages));
       if (response != null) {
         ObjectNode usage = json.createObjectNode();
         var actual = response.getMetadata().getUsage();
@@ -106,8 +123,7 @@ public class OpenAiJsonClient {
       }
       if (response == null || response.getResult() == null)
         throw failure("MODEL_INVALID_OUTPUT", "模型未返回有效的文本 JSON。");
-      return new Reply(response.getResult().getOutput().getText(), response.getResult().getMetadata().getFinishReason() == null ? null : response.getResult().getMetadata().getFinishReason().toLowerCase(java.util.Locale.ROOT),
-          response.getMetadata().getModel(), response.getMetadata().get("system-fingerprint"));
+      return response;
     } catch (ApiException error) {
       throw error;
     } catch (Exception error) {

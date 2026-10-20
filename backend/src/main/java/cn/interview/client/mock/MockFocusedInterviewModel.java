@@ -18,6 +18,7 @@ public final class MockFocusedInterviewModel {
         for(int i=0;i<in.path("totalQuestions").asInt();i++){
             String q=project?switch(i%3){case 0->"请结合项目资料，说明项目解决的问题、整体架构以及你负责的部分？";case 1->"请选一个你负责的核心流程，描述数据如何流转以及异常如何处理？";default->"假设项目流量增长十倍，你会先验证哪些瓶颈，如何比较替代方案？";}:"针对"+in.path("role").asText()+"岗位，请用一个具体例子说明你对"+topics[i]+"的理解？";
             questions.addObject().put("question",q).put("topic",topics[i]).put("level","L"+(i%3+1)).put("evidence",context.isBlank()?"通用岗位知识":context.substring(0,Math.min(context.length(),100)));
+            if(!in.path("sourceCode").path("evidence").isEmpty())((ObjectNode)questions.get(i)).putArray("codeEvidenceIds").add(in.path("sourceCode").path("evidence").get(i%in.path("sourceCode").path("evidence").size()).path("id").asText());
         }return out;}
     ObjectNode interview(ObjectNode in){String answer=in.path("messages").get(in.path("messages").size()-1).path("content").asText();String quote=answer.substring(0,Math.min(35,answer.length())).replaceAll("[\r\n]"," ");
         String q=in.path("followUpCount").asInt()==0?"你提到“"+quote+"”，能用一个具体实现或验证过程说明吗？":"假设你刚才描述的方案执行失败，你会怎样定位原因并保证资源或数据得到正确处理？";

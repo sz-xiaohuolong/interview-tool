@@ -34,6 +34,17 @@ class TrainingMigrationTest {
         assertThat(migrate(data, "before-refused")).isNotZero();
     }
 
+    @Test void trainingMigrationAcceptsLegacyDatabaseBeforeRepositoryTableWasAdded() throws Exception {
+        Path data = root.resolve("before-repositories");
+        var legacy = new SqliteStore(data.toString(), new ObjectMapper());
+        legacy.insertMaterial("project", "PROJECT", "合成项目", "原始资料", "2026-10-20");
+        legacy.jdbc.execute("DROP TABLE project_repositories");
+        assertThat(migrate(data, "before-repository-support")).isZero();
+        TrainingSchemaPreflight.check(data, true);
+        assertThat(legacy.material("project").content()).isEqualTo("原始资料");
+        assertThat(legacy.jdbc.queryForObject("SELECT count(*) FROM project_repositories", Integer.class)).isZero();
+    }
+
     private int migrate(Path data, String backup) throws Exception {
         var process = new ProcessBuilder("python3", "../scripts/prepare-training.py", "--data-dir", data.toString(),
                 "--backup", root.resolve(backup).toString(), "--confirm-maintenance").redirectErrorStream(true).start();

@@ -41,10 +41,10 @@ public class SqliteStore {
     public ObjectNode decode(String value){try{return (ObjectNode)json.readTree(value);}catch(Exception e){throw new IllegalStateException("本地数据无法读取",e);}}
     public List<Material> materials(String kind) {
         if(kind!=null)choice(kind,"RESUME","PROJECT","JD");
-        return jdbc.query("SELECT * FROM materials "+(kind==null?"":"WHERE kind=? ")+"ORDER BY updated_at DESC",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(rs.getString("id"))),kind==null?new Object[]{}:new Object[]{kind});
+        return jdbc.query("SELECT * FROM materials "+(kind==null?"":"WHERE kind=? ")+"ORDER BY updated_at DESC",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(rs.getString("id")),repository(rs.getString("id"))),kind==null?new Object[]{}:new Object[]{kind});
     }
     public Material material(String id) {
-        List<Material> found=jdbc.query("SELECT * FROM materials WHERE id=?",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(id)),id);
+        List<Material> found=jdbc.query("SELECT * FROM materials WHERE id=?",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(id),repository(id)),id);
         if(found.isEmpty())throw ApiException.missing("资料不存在或已删除");return found.getFirst();
     }
     public List<Document> documents(String id){return jdbc.query("SELECT * FROM documents WHERE material_id=? ORDER BY created_at",(rs,row)->new Document(rs.getString("id"),rs.getString("name"),rs.getString("content"),rs.getInt("truncated")==1,rs.getString("created_at")),id);}
@@ -66,6 +66,14 @@ public class SqliteStore {
     }
 
     public Path uploadsDirectory() {return root.resolve("uploads");}
+    public com.fasterxml.jackson.databind.JsonNode repository(String id) {
+        var rows=jdbc.queryForList("SELECT payload FROM project_repositories WHERE material_id=?",String.class,id);
+        return rows.isEmpty()?null:decode(rows.getFirst());
+    }
+    public void saveRepository(String id,com.fasterxml.jackson.databind.JsonNode repository) {
+        if(repository==null)jdbc.update("DELETE FROM project_repositories WHERE material_id=?",id);
+        else jdbc.update("INSERT INTO project_repositories(material_id,payload) VALUES(?,?) ON CONFLICT(material_id) DO UPDATE SET payload=excluded.payload",id,encode(repository));
+    }
     public void insertMaterial(String id,String kind,String name,String content,String now) {jdbc.update("INSERT INTO materials VALUES(?,?,?,?,?,?)",id,kind,name,content,now,now);}
     public void updateMaterial(String id,String name,String content,String now) {jdbc.update("UPDATE materials SET name=?,content=?,updated_at=? WHERE id=?",name,content,now,id);}
     public void touchMaterial(String id,String now) {jdbc.update("UPDATE materials SET updated_at=? WHERE id=?",now,id);}

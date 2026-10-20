@@ -1,0 +1,555 @@
+{
+  "description": "合成候选资料的真实出题样本；仅核验固定仓库阅读与规划，不代表真实完整问答和复盘。",
+  "date": "2026-10-20",
+  "model": "gpt-6.1-sol",
+  "repository": "spring-projects/spring-petclinic",
+  "commitSha": "500158f732419217507c7656904b8e6aa1bcc0d6",
+  "sourceStatus": "PARTIAL",
+  "warnings": [
+    "GitMCP 未找到路径，使用本场固定版本目录检索",
+    "模型服务请求失败，未自动重试；HTTP 408。"
+  ],
+  "sourceEvidence": [
+    {
+      "id": "code-a8be8108d017da1c2825b9c0",
+      "path": "src/main/java/org/springframework/samples/petclinic/owner/PetController.java",
+      "startLine": 70,
+      "endLine": 135,
+      "url": "https://github.com/spring-projects/spring-petclinic/blob/500158f732419217507c7656904b8e6aa1bcc0d6/src/main/java/org/springframework/samples/petclinic/owner/PetController.java#L70-L135",
+      "snippetSha256": "7d3c1da7a2946ecb71c4b2670df712983ad405dc0eb953064ecba8d5f602b1bc"
+    },
+    {
+      "id": "code-4780fbad843e86fd25ca96b8",
+      "path": "src/main/java/org/springframework/samples/petclinic/owner/VisitController.java",
+      "startLine": 45,
+      "endLine": 115,
+      "url": "https://github.com/spring-projects/spring-petclinic/blob/500158f732419217507c7656904b8e6aa1bcc0d6/src/main/java/org/springframework/samples/petclinic/owner/VisitController.java#L45-L115",
+      "snippetSha256": "937173e6e24cc9e1fd190b9a64c30993ac54b4fd4ed9fb77efc29cf537099738"
+    },
+    {
+      "id": "code-dad8c0684aa8a3542af5954e",
+      "path": "src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java",
+      "startLine": 35,
+      "endLine": 63,
+      "url": "https://github.com/spring-projects/spring-petclinic/blob/500158f732419217507c7656904b8e6aa1bcc0d6/src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java#L35-L63",
+      "snippetSha256": "d0252d8c412510e789b5c358c3f233477ec87e4cda3daed81f62b928f61d9c37"
+    }
+  ],
+  "focusedPlan": {
+    "questions": [
+      {
+        "question": "在 Petclinic 学习项目中，请以新增就诊记录为例，基于 loadPetWithVisit 和 processNewVisitForm 梳理一次 POST 请求从模型准备到保存、跳转的完整链路，并说明主人、宠物与就诊记录之间的关联在链路中的作用；无法仅凭当前片段确认的持久化行为，请明确指出。",
+        "topic": "项目整体理解与就诊记录请求链路",
+        "level": "L1",
+        "evidence": "使用 Spring Petclinic 公开示例学习宠物诊所的主人、宠物与就诊记录管理",
+        "codeEvidenceIds": [
+          "code-4780fbad843e86fd25ca96b8",
+          "code-dad8c0684aa8a3542af5954e"
+        ]
+      },
+      {
+        "question": "针对 PetController 的新增宠物入口，如果客户端在表单中额外提交 id 或嵌套对象的 id，你会如何依据 initOwnerBinder、initPetBinder 和 processCreationForm 判断实体身份是否可能被改写？请围绕这一参数绑定边界说明执行过程，以及你会怎样构造测试验证判断。",
+        "topic": "Spring MVC 参数绑定与实体身份保护",
+        "level": "L2",
+        "evidence": "学习关注请求参数校验、实体关联、数据访问与异常边界",
+        "codeEvidenceIds": [
+          "code-a8be8108d017da1c2825b9c0"
+        ]
+      },
+      {
+        "question": "假设两个请求同时为同一主人新增同名宠物，且业务要求最终只能保存一条，你会如何结合 processCreationForm 的校验、持久化调用与异常处理设计并发一致性方案？请说明方案的关键取舍，并明确当前片段之外还需要核实哪些数据库约束或事务配置，而不要将其视为项目已具备的能力。",
+        "topic": "并发新增的一致性保障与异常边界权衡",
+        "level": "L3",
+        "evidence": "假设场景",
+        "codeEvidenceIds": [
+          "code-a8be8108d017da1c2825b9c0",
+          "code-dad8c0684aa8a3542af5954e"
+        ]
+      }
+    ]
+  },
+  "comprehensivePlan": {
+    "questions": [
+      {
+        "id": "q1",
+        "stage": "INTRO",
+        "topic": "JAVA_CORE",
+        "question": "请简短介绍你为 Java 后端岗位做过的相关学习与实践，并说明这次最希望检验哪方面的能力；Petclinic 部分按学习经历介绍即可，不需要作为开发成果陈述？",
+        "evidence": "这是合成学习项目",
+        "sourceIds": [],
+        "codeEvidenceIds": [],
+        "backups": [
+          {
+            "question": "你目前哪一项 Java 后端基础有过实际练习，可以用一个具体例子说明练习范围吗？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          },
+          {
+            "question": "对照目标岗位，你目前最需要进一步验证的工程能力是什么？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          }
+        ]
+      },
+      {
+        "id": "q2",
+        "stage": "PROJECT",
+        "topic": "SPRING",
+        "question": "在 Petclinic 学习中，你实际接触过哪一条主人、宠物或就诊管理请求，又以什么方式验证过自己对这条请求业务流程的理解？",
+        "evidence": "使用 Spring Petclinic 公开示例学习宠物诊所的主人、宠物与就诊记录管理",
+        "sourceIds": [],
+        "codeEvidenceIds": [],
+        "backups": [
+          {
+            "question": "对于你选出的这条请求，用户发起操作前需要满足什么业务条件，成功后应看到什么结果？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          },
+          {
+            "question": "这条链路中，哪些环节你已通过实际操作确认，哪些目前仍只是源码阅读后的理解？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          }
+        ]
+      },
+      {
+        "id": "q3",
+        "stage": "PROJECT",
+        "topic": "SPRING",
+        "question": "以本场提供的宠物新增入口为阅读对象，一次表单提交中的参数问题如何从请求绑定阶段传递到最终的表单错误反馈？",
+        "evidence": "学习关注请求参数校验、实体关联、数据访问与异常边界",
+        "sourceIds": [],
+        "codeEvidenceIds": [
+          "code-a8be8108d017da1c2825b9c0"
+        ],
+        "backups": [
+          {
+            "question": "假设出生日期字段提交了无法解析的文本，你会怎样验证它是否进入新增宠物入口，以及页面是否保留了相应错误？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-a8be8108d017da1c2825b9c0"
+            ]
+          },
+          {
+            "question": "假设宠物新增表单额外提交了实体标识字段，你会如何核实这些字段能否改变服务端正在处理的对象身份？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-a8be8108d017da1c2825b9c0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q4",
+        "stage": "PROJECT",
+        "topic": "SPRING",
+        "question": "以本场提供的新增就诊入口为阅读对象，请说明请求中的主人标识与宠物标识如何共同决定就诊记录可以关联到哪只宠物？",
+        "evidence": "学习关注请求参数校验、实体关联、数据访问与异常边界",
+        "sourceIds": [],
+        "codeEvidenceIds": [
+          "code-4780fbad843e86fd25ca96b8"
+        ],
+        "backups": [
+          {
+            "question": "假设请求中的主人存在，但宠物不属于该主人，你会如何验证这次请求不会继续保存就诊记录？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-4780fbad843e86fd25ca96b8"
+            ]
+          },
+          {
+            "question": "对于一次日期校验失败的就诊提交，你会如何追踪本次请求中就诊对象的创建、关联及返回表单时的状态？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-4780fbad843e86fd25ca96b8"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q5",
+        "stage": "TECHNICAL",
+        "topic": "DATABASE",
+        "question": "假设业务要求同一主人名下的宠物名称不能重复，而两个新增请求同时提交了相同名称，你会如何保障这项约束在并发情况下仍然成立？",
+        "evidence": "通用岗位知识",
+        "sourceIds": [],
+        "codeEvidenceIds": [
+          "code-a8be8108d017da1c2825b9c0"
+        ],
+        "backups": [
+          {
+            "question": "针对这两个并发新增请求，你会怎样设计可重复执行的测试，并判断最终结果是否满足业务要求？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-a8be8108d017da1c2825b9c0"
+            ]
+          },
+          {
+            "question": "如果新增宠物时持久化失败，你会如何确认该失败确实属于名称冲突，而不是其他数据完整性问题？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-a8be8108d017da1c2825b9c0"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q6",
+        "stage": "TECHNICAL",
+        "topic": "SPRING",
+        "question": "假设要验证新增就诊保存的原子性，而当前片段尚未提供完整实体映射和事务配置，你会沿着这条保存链路核实哪些信息，才能判断失败时会留下什么数据库状态？",
+        "evidence": "通用岗位知识",
+        "sourceIds": [],
+        "codeEvidenceIds": [
+          "code-4780fbad843e86fd25ca96b8",
+          "code-dad8c0684aa8a3542af5954e"
+        ],
+        "backups": [
+          {
+            "question": "当前流程以主人对象作为保存入口，你需要进一步确认哪些实体关联信息，才能判断新增的就诊记录是否会被持久化？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-4780fbad843e86fd25ca96b8"
+            ]
+          },
+          {
+            "question": "假设就诊提交进入保存调用后发生数据库写入失败，你会如何设计集成测试来核实实际回滚范围？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-4780fbad843e86fd25ca96b8"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q7",
+        "stage": "TECHNICAL",
+        "topic": "DATABASE",
+        "question": "假设按主人姓氏前缀分页查询在数据增长后明显变慢，数据库类型和表结构尚未确认，你会如何定位这类查询的主要耗时？",
+        "evidence": "通用岗位知识",
+        "sourceIds": [],
+        "codeEvidenceIds": [
+          "code-dad8c0684aa8a3542af5954e"
+        ],
+        "backups": [
+          {
+            "question": "你会如何从一次姓氏前缀分页查询中确认实际执行了哪些 SQL，并分别测量它们的成本？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-dad8c0684aa8a3542af5954e"
+            ]
+          },
+          {
+            "question": "如果该查询只在翻到较后面的页码时变慢，你会如何验证瓶颈，并评估改动对现有翻页体验的影响？",
+            "sourceIds": [],
+            "codeEvidenceIds": [
+              "code-dad8c0684aa8a3542af5954e"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "q8",
+        "stage": "QUESTIONS",
+        "topic": "JAVA_CORE",
+        "question": "关于 Java 后端岗位的工作内容、工程实践或成长要求，你有什么希望向面试方了解的问题；如果暂时没有，也可以明确说明？",
+        "evidence": "岗位要求",
+        "sourceIds": [],
+        "codeEvidenceIds": [],
+        "backups": [
+          {
+            "question": "如果希望进一步了解岗位日常工作，你最想向面试方确认什么信息；暂时没有问题也可以说明？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          },
+          {
+            "question": "如果希望进一步了解团队的工程实践，你最关心哪一方面；暂时没有问题也可以说明？",
+            "sourceIds": [],
+            "codeEvidenceIds": []
+          }
+        ]
+      }
+    ],
+    "_modelUsage": {
+      "promptTokens": 5129,
+      "completionTokens": 3012,
+      "model": "gpt-6.1-sol"
+    }
+  },
+  "modelAttempts": [
+    {
+      "batch": "源码探索",
+      "number": 1,
+      "phase": "SOURCE",
+      "status": "RETURNED",
+      "elapsedMs": 6391,
+      "usage": {
+        "promptTokens": 860,
+        "completionTokens": 14,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    },
+    {
+      "batch": "源码探索",
+      "number": 2,
+      "phase": "SOURCE",
+      "status": "RETURNED",
+      "elapsedMs": 5774,
+      "usage": {
+        "promptTokens": 1887,
+        "completionTokens": 26,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    },
+    {
+      "batch": "源码探索",
+      "number": 3,
+      "phase": "SOURCE",
+      "status": "RETURNED",
+      "elapsedMs": 19293,
+      "usage": {
+        "promptTokens": 2103,
+        "completionTokens": 510,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    },
+    {
+      "batch": "源码探索",
+      "number": 4,
+      "phase": "SOURCE",
+      "status": "FAILED",
+      "elapsedMs": 25284,
+      "usage": null,
+      "error": "模型服务请求失败，未自动重试；HTTP 408。"
+    },
+    {
+      "batch": "复用证据出题",
+      "number": 1,
+      "phase": "FOCUSED_PLAN",
+      "status": "RETURNED",
+      "elapsedMs": 32368,
+      "usage": {
+        "promptTokens": 3879,
+        "completionTokens": 1054,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    },
+    {
+      "batch": "复用证据出题",
+      "number": 2,
+      "phase": "ANALYZE",
+      "status": "RETURNED",
+      "elapsedMs": 16819,
+      "usage": {
+        "promptTokens": 1293,
+        "completionTokens": 480,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    },
+    {
+      "batch": "复用证据出题",
+      "number": 3,
+      "phase": "COMPREHENSIVE_PLAN",
+      "status": "RETURNED",
+      "elapsedMs": 77005,
+      "usage": {
+        "promptTokens": 5129,
+        "completionTokens": 3012,
+        "model": "gpt-6.1-sol"
+      },
+      "error": null
+    }
+  ],
+  "codeSnapshot": [
+    {
+      "path": "backend/pom.xml",
+      "sha256": "7a9329feaac22f2df44191b76987ec5c7dafc125964f33783f082d714b7f1bfb"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/interview/FocusedInterviewModelClient.java",
+      "sha256": "8f685889659f72bc711ad7a7d8670d525b9b43c4a84b128078d0abdd0e8ff33c"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/interview/InterviewModelClient.java",
+      "sha256": "a1e0394d6f4f5009fc011532802ca1a6944dea9509c85efe58ae73e163277fd3"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/mock/MockFocusedInterviewModel.java",
+      "sha256": "b7115601a2c17905b21af822acd8a4109e69c3464fd535e8485999322e5e5cbf"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/mock/MockInterviewModel.java",
+      "sha256": "3afe57cac8ab02b8cb000884ae9270ed4eb8a1831b4825239df0b05df8f698be"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/source/GitHubCodeClient.java",
+      "sha256": "5c916626ea0b1ced480b84eff772bc985efb6df0447532d20f47ab4f0e921141"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/source/GitMcpSearchClient.java",
+      "sha256": "e917a22959bf85316d96f787d86ea47a369b370960548d0653de640afb8c2a20"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/source/SourceToolModelClient.java",
+      "sha256": "6efbab147d19392128d024da946b93e018a5280a7ec64f411d9c576b9f39673f"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/transport/FixedHttpTransport.java",
+      "sha256": "5e4be979240195feca0e3894eb31073f79bbcbaabe74761fcdd0a4ca329a3706"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/client/transport/OpenAiJsonClient.java",
+      "sha256": "5b60b41dcc2ecde8cf76bfc821d2260740bbc20a849446b98345b8d7a7972597"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/controller/interview/FocusedInterviewController.java",
+      "sha256": "43b6abf8f67cf7743b6ad546b7071105d5e446af2e9399288a29e87fc31878d4"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/entity/Material.java",
+      "sha256": "9f1036c6d4cf87f4f3e0bae541cab1f5c2105f8f9a6b1150b79e5c3c8eb19488"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/mapper/SqliteStore.java",
+      "sha256": "96d5e9ebff72717855677a0c29d6aa9b4fb0c4dbe7dd32a81eca8ba919054e6f"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/service/interview/FocusedInterviewService.java",
+      "sha256": "86399a90d4e006a6ee01839f2c27cbde03409fb5749909836d1f96aff4b1a0df"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/service/interview/InterviewService.java",
+      "sha256": "50394b8288a2dbb1a1111a52a472069a130631a0cecad1568b74b90ce9220003"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/service/material/MaterialService.java",
+      "sha256": "2ce155a51ec2f1ab0d7629d44fbc857a4c8318424051c676e4d26081720b8b35"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/service/source/CodeExplorationService.java",
+      "sha256": "33802c7dd3a87d0bf24404a02388ab2fb674489b682ca8d170a4e3ccd718774e"
+    },
+    {
+      "path": "backend/src/main/resources/application.properties",
+      "sha256": "20ceee0c8d0432a4ca3c60fce40f275dbcc4f869ef693be3718e152132b5422e"
+    },
+    {
+      "path": "backend/src/main/resources/prompts/source-evidence.txt",
+      "sha256": "e088528043ac2611ce6eb43f87a5c7bef9bf8e131561e43e8e78e25f16558be0"
+    },
+    {
+      "path": "backend/src/main/resources/schema.sql",
+      "sha256": "8d3f129dc546b26a75ce57eb602bcd8f406d2590e6152bf3635aa51d2190fc7f"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/client/source/GitHubCodeClientTest.java",
+      "sha256": "5cf309ce37e2e9a75f5988e23d706b29d77d388f6a5f1ddf070e9df1432a92b0"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/client/source/SourceInterviewLiveTest.java",
+      "sha256": "0a75ab3ecd48c77deb3f684513d62780e7c67313c259c3e0efc96f1e1f431b97"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/client/source/SourceToolModelClientTest.java",
+      "sha256": "43bd0140948c42156c851481b538d99f0e67c664269055d14c6c4ef32832085c"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/service/interview/ApiIntegrationTest.java",
+      "sha256": "50dad2b2c69787b831808efbe1b2674993221ad7925c665bf2cbd060febfbfa6"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/service/source/CodeExplorationServiceTest.java",
+      "sha256": "da311d0f0bb4f4e69637576bace8803ef3b8435aea419bec9b2a8963f26b512d"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/service/source/SourceInterviewIntegrationTest.java",
+      "sha256": "433a19791761e6db25cda8b9d9dd08c54a89d7861d7dd15982c34841d05c0009"
+    },
+    {
+      "path": "frontend/src/api/interviews.contract.test.ts",
+      "sha256": "a54989322a454fd7ea06d782ac289041e820724f9f484724cc0c8fa06374fa26"
+    },
+    {
+      "path": "frontend/src/components/interview/InterviewReport.vue",
+      "sha256": "3f67edd2b24cda081243d175d368360088af1a1b55bca738732c09faa865a78e"
+    },
+    {
+      "path": "frontend/src/components/interview/SourceCodeEvidence.test.ts",
+      "sha256": "af761043f36e37fa07a3f3565207c071796fc10aee866d1220d87e4a9da545b2"
+    },
+    {
+      "path": "frontend/src/components/interview/SourceCodeEvidence.vue",
+      "sha256": "6804fab06c738637250367f7967c37193ee84a042c4e52e43ee830bcf9a83608"
+    },
+    {
+      "path": "frontend/src/models/interview.ts",
+      "sha256": "af8de72b393462f8cfa8272db38b6b7d047ecd8fc6ceae8d59523b00dc7df03b"
+    },
+    {
+      "path": "frontend/src/pages/interview/FocusedInterviewReport.vue",
+      "sha256": "d86db584735d15d70d52e031d7b417a3138952d14f1c97f206bd1a6dff9bba78"
+    },
+    {
+      "path": "frontend/src/pages/interview/FocusedInterviewSession.test.ts",
+      "sha256": "1e2a5ec7a9418146a8ef520e1e614d2c29d1b93b19aa08efaf8f125b8b0592c0"
+    },
+    {
+      "path": "frontend/src/pages/interview/FocusedInterviewSession.vue",
+      "sha256": "3b5650f18655ab4cc66495d8bf639638488adc73fefe524d4162dc6403992a40"
+    },
+    {
+      "path": "frontend/src/pages/interview/Interview.flow.test.ts",
+      "sha256": "de67ab4e87b435a7f5edc35d0340fcb41b504f9cbbfdddc66dbaf5001c3e63e5"
+    },
+    {
+      "path": "frontend/src/pages/interview/InterviewSession.vue",
+      "sha256": "79ae009800848f395db3b7b5734e973e0fe0545705f585b340d6dea77904170b"
+    },
+    {
+      "path": "frontend/src/pages/material/Materials.test.ts",
+      "sha256": "6002a6bb4221d441b596689e0c041539f480fa0dec8af9ebf6932f73caf4b635"
+    },
+    {
+      "path": "frontend/src/pages/material/Materials.vue",
+      "sha256": "d0855bd1476b9354f2a68c607e5cbad7c20a2bd2bed5594924fd3a76bbada73f"
+    },
+    {
+      "path": "frontend/src/source-code.ts",
+      "sha256": "05d96afebaac7c632f5f65fbe638d76192d58cb1eeb055e77bf33d9f1cb426b2"
+    },
+    {
+      "path": "frontend/src/types.ts",
+      "sha256": "0090496673f42b2415dc320682440a90adc54bc8a9f9e63231c98c3b82ab13c6"
+    },
+    {
+      "path": "frontend/tests/source-code.spec.ts",
+      "sha256": "d68b894be2d9565b768802d14613c95199689793f0ef486979887d934a85f032"
+    },
+    {
+      "path": "backend/src/main/java/cn/interview/mapper/TrainingSchemaPreflight.java",
+      "sha256": "e563d141fc510796aee8cfcfa893b6814e9ca3a143f01a8f79bc79bb3c5c7851"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/config/TrainingStartupTest.java",
+      "sha256": "06b2a49973280dd0c62b24ecf4996da30724a80fd1e799cf876d0c205b14c08a"
+    },
+    {
+      "path": "backend/src/test/java/cn/interview/mapper/TrainingMigrationTest.java",
+      "sha256": "2fad97df7c8111f06c09405241325af8103ac8373b10a03c21f4a6dde7428ffd"
+    },
+    {
+      "path": "scripts/prepare-training.py",
+      "sha256": "2762685cca325068c1e24fc23f3e8639e780d0891dde81a4b9e31e188b601f9d"
+    }
+  ],
+  "finalReplay": {
+    "status": "通过",
+    "sourceQuestions": 8,
+    "newModelCalls": 0
+  }
+}

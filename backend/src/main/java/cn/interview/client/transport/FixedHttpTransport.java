@@ -34,6 +34,11 @@ public final class FixedHttpTransport implements KnowledgeTransport {
           .followRedirects(HttpClient.Redirect.NEVER)
           .connectTimeout(Duration.ofSeconds(3))
           .build();
+  private final boolean github;
+
+  public FixedHttpTransport() { this(false); }
+  private FixedHttpTransport(boolean github) { this.github = github; }
+  public static FixedHttpTransport github() { return new FixedHttpTransport(true); }
 
   public static void validatePublicUrl(URI uri) {
     if (!"https".equals(uri.getScheme())
@@ -48,7 +53,13 @@ public final class FixedHttpTransport implements KnowledgeTransport {
 
   @Override
   public KnowledgeTransport.Payload fetch(URI uri, Duration timeout, int maximum) throws Exception {
-    validatePublicUrl(uri);
+    if (github) {
+      if (!"https".equals(uri.getScheme()) || !"api.github.com".equals(uri.getHost())
+          || uri.getRawUserInfo() != null || uri.getPort() != -1 || uri.getRawFragment() != null
+          || !uri.getRawPath().startsWith("/repos/")
+          || (uri.getRawQuery() != null && !"recursive=1".equals(uri.getRawQuery())))
+        throw new IllegalArgumentException("仅允许受限 GitHub 仓库读取");
+    } else validatePublicUrl(uri);
     for (InetAddress address : InetAddress.getAllByName(uri.getHost())) {
       byte[] bytes = address.getAddress();
       boolean privateV6 = bytes.length == 16 && ((bytes[0] & 0xfe) == 0xfc);
@@ -65,7 +76,7 @@ public final class FixedHttpTransport implements KnowledgeTransport {
         HttpRequest.newBuilder(uri)
             .timeout(timeout)
             .header("User-Agent", "InterviewCoach-V3/3.0 (public-document-retrieval)")
-            .header("Accept", "text/html,text/plain,text/markdown;q=0.9")
+            .header("Accept", github ? "application/vnd.github+json" : "text/html,text/plain,text/markdown;q=0.9")
             .header("Accept-Encoding", "identity")
             .GET()
             .build();

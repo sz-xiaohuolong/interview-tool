@@ -120,6 +120,7 @@ public final class MockInterviewModel {
             .put("question", "Mock 测试：" + point.path("scenario").asText());
         sourceIds = sourceIds(input, topic);
       }
+      if(!input.path("sourceCode").path("evidence").isEmpty()&&java.util.Set.of("PROJECT","TECHNICAL").contains(row.path("stage").asText()))row.putArray("codeEvidenceIds").add(input.path("sourceCode").path("evidence").get(0).path("id").asText());
       row.set("sourceIds", sourceIds);
       ArrayNode backups = row.putArray("backups");
       for (String question : new String[] {"请说明其中一个失败分支的触发条件和处理结果？", "你会用什么可重复的步骤验证刚才的处理方式？"}) {

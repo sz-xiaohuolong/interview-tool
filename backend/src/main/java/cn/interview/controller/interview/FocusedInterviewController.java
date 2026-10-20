@@ -19,6 +19,7 @@ public class FocusedInterviewController {
     @GetMapping("/sessions/{id}") public ObjectNode session(@PathVariable String id){return service.get(id);}
     @DeleteMapping("/sessions/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable String id){service.delete(id);}
     @PostMapping("/sessions/{id}/answers") public ObjectNode answer(@PathVariable String id,@RequestBody JsonNode body){return service.answer(id,body);}
+    @PostMapping("/sessions/{id}/continue-without-source") public ObjectNode continueWithoutSource(@PathVariable String id){return service.continueWithoutSource(id);}
     @PostMapping("/sessions/{id}/retry") public ObjectNode retry(@PathVariable String id){return service.retry(id);}
     @PostMapping("/sessions/{id}/finish") public ObjectNode finish(@PathVariable String id){return service.finish(id);}
     @GetMapping("/sessions/{id}/report") public ObjectNode report(@PathVariable String id){return service.report(id,false);}

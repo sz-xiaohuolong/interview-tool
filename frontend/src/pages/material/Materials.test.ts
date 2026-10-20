@@ -99,6 +99,26 @@ describe('资料库页面（仅替换外部 HTTP）', () => {
     expect(wrapper!.get('[role="dialog"]').text()).toContain('附件独立内容，不得写入手工正文')
   })
 
+  it('项目可保存仓库链接并展示读取失败，编辑失败后保留草稿', async () => {
+    const fetcher = vi.fn().mockImplementation(async (url, options) => {
+      if (url === '/api/materials' && !options?.method) return respond([project])
+      if (url === '/api/materials/project-1' && options.method === 'PUT') {
+        const body = JSON.parse(options.body)
+        return respond({ ...project, repository: { repository: 'acme/orders', url: body.githubUrl, status: 'FAILED', error: 'GitHub 限流' } })
+      }
+      throw new Error(`未知请求：${url}`)
+    })
+    vi.stubGlobal('fetch', fetcher)
+    await render('/materials?kind=PROJECT')
+    await button('编辑').trigger('click')
+    await flushPromises()
+    await wrapper!.get('#material-github').setValue('https://github.com/acme/orders')
+    await wrapper!.get('form').trigger('submit')
+    await flushPromises()
+    expect(fetcher).toHaveBeenLastCalledWith('/api/materials/project-1', expect.objectContaining({ method: 'PUT', body: JSON.stringify({ name: project.name, content: project.content, githubUrl: 'https://github.com/acme/orders' }) }))
+    expect(wrapper!.get('[role="dialog"]').text()).toContain('GitHub 限流')
+  })
+
   it('上传简历使用 multipart，保存后展示正文为空的解析结果', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(respond([])).mockResolvedValueOnce(respond(resume))
     vi.stubGlobal('fetch', fetcher)

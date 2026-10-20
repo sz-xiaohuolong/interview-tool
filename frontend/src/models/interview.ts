@@ -1,3 +1,4 @@
+import type { SourceCodeSnapshot, SourceQuestion } from '../source-code'
 import type { ProjectEvidenceMatrix } from '../project-evidence'
 
 export type InterviewSessionType = 'COMPREHENSIVE' | 'QUICK'
@@ -47,6 +48,7 @@ export interface PreparationSummary {
 }
 
 export interface InterviewMessage {
+  hasCodeEvidence?: boolean
   id: string
   role: 'ASSISTANT' | 'USER'
   content: string
@@ -102,6 +104,8 @@ export interface InterviewDiagnosis {
 }
 
 export interface InterviewReport {
+  sourceCode?: SourceCodeSnapshot
+  sourceQuestions?: SourceQuestion[]
   topicCoverage?: {
     askedCount: number
     answeredCount: number
@@ -157,6 +161,7 @@ export interface InterviewTiming {
 }
 
 export interface InterviewSession {
+  sourceCode?: SourceCodeSnapshot
   sessionType?: InterviewSessionType
   answerCount?: number
   id: string
@@ -195,4 +200,4 @@ export interface InterviewSession {
 export interface InterviewStatus { enabled: boolean; provider: string; configured: boolean; model?: string }
 export type InterviewSessionSummary = Pick<InterviewSession, 'id' | 'status' | 'phase' | 'role' | 'level' | 'createdAt' | 'updatedAt' | 'mock' | 'resumeId' | 'jdId' | 'sessionType' | 'answerCount'>
 export interface MutationBody { requestId: string; expectedRevision: number; [key: string]: unknown }
-export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'skip-stage' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume'
+export type SessionAction = 'confirm' | 'corrections' | 'answers' | 'next' | 'skip-stage' | 'retry' | 'cancel' | 'finish' | 'refresh' | 'transcription-wait' | 'transcription-resume' | 'continue-without-source'

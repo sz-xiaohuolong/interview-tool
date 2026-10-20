@@ -57,6 +57,7 @@ public class FocusedInterviewModelClient {
             throw new ApiException(503, "MODEL_NOT_CONFIGURED", "模型尚未配置，请点击右上角设置服务地址、API Key 和模型 ID");
         try {
             String prompt = new ClassPathResource("prompts/focused/" + task + ".txt").getContentAsString(StandardCharsets.UTF_8);
+            if(!input.path("sourceCode").path("evidence").isEmpty())prompt += new ClassPathResource("prompts/source-evidence.txt").getContentAsString(StandardCharsets.UTF_8);
             var response = transport.exchange(settings, prompt, input, task.equals("evaluator") ? 6500 : 4500,
                     timeout, task.equals("interviewer") && settings.preset().equals("DEEPSEEK"), usage -> {});
             if (response.text() == null) throw ApiException.model("模型未返回有效的文本 JSON，请检查服务的结构化输出支持");

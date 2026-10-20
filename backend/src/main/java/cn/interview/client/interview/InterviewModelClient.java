@@ -81,6 +81,7 @@ public class InterviewModelClient implements InterviewModelGateway {
     try {
       String prompt = new ClassPathResource("prompts/interview/" + stage.toLowerCase(java.util.Locale.ROOT) + ".txt")
           .getContentAsString(StandardCharsets.UTF_8);
+      if(!input.path("sourceCode").path("evidence").isEmpty())prompt += new ClassPathResource("prompts/source-evidence.txt").getContentAsString(StandardCharsets.UTF_8);
       var response = transport.exchange(settings, prompt, input, OUTPUT_LIMITS.get(stage), timeoutSeconds,
           stage.equals("FOLLOWUP"), reportUsage);
       if (!"stop".equalsIgnoreCase(response.finishReason()))

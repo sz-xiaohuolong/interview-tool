@@ -1,6 +1,6 @@
 # 文档职责地图
 
-- 最近审计：2026-10-19。
+- 最近审计：2026-10-20。
 - 地图 owner：本文件；当前 Release：V1。
 
 | 职责 | 实际路径 | 状态 | 定位依据与备注 |
@@ -41,5 +41,7 @@
 | V4 专业Agent与快速练习 | [需求](docs/vibe/releases/v4/PROJECT_BRIEF.md) · [行为](docs/vibe/releases/v4/SPEC.md) · [设计](docs/vibe/releases/v4/TECH_DESIGN.md) · [计划](docs/vibe/releases/v4/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v4/VERIFICATION.md) | VERIFYING / WAITING_HUMAN / PARTIAL | 追加六类60考点及跨场练习已实现；最新标准后端350通过／7跳过、282前端及构建，续跑工具21项通过；原12项浏览器证据仍适用。首批18题已获人工总体通过，续跑第一场复盘上游408后停批；原24例完整基线、人工评分及新策略对照仍未完成 |
 | Agent考点目录与独立验收 | [60项目录及逐项引用](backend/src/main/resources/knowledge/agent-interview-topics.json) · [28次协议与实际结果](evals/agent-topic-coverage/README.md) | 17/28次已尝试 / STOPPED_ON_FAILURE | 首批6次PLAN及18题获人工总体通过；新增1 PLAN、9 FOLLOWUP通过，第一场复盘HTTP 408，第二场未启动，剩余11次未发送。已知107230 Token、失败用量未知；原24例及独立12轮账本保持独立 |
 | 跨轮发现与追问优先级改进 | [目标、验收与执行结果](evals/interview-agent/multiturn/README.md#12-未解风险和矛盾追问优先级) · [剧本与逐例验收表](evals/interview-agent/multiturn/CASES.md) | 最小实现完成 / 固定历史质量PARTIAL | 未加记忆；18份真实配对中C02、Q03改善，原C04未通过，两项明确同路径控制另行通过。Token增加20.9%、平均耗时增加1355毫秒；标准后端352通过／7跳过、前端282及构建通过。原发现及V4账本独立，完整场次未验收 |
+
+| GitHub 公开仓库源码面试 | [冻结范围](docs/vibe/releases/v5/SPEC.md) · [实现设计](docs/vibe/releases/v5/TECH_DESIGN.md) · [实施记录](docs/vibe/releases/v5/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v5/VERIFICATION.md) | 已本机启用 / 限定证据VERIFIED | 单项目固定Commit、两条面试及复盘引用；后端376通过／8跳过、前端289及构建、浏览器46项；真实两种规划8道源码主问核对通过，完整真实问答复盘未测；持续授权同步origin/main，正式Release仍V1 |
 
 本文件仅作导航，正文事实由对应 owner 维护。后续版本按实际 Release 建立目录；V1 历史验收保留当时输入与配置边界。目标方案、前版变化和独立复盘按需创建，本次未建立空白文件。

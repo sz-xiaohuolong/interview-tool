@@ -54,7 +54,7 @@ describe('综合面试 面试客户端接口归属', () => {
   const actions = {
     confirm: 'confirm', corrections: 'corrections', answers: 'answers', next: 'next', retry: 'retry',
     cancel: 'cancel', finish: 'finish', refresh: 'refresh', 'skip-stage': 'skip-stage',
-    'transcription-wait': 'transcription-wait', 'transcription-resume': 'transcription-resume',
+    'transcription-wait': 'transcription-wait', 'transcription-resume': 'transcription-resume', 'continue-without-source': 'continue-without-source',
   } satisfies Record<SessionAction, string>
   it.each(Object.entries(actions))('%s 操作绑定 综合面试 场次，不因 ID 同名进入旧接口', async (action, suffix) => {
     const fetcher = mockEndpoint(`/api/interviews/shared-id/${suffix}`, { id: 'shared-id' })

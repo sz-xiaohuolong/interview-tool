@@ -10,6 +10,16 @@ const after = (answer: string): Session => ({ ...first, followUpCount: 1, messag
 beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear() })
 function page() { return mount(SessionPage, { global: { stubs: { RouterLink: { template: '<a><slot /></a>' } } } }) }
 describe('回答恢复与防重', () => {
+  it('源码失败后由点击显式选择资料面试，保持原场次接口', async () => {
+    mocks.request.mockResolvedValue({ ...first, mode: 'PROJECT', status: 'FAILED', pendingAction: 'PLAN', messages: [], sourceCode: { repository: 'acme/orders', status: 'FAILED', error: 'GitHub 限流' } })
+    mocks.post.mockResolvedValue({ ...first, mode: 'PROJECT', sourceCode: { repository: 'acme/orders', status: 'SKIPPED' } })
+    const wrapper = page(); await flushPromises()
+    expect(mocks.post).not.toHaveBeenCalled()
+    await wrapper.findAll('button').find(button => button.text() === '仅使用项目资料继续')!.trigger('click'); await flushPromises()
+    expect(mocks.post).toHaveBeenCalledExactlyOnceWith('/sessions/test-session/continue-without-source')
+    expect(wrapper.text()).toContain('仅使用项目资料')
+    wrapper.unmount()
+  })
   it('不支持听写时保留文字输入并明确提示浏览器兼容边界', async () => {
     mocks.request.mockResolvedValue(first)
     const wrapper = page(); await flushPromises()

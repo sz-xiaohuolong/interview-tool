@@ -8,6 +8,7 @@ import { modeNames, levelNames, styleNames } from '../../format'
 import Notice from '../../components/common/Notice.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
 import Modal from '../../components/common/Modal.vue'
+import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import SpeechInput from '../../components/interview/SpeechInput.vue'
 const route = useRoute(), router = useRouter(), id = String(route.params.id)
 const session = ref<Session | null>(null), loading = ref(true), busy = ref(false), error = ref(''), endDialog = ref(false), chat = ref<HTMLElement | null>(null)
@@ -63,10 +64,10 @@ async function send() {
   } catch (e) { error.value = errorMessage(e); await refresh() }
   finally { busy.value = false }
 }
-async function retry() {
+async function retry(withoutSource = false) {
   if (busy.value) return
   busy.value = true; error.value = ''
-  try { const s = await post<Session>(`/sessions/${id}/retry`); reconcile(s); if (s.status === 'COMPLETED') await router.push(`/reports/${id}`) }
+  try { const s = await post<Session>(`/sessions/${id}/${withoutSource ? 'continue-without-source' : 'retry'}`); reconcile(s); if (s.status === 'COMPLETED') await router.push(`/reports/${id}`) }
   catch (e) { error.value = errorMessage(e); await refresh() } finally { busy.value = false }
 }
 async function finish() {
@@ -86,11 +87,12 @@ function shortcut(event: KeyboardEvent) { if (event.key === 'Enter' && (event.ct
     <template v-else-if="session">
       <Notice v-if="session.mock" kind="warning" message="Mock 测试面试：用于验证流程，问题和评分不代表真实模型能力。" />
       <Notice v-if="session.contextTruncated" kind="warning" message="本场资料上下文已截断，模型仅使用保留部分。" />
+      <SourceCodeEvidence :source="session.sourceCode" />
       <div class="session-layout">
         <div class="chat-panel"><div class="chat-header"><span style="display: flex; align-items: center; gap: 9px; font-size: 14px"><PhChatsCircle :size="20" />面试对话</span><span class="tiny muted">{{ session.status === 'COMPLETED' ? '本场面试已结束' : '一次只讨论一个问题' }}</span></div>
-          <div ref="chat" class="chat-messages" aria-live="polite" aria-label="面试对话记录"><div v-for="m in session.messages" :key="m.id" class="message" :class="{ user: m.role === 'USER' }"><div class="avatar"><PhUser v-if="m.role === 'USER'" :size="16" /><PhRobot v-else :size="17" /></div><div style="min-width: 0"><div class="message-meta"><span>{{ m.role === 'USER' ? '我的回答' : '面试官' }}</span><span v-if="m.role === 'ASSISTANT'">{{ m.followUp ? '继续追问' : `第 ${m.questionIndex + 1} 题` }}</span></div><div class="message-content">{{ m.content }}</div></div></div><div v-if="busy || generating" class="message"><div class="avatar"><PhRobot :size="17" /></div><div class="tiny muted" role="status" style="padding-top: 7px"><span class="spinner" style="width: 12px; height: 12px; margin-right: 8px"></span>正在思考与保存，请稍候…</div></div></div>
+          <div ref="chat" class="chat-messages" aria-live="polite" aria-label="面试对话记录"><div v-for="m in session.messages" :key="m.id" class="message" :class="{ user: m.role === 'USER' }"><div class="avatar"><PhUser v-if="m.role === 'USER'" :size="16" /><PhRobot v-else :size="17" /></div><div style="min-width: 0"><div class="message-meta"><span>{{ m.role === 'USER' ? '我的回答' : '面试官' }}</span><span v-if="m.role === 'ASSISTANT'">{{ m.followUp ? '继续追问' : `第 ${m.questionIndex + 1} 题` }}</span></div><div class="message-content">{{ m.content }}</div><p v-if="m.hasCodeEvidence" class="tiny muted">本题有源码依据 · 复盘中查看</p></div></div><div v-if="busy || generating" class="message"><div class="avatar"><PhRobot :size="17" /></div><div class="tiny muted" role="status" style="padding-top: 7px"><span class="spinner" style="width: 12px; height: 12px; margin-right: 8px"></span>正在思考与保存，请稍候…</div></div></div>
           <div class="composer">
-            <template v-if="failed"><Notice :message="session.error || '本次生成中断，已经提交的回答仍然保留。'" kind="error" /><button class="btn btn-dark" :disabled="busy" @click="retry"><PhArrowClockwise :size="16" />重试生成</button><span class="tiny muted" style="margin-left: 12px">不会重复提交你的回答</span></template>
+            <template v-if="failed"><Notice :message="session.error || '本次生成中断，已经提交的回答仍然保留。'" kind="error" /><button class="btn btn-dark" :disabled="busy" @click="retry()"><PhArrowClockwise :size="16" />重试生成</button><button v-if="session.sourceCode?.status === 'FAILED'" class="btn btn-secondary" :disabled="busy" @click="retry(true)">仅使用项目资料继续</button><span class="tiny muted" style="margin-left: 12px">不会重复提交你的回答</span></template>
             <template v-else-if="session.status === 'COMPLETED'"><p class="muted" style="font-size: 13px">对话已保存。现在可以查看逐题分析与后续练习建议。</p><RouterLink :to="`/reports/${id}`" class="btn btn-primary" style="margin-top: 13px">查看面试复盘 <PhArrowRight :size="16" /></RouterLink></template>
             <form v-else @submit.prevent="send"><label for="answer" class="sr-only">你的回答</label><textarea id="answer" v-model="draft" placeholder="在这里组织你的回答。可以分段描述背景、思路、实现和取舍…" maxlength="6000" :disabled="busy || !canAnswer" @keydown="shortcut"></textarea><SpeechInput ref="speechInput" v-model="draft" :disabled="busy || !canAnswer" :context-key="last?.id" /><div class="composer-footer"><span class="tiny muted">{{ draft.length }} / 6000 · ⌘ / Ctrl + Enter 发送<br />Enter 换行 · 面试中不展示参考答案</span><button class="btn btn-primary" type="submit" :disabled="busy || !canAnswer || !draft.trim()"><PhPaperPlaneRight :size="17" />发送回答</button></div></form>
           </div>

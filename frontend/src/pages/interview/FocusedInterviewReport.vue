@@ -7,6 +7,7 @@ import type { Report, Session } from '../../types'
 import { shortDate, modeNames, levelNames } from '../../format'
 import Notice from '../../components/common/Notice.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
+import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import ProjectEvidenceMatrix from '../../components/material/ProjectEvidenceMatrix.vue'
 const route = useRoute(), id = String(route.params.id)
 const session = ref<Session | null>(null), report = ref<Report | null>(null), error = ref(''), loading = ref(true), busy = ref(false)
@@ -56,6 +57,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
           </template>
         </div>
         <template v-if="report">
+          <SourceCodeEvidence :source="report.sourceCode" :questions="report.sourceQuestions" review />
           <ProjectEvidenceMatrix v-if="report.matrix" :matrix="report.matrix" source-kind="SESSION" :source-id="id" />
           <h2 class="report-section-heading">逐题回看，找到可改进的细节</h2>
           <p v-if="!report.questions.length" class="report-empty muted">本次报告没有可展示的逐题分析，原始对话仍可查看。</p>

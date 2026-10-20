@@ -8,6 +8,7 @@ import type { Document, Material, MaterialKind } from '../../types'
 import Modal from '../../components/common/Modal.vue'
 import Notice from '../../components/common/Notice.vue'
 import EmptyState from '../../components/common/EmptyState.vue'
+import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
 
 const kinds: { value: MaterialKind; label: string; description: string }[] = [
@@ -31,6 +32,7 @@ const editorKind = ref<MaterialKind>('RESUME')
 const editingId = ref<string | null>(null)
 const name = ref('')
 const content = ref('')
+const githubUrl = ref('')
 const resumeMode = ref<'upload' | 'text'>('upload')
 const resumeFile = ref<File | null>(null)
 const formError = ref('')
@@ -70,6 +72,7 @@ function openEditor(material?: Material) {
   editorKind.value = material?.kind || kind.value
   name.value = material?.name || ''
   content.value = material?.content || ''
+  githubUrl.value = material?.repository?.url || ''
   resumeFile.value = null
   resumeMode.value = 'upload'
   formError.value = ''
@@ -111,7 +114,8 @@ async function saveMaterial() {
       body.append('file', resumeFile.value!)
       material = await request<Material>('/materials/upload', { method: 'POST', body })
     } else {
-      const body = { name: name.value.trim(), content: content.value }
+      const previousUrl = materials.value.find(item => item.id === editingId.value)?.repository?.url || ''
+      const body = { name: name.value.trim(), content: content.value, ...(editorKind.value === 'PROJECT' && (githubUrl.value.trim() || previousUrl) ? { githubUrl: githubUrl.value.trim() } : {}) }
       material = editingId.value
         ? await put<Material>(`/materials/${editingId.value}`, body)
         : await post<Material>('/materials', { kind: editorKind.value, ...body })
@@ -234,6 +238,7 @@ onMounted(loadMaterials)
         <div class="form-field"><label for="material-name">{{ editorKind === 'PROJECT' ? '项目名称' : '资料名称' }}{{ uploadForm ? '（选填）' : '' }}</label><input id="material-name" v-model="name" :disabled="busy" :required="!uploadForm" maxlength="120" :placeholder="uploadForm ? '留空时使用文件名' : editorKind === 'PROJECT' ? '例如：企业知识库问答系统' : editorKind === 'JD' ? '例如：Java 后端开发岗位' : '例如：后端开发简历'" /></div>
         <div v-if="uploadForm" class="form-field"><label for="resume-file">选择简历文件</label><input id="resume-file" type="file" accept=".pdf,.docx,.md,.markdown" :disabled="busy" @change="chooseResume" /><p class="form-help">支持 PDF、DOCX、Markdown；单文件不超过 5 MiB。扫描 PDF 请先转换为可选择文字的文档。</p></div>
         <div v-else class="form-field"><label for="material-content">{{ editorKind === 'PROJECT' ? '项目简介、技术栈与个人职责' : editorKind === 'JD' ? '岗位要求' : '手工正文' }}</label><textarea id="material-content" v-model="content" :disabled="busy" maxlength="24000" rows="8" :placeholder="editorKind === 'PROJECT' ? '项目简介：解决什么问题？\n技术栈：使用了哪些技术？\n个人职责：你具体负责哪些部分？\n实现细节：遇到的难点与取舍。' : '在此粘贴完整资料，可使用多行文本。'" /><p class="form-help">{{ content.length.toLocaleString() }} / 24,000 字符{{ editorKind === 'PROJECT' && !editingId ? '。保存后可继续添加多个项目文档。' : '。附件内容会独立保留。' }}</p></div>
+        <div v-if="editorKind === 'PROJECT'" class="form-field"><label for="material-github">GitHub 公开仓库（可选）</label><input id="material-github" v-model="githubUrl" inputmode="url" placeholder="https://github.com/所有者/仓库" maxlength="300" :disabled="busy" /><p class="form-help">源码补充项目资料，仍需填写真实项目说明。每场准备时锁定代码版本，源码仅在复盘展示。</p><p v-if="busy && githubUrl.trim()" role="status" class="form-help">正在核实公开仓库与代码版本…</p></div>
         <div class="dialog-actions"><button type="button" class="btn btn-secondary" :disabled="busy" @click="editorOpen = false">取消</button><button type="submit" class="btn btn-dark" :disabled="busy"><span v-if="busy" class="spinner" aria-hidden="true" />{{ busy ? '正在保存…' : uploadForm ? '上传并保存' : '保存资料' }}</button></div>
       </form>
     </Modal>
@@ -241,6 +246,7 @@ onMounted(loadMaterials)
     <Modal :open="detailOpen && !!selected" :title="selected?.name || '资料详情'" description="查看已保存的完整正文与附件解析文本，继续补充或整理资料。" @update:open="value => { if (!busy) detailOpen = value }">
       <template v-if="selected">
         <Notice :message="detailError" kind="error" /><Notice :message="detailMessage" />
+        <SourceCodeEvidence v-if="selected.kind === 'PROJECT'" :source="selected.repository" /><p v-if="selected.kind === 'PROJECT' && !selected.repository" class="form-help">未关联 GitHub 仓库，可编辑资料补充。</p>
         <section class="material-reading"><div class="heading-row"><h3>手工正文</h3><button class="text-link reading-edit" :disabled="busy" @click="openEditor(selected)"><PhPencilSimple :size="15" />编辑正文</button></div><pre v-if="selected.content">{{ selected.content }}</pre><p v-else class="muted tiny">尚未填写手工正文{{ selected.documents.length ? '，已上传的内容见下方附件。' : '，可通过编辑补充。' }}</p></section>
         <section class="form-section"><h3>附件 <span class="muted tiny">{{ selected.documents.length }} / 20</span></h3><p v-if="!selected.documents.length" class="muted tiny material-intro">暂无附件。</p>
           <div v-for="document in selected.documents" :key="document.id" class="document-item">

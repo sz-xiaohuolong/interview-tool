@@ -13,6 +13,7 @@ import cn.interview.service.material.ProjectEvidenceService;
 import cn.interview.service.material.ProjectEvidenceSource;
 import cn.interview.service.model.ModelConfigurationService;
 import cn.interview.validation.InterviewOutputValidator;
+import cn.interview.service.source.CodeExplorationService;
 
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.*;
@@ -44,6 +45,8 @@ public class InterviewService implements ProjectEvidenceSource {
 
   @Autowired
   void modelSettings(cn.interview.service.model.ModelConfigurationService settings) { this.modelSettings = settings; }
+  private CodeExplorationService source;
+  @Autowired void source(CodeExplorationService service){this.source=service;}
   private final long fastDeadline;
   private final Clock clock;
   private final InterviewProgress progress;
@@ -211,6 +214,8 @@ public class InterviewService implements ProjectEvidenceSource {
   private ObjectNode publicView(ObjectNode s) {
     requireVisible(s);
     var out = s.deepCopy();
+    if(s.path("sourceCode").isObject())out.set("sourceCode",CodeExplorationService.summary(s.path("sourceCode")));
+    for(var message:out.path("messages"))if(message instanceof ObjectNode m){m.put("hasCodeEvidence",!m.path("codeEvidenceIds").isEmpty());m.remove("codeEvidenceIds");}
     out.put("sessionType", InterviewFlowPolicy.forSession(s).name());
     if(!s.path("status").asText().equals("REPORT_READY"))out.remove("diagnostics");
     if (!s.path("status").asText().equals("REPORT_READY")) {
@@ -238,6 +243,7 @@ public class InterviewService implements ProjectEvidenceSource {
       boolean reached = s.path("budgetReached").asBoolean() && !hasModelBudget(s, pendingCall);
       if (s.has("budgetReached")) out.put("budgetReached", reached);
       if (!reached) actions.add("retry");
+      if(s.path("sourceCode").path("status").asText().equals("FAILED")&&s.path("messages").isEmpty())actions.add("continue-without-source");
       if (pending.equals("FOLLOWUP")) {
         actions.add("next").add("finish");
       }
@@ -363,7 +369,12 @@ public class InterviewService implements ProjectEvidenceSource {
     if ((b.has("timeLimitMinutes") && !b.path("timeLimitMinutes").isIntegralNumber())
         || !Set.of(20, 30, 45).contains(minutes)) throw ApiException.bad("实战时限请选择20、30或45分钟");
     String projectId = text(b, "projectId", 100, false), brief = text(b, "projectBrief", 6000, false);
+    if(s.path("sourceCode").isObject()&&!s.path("projectId").asText().equals(projectId))throw ApiException.conflict("本场已保存仓库快照；更换主项目请新建面试");
     var project = snapshot(projectId, "PROJECT");
+    if(!projectId.isBlank()&&!s.has("sourceCode")){
+      var binding=materials.list("PROJECT").stream().filter(m->m.id().equals(projectId)).findFirst().orElseThrow().repository();
+      var association=CodeExplorationService.association(binding);if(association!=null)s.set("sourceCode",association);
+    }
     String content = projectId.isBlank() ? brief : project.text() + (brief.isBlank() ? "" : "\n本场补充：" + brief);
     var main = json.createObjectNode().put("id", projectId.isBlank() ? "brief:" + s.path("id").asText() : projectId)
         .put("name", projectId.isBlank() ? "本场主项目" : project.name())
@@ -409,6 +420,7 @@ public class InterviewService implements ProjectEvidenceSource {
 
   private void adoptConfirmationProject(ObjectNode s, JsonNode body) {
     if (!body.has("projectBrief")) return;
+    if(s.has("sourceCode"))throw ApiException.conflict("本场已锁定主项目与源码；更换主项目请新建面试");
     String brief = text(body, "projectBrief", 6000, true);
     var main = json.createObjectNode().put("id", "brief:" + s.path("id").asText()).put("name", "本场主项目")
         .put("brief", brief).put("hypothetical", false);
@@ -563,8 +575,15 @@ public class InterviewService implements ProjectEvidenceSource {
     try {
       var s = phase(id, generation, "正在分析本场岗位与配置", "PREPARING");
       var input = ((ObjectNode) s.path("input")).deepCopy();
+      if(s.path("sourceCode") instanceof ObjectNode code){
+        phase(id,generation,"正在读取本场固定版本源码","PREPARING");
+        var sourceContext=json.createObjectNode().put("role",s.path("role").asText()).put("project",input.path("project").asText());
+        source.prepare(code,sourceContext,snapshot->saveSourceSnapshot(id,generation,snapshot));
+        input.set("sourceCode",code.deepCopy());
+      }
       agentPractice.configure(s.deepCopy(), s, input.deepCopy());
-      var rawAnalysis = InterviewFlowPolicy.forSession(s).autoStart()?quickAnalysis(input):invoke(id, generation, "ANALYZE", input, 180);
+      var analysisInput=input.deepCopy();analysisInput.remove("sourceCode");
+      var rawAnalysis = InterviewFlowPolicy.forSession(s).autoStart()?quickAnalysis(input):invoke(id, generation, "ANALYZE", analysisInput, 180);
       var analysis = validator.analysis(rawAnalysis);
       if (InterviewProgress.enabled(s)) adoptResumeProject(s, input, rawAnalysis);
       var practicePlan = agentPractice.plan(s, analysis);
@@ -605,6 +624,7 @@ public class InterviewService implements ProjectEvidenceSource {
       else if(InterviewFlowPolicy.forSession(s).autoStart() && plan.size()!=input.path("totalQuestions").asInt())
         throw InterviewOutputValidator.invalid();
       plan = validator.agentQuestions(rawPlan, plan, input);
+      CodeExplorationService.bindQuestions(rawPlan,plan,input.path("sourceCode"),InterviewProgress.enabled(s));
       synchronized (this) {
         s = store.get(id);
         if (s.path("generation").asInt() != generation
@@ -641,6 +661,12 @@ public class InterviewService implements ProjectEvidenceSource {
     }
   }
 
+  private synchronized void saveSourceSnapshot(String id,int generation,ObjectNode snapshot){
+    var current=store.get(id);
+    if(current.path("generation").asInt()!=generation||!BUSY.contains(current.path("status").asText()))throw new CancellationException();
+    current.set("sourceCode",snapshot);save(current);
+  }
+
   private void appendWarning(ObjectNode s, String warning) {
     var warnings = (ArrayNode) s.path("warnings");
     for (var existing : warnings) if (existing.asText().equals(warning)) return;
@@ -673,7 +699,7 @@ public class InterviewService implements ProjectEvidenceSource {
   private void begin(ObjectNode s) {
     s.put("questionIndex",0).put("followUpCount",0).put("status","IN_PROGRESS").put("phase","面试进行中");
     if(InterviewProgress.enabled(s)) {progress.start(s);s.put("stage",s.path("questions").get(0).path("stage").asText());}
-    ask(s,s.path("questions").get(0).path("question").asText(),s.path("questions").get(0).path("sourceIds"),false);
+    ask(s,s.path("questions").get(0).path("question").asText(),s.path("questions").get(0).path("sourceIds"),s.path("questions").get(0).path("codeEvidenceIds"),false);
   }
 
   private String message(Exception e) {
@@ -704,7 +730,7 @@ public class InterviewService implements ProjectEvidenceSource {
   }
 
   public synchronized ObjectNode action(String id, String action, JsonNode body) {
-    if (!Set.of("corrections", "confirm", "answers", "next", "skip-stage", "finish", "retry", "cancel", "refresh", "transcription-wait", "transcription-resume")
+    if (!Set.of("corrections", "confirm", "answers", "next", "skip-stage", "finish", "retry", "cancel", "refresh", "transcription-wait", "transcription-resume", "continue-without-source")
         .contains(action)) throw ApiException.missing("操作不存在");
     String requestId = text(body, "requestId", 100, true);
     var s = store.get(id);
@@ -723,6 +749,12 @@ public class InterviewService implements ProjectEvidenceSource {
     String state = s.path("status").asText();
     Runnable start = () -> {};
     switch (action) {
+      case "continue-without-source" -> {
+        require(state.equals("FAILED")&&s.path("messages").isEmpty(),"只有准备阶段源码不可用时才能选择资料面试");
+        CodeExplorationService.skip((ObjectNode)s.path("sourceCode"));
+        s.put("generation",s.path("generation").asInt()+1).put("status","QUEUED").put("pendingStage","PREPARE").put("error","").put("phase","仅使用项目资料重新准备");
+        start=()->enqueuePrepare(s,false);
+      }
       case "corrections", "refresh" -> {
         require(
             s.path("messages").isEmpty()
@@ -888,7 +920,7 @@ public class InterviewService implements ProjectEvidenceSource {
     if (!allowed) throw ApiException.conflict(message);
   }
 
-  private void ask(ObjectNode s, String question, JsonNode sourceIds, boolean fallback) {
+  private void ask(ObjectNode s, String question, JsonNode sourceIds, JsonNode codeEvidenceIds, boolean fallback) {
     String qid = UUID.randomUUID().toString();
     var m =
         ((ArrayNode) s.path("messages"))
@@ -900,6 +932,7 @@ public class InterviewService implements ProjectEvidenceSource {
             .put("createdAt", now())
             .put("fallback", fallback);
     m.set("sourceIds", sourceIds.deepCopy());
+    m.set("codeEvidenceIds",codeEvidenceIds.isArray()?codeEvidenceIds.deepCopy():json.createArrayNode());
     if (s.path("reviewVersion").asInt() == 2) {
       String root = s.path("questions").get(s.path("questionIndex").asInt()).path("id").asText();
       boolean follow = false;
@@ -933,7 +966,7 @@ public class InterviewService implements ProjectEvidenceSource {
     } else {
       var q = s.path("questions").get(index);
       if (InterviewProgress.enabled(s)) s.put("stage", q.path("stage").asText());
-      ask(s, q.path("question").asText(), q.path("sourceIds"), false);
+      ask(s, q.path("question").asText(), q.path("sourceIds"), q.path("codeEvidenceIds"), false);
       s.put("status", "IN_PROGRESS").put("phase", "面试进行中");
     }
   }
@@ -1001,11 +1034,11 @@ public class InterviewService implements ProjectEvidenceSource {
                   + input.path("answer").asText(),
               3);
       input.set("sources", sources);
-      var decision =
-          validator.followup(
-              invoke(
-                  id, generation, "FOLLOWUP", input, Math.max(1, (int) (fastDeadline / 1000) - 1)),
-              sources, input.path("answer").asText(), s.path("strategyVersion").asInt()==1);
+      if(s.path("sourceCode").isObject()&&Set.of("PROJECT","TECHNICAL").contains(s.path("stage").asText()))input.set("sourceCode",s.path("sourceCode").deepCopy());
+      var rawDecision=invoke(id,generation,"FOLLOWUP",input,Math.max(1,(int)(fastDeadline/1000)-1));
+      var decision=validator.followup(rawDecision,sources,input.path("answer").asText(),s.path("strategyVersion").asInt()==1);
+      CodeExplorationService.validateQuestionPresentation(rawDecision,s.path("sourceCode"));
+      decision.set("codeEvidenceIds",CodeExplorationService.references(rawDecision,input.path("sourceCode")));
       synchronized (this) {
         s = store.get(id);
         if (s.path("generation").asInt() != generation
@@ -1024,7 +1057,7 @@ public class InterviewService implements ProjectEvidenceSource {
             && s.path("followUpCount").asInt() < 2
             && !progress.expired(s)
             && !(InterviewProgress.enabled(s) && (progress.narrowFollowups(s) || s.path("stage").asText().equals("QUESTIONS")))) {
-          ask(s, decision.path("question").asText(), decision.path("sourceIds"), false);
+          ask(s, decision.path("question").asText(), decision.path("sourceIds"), decision.path("codeEvidenceIds"), false);
           s.put("followUpCount", s.path("followUpCount").asInt() + 1)
               .put("status", "IN_PROGRESS")
               .put("phase", "面试进行中");
@@ -1102,7 +1135,7 @@ public class InterviewService implements ProjectEvidenceSource {
       }
     s.put("generation", generation + 1);
     if (selected != null) {
-      ask(s, selected.path("question").asText(), selected.path("sourceIds"), true);
+      ask(s, selected.path("question").asText(), selected.path("sourceIds"), selected.path("codeEvidenceIds"), true);
       s.put("followUpCount", s.path("followUpCount").asInt() + 1)
           .put("status", "IN_PROGRESS")
           .put("phase", "已切换本场相关备用问题");
@@ -1150,6 +1183,7 @@ public class InterviewService implements ProjectEvidenceSource {
       if (s.path("reviewVersion").asInt() == 2) input.put("reviewVersion", 2);
       if (s.path("assessmentVersion").asInt() == 1) input.put("assessmentVersion", 1);
       input.set("sources", selected);
+      if(s.path("sourceCode").isObject())input.set("sourceCode",s.path("sourceCode").deepCopy());
       if (!s.path("agentPractice").path("points").isEmpty())
         input.set("topicCoverage", agentPractice.coverage(s));
       input
@@ -1188,6 +1222,7 @@ public class InterviewService implements ProjectEvidenceSource {
             || !s.path("status").asText().equals("REPORTING")) return;
         for (String warning : retrievalWarnings) appendWarning(s, warning);
         s.set("sources", sources);
+        CodeExplorationService.attachReport(report,s);
         s.set("report", report);
         s.put("status", "REPORT_READY").put("phase", "复盘已完成").put("error", "");
         save(s);

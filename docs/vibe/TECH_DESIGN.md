@@ -1,6 +1,6 @@
 # 当前技术架构与接口约定
 
-2026-10-19更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3/v4用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
+2026-10-20更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3/v4/v5用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
 
 ## 1. 统一职责与目录
 
@@ -9,10 +9,10 @@
 | 目录 | 内容 |
 |---|---|
 | `controller/{interview,training,material,model}` | 面试、训练、资料及模型配置请求入口 |
-| `service/{interview,training,material,knowledge,model}` | 对应业务用例；输入清单和幂等操作属于训练业务 |
+| `service/{interview,training,material,knowledge,model,source}` | 对应业务用例；输入清单和幂等操作属于训练业务 |
 | `domain/interview` | `InterviewFlowPolicy`、`InterviewProgress`、`InterviewInputBudget`，不承担 Spring 服务编排或数据库访问 |
 | `task` | `ModelTaskRunner`、`ModelTaskHandler`、`ModelCapacity`，负责固定任务执行、处理回调及容量约束 |
-| `client/{interview,training}` | 业务提示词和模型协议适配，`ModelTask` 随训练协议组织 |
+| `client/{interview,training,source}` | 业务提示词和模型协议适配，`ModelTask` 随训练协议组织 |
 | `client/transport` | 共用模型传输与公开知识下载边界 |
 | `client/model`、`client/mock` | 主动连接探测及显式 Mock；Mock 保留在主源码中供已标识的本机测试模式使用 |
 | `common/ApiResponses` | 保留原创建响应规则，供训练控制器复用 |
@@ -60,7 +60,7 @@
 | `training/skill-catalog.json` | 能力目录，内容和已保存ID保留 |
 | `db/migrations/001-training.sql` | 原训练增量结构，内容逐字保留以继续匹配已登记的SHA256校验和 |
 
-本次没有Schema或个人库迁移。已保存的来源标签、模型评估协议版本、错误码和浏览器草稿键保持兼容；这些标识是数据契约，不生成另一套版本实现。
+此前工程整理没有Schema或个人库迁移。2026-10-20源码能力已在日常库启用，只补建空的 `project_repositories` 关联表，原19张表及资料文件不变。启动前检查允许旧库暂缺这一新增表，已有表、约束、未知结构及训练迁移校验继续核验；维护脚本采用相同边界。已保存的来源标签、模型评估协议版本、错误码和浏览器草稿键保持兼容；这些标识是数据契约，不生成另一套版本实现。
 
 ## 4. HTTP与错误契约
 
@@ -80,7 +80,7 @@ API只监听回环地址，经前端同源代理访问。写请求继续受Origi
 
 `ModelConfigurationService` 提供单次请求的不可变连接快照，三类业务适配器直接注入共用配置与同一传输Bean，训练客户端不依赖其他业务客户端；保存不会调用模型，列表和连接探测由用户主动触发。新的追问配置使用 `INTERVIEW_FOLLOWUP_MODEL` 和 `INTERVIEW_FOLLOWUP_REASONING_EFFORT`，旧 `V3_FAST_*` 变量作兼容读取，新配置优先。
 
-`OpenAiJsonClient` 使用Spring AI构造请求，单次最多一次尝试，不执行工具；响应读取中限制2000000字节，拒绝上游重定向，超时和认证/限流错误明确返回且不泄露响应正文。兼容服务未声明响应类型时按JSON解析，结束原因统一为小写；正文仍须通过完整JSON及业务校验。实际用量先报告，再校验正文，避免格式错误掩盖已发生的调用。Mock必须显式配置，缺密钥不降级。
+`OpenAiJsonClient` 使用Spring AI构造请求，单次最多一次尝试，传输层不自动执行工具；源码任务的独立受控执行见第10节。响应读取中限制2000000字节，拒绝上游重定向，超时和认证/限流错误明确返回且不泄露响应正文。兼容服务未声明响应类型时按JSON解析，结束原因统一为小写；正文仍须通过完整JSON及业务校验。实际用量先报告，再校验正文，避免格式错误掩盖已发生的调用。Mock必须显式配置，缺密钥不降级。
 
 训练协议保留提示词哈希、参数、请求/返回模型与执行元信息，变化后拒绝混组。综合面试保留阶段输出限额和实际用量。只有项目/单题历史协议需要时才接受JSON代码围栏；训练和综合输出继续要求严格JSON。结构通过不证明技术判断正确。
 
@@ -127,3 +127,13 @@ App查询训练可用性决定导航和报告工具是否显示，不选择另�
 内部`agentPractice`快照保存选题及评判信息，根问题与追问继承同一考点身份；问答公开视图剥离具体考点元数据、未来题目及评判提示。复盘的`topicCoverage`只统计实际展示的不同考点，显示主题、具体点、新练／复习及是否作答，通过`questionId`定位原问；覆盖不等于掌握，旧报告不回填。
 
 考点扩展的独立28次协议见[验收入口](../../evals/agent-topic-coverage/README.md)：先六主题各1次PLAN，用户人工确认后才可执行后续两场、最多22次。它与原24例／96次评测及[跨轮12次发现](../../evals/interview-agent/multiturn/README.md)分别保留输入身份、账本、结果和人工关卡；任何一批结构通过均不替代其他批次或人工专业性判断。
+
+## 10. GitHub 公开仓库源码面试
+
+项目资料增加可选公开仓库关联，存入 `project_repositories`；项目深挖与综合面试共用 `service/source/CodeExplorationService`、`client/source`。准备时锁定默认分支当前 SHA 并持久化，重试、刷新、解除资料关联及复盘不改变本场版本。源码不是候选人个人贡献的证据。
+
+GitMCP 只提供本仓库路径线索；GitHub REST 在固定 SHA 下读取目录/blob，核验摘要及 UTF-8，缓存按仓库与 Commit 隔离。源码探索使用 Spring AI 原生工具，最多4轮模型、8次工具、6文件/片段；`OpenAiJsonClient.exchangeTools` 共用原传输，调用方受控执行工具，`exchange` 严格JSON契约保持。无隐式重试，不执行远程代码。
+
+ANALYZE 不接收源码；PLAN、相关 FOLLOWUP 和 REVIEW 复用本场证据。综合只有项目与相关技术阶段可以引用，备用题同样受限。完全不可用时显式重试或 `POST /api/{sessions|interviews}/{id}/continue-without-source`；部分可用保留证据及警告。未关联仓库的旧行为保持。
+
+进行中只公开仓库、版本、状态和有无源码依据，复盘才展示核验片段与固定行号链接。模型题干由服务端检查已知源码/路径/目标泄漏。源码用量单独保存于 `sourceCode.modelUsage`，未并入原主流程界面合计；可通过 `SOURCE_ENABLED=false` 关闭后续探索。详细限额、文件职责和状态见[V5技术设计](releases/v5/TECH_DESIGN.md)，实际证据见[V5验证](releases/v5/VERIFICATION.md)。

@@ -54,6 +54,14 @@ class ApiIntegrationTest {
         mvc.perform(post("/api/materials").contentType("application/json").content("{\"kind\":\"PROJECT\",\"name\":\" \"}")).andExpect(status().isBadRequest());
         mvc.perform(delete("/api/materials/"+m.path("id").asText())).andExpect(status().isNoContent());
     }
+    @Test void repositoryBindingRejectsExternalAddressesAndNonProjectMaterials() throws Exception {
+        mvc.perform(post("/api/materials").contentType("application/json").content(json.writeValueAsBytes(
+                Map.of("kind","PROJECT","name","源码项目","content","项目说明","githubUrl","https://example.org/a/b"))))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/materials").contentType("application/json").content(json.writeValueAsBytes(
+                Map.of("kind","JD","name","岗位","content","Java","githubUrl","https://github.com/a/b"))))
+                .andExpect(status().isBadRequest());
+    }
     @Test void uploadRejectsBadTypeAndEmptyContentAndMarksTruncation() throws Exception {
         mvc.perform(multipart("/api/materials/upload").file(new MockMultipartFile("file","a.exe","application/octet-stream",new byte[]{1})).param("kind","RESUME")).andExpect(status().isBadRequest());
         mvc.perform(multipart("/api/materials/upload").file(new MockMultipartFile("file","empty.md","text/plain","  ".getBytes())).param("kind","RESUME")).andExpect(status().isBadRequest());

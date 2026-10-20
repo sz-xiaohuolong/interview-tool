@@ -553,3 +553,18 @@ it.each([true, false])('追问结束与跳过并发冲突时，仅在原阶段�
   await wrapper.get('[data-action=finish]').trigger('click'); await flushPromises()
   expect(writes[1]?.url).toBe('/api/interviews/interview-test/finish')
 })
+
+it('源码完全失败时不自动降级，点击后只调用本场综合接口', async () => {
+  const writes: string[] = []
+  vi.stubGlobal('fetch', async (url: string, options?: RequestInit) => {
+    if (url === '/api/materials' && !options?.method) return new Response('[]')
+    if (url === '/api/interviews/interview-test' && !options?.method) return new Response(JSON.stringify(session({ status: 'FAILED', phase: '源码读取失败', sourceCode: { repository: 'acme/orders', status: 'FAILED', error: 'GitHub 限流' }, allowedActions: ['retry', 'continue-without-source'] })))
+    if (url === '/api/interviews/interview-test/continue-without-source' && options?.method === 'POST') { writes.push(url); return new Response(JSON.stringify(session({ sourceCode: { repository: 'acme/orders', status: 'SKIPPED' } }))) }
+    throw new Error(`未知请求：${url}`)
+  })
+  const { wrapper } = await show(Session, '/interviews/interview-test')
+  expect(writes).toEqual([])
+  await wrapper.findAll('button').find(button => button.text() === '仅使用项目资料继续')!.trigger('click'); await flushPromises()
+  expect(writes).toEqual(['/api/interviews/interview-test/continue-without-source'])
+  expect(wrapper.text()).toContain('仅使用项目资料')
+})

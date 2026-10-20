@@ -3,6 +3,7 @@ import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { PhCheckCircle, PhWarningCircle } from '@phosphor-icons/vue'
 import type { InterviewSession, ReviewFinding } from '../../models/interview'
+import SourceCodeEvidence from './SourceCodeEvidence.vue'
 import ProjectEvidenceMatrix from '../material/ProjectEvidenceMatrix.vue'
 import Notice from '../common/Notice.vue'
 import ModelRecovery from '../training/ModelRecovery.vue'
@@ -125,6 +126,7 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
       <ol v-if="session.sessionType !== 'QUICK' && report.stages?.length" class="review-stages" aria-label="本场四阶段完成情况"><li v-for="stage in report.stages || []" :key="stage.id"><strong>{{ stage.label }}</strong><span>{{ stageLabels[stage.status] }} · {{ stage.answeredCount }} 次作答</span></li></ol>
       <p class="review-help">未进行或未作答表示本场尚未验证，不算答错。以下仅评价已提交文字；引用不代表经历真实性认证。</p>
     </section>
+    <SourceCodeEvidence v-if="session.status === 'REPORT_READY'" :source="report.sourceCode" :questions="report.sourceQuestions" review />
     <ProjectEvidenceMatrix v-if="report.matrix" class="review-matrix" :matrix="report.matrix" source-kind="V3" :source-id="session.id" />
     <section v-if="topicCoverage" class="panel topic-coverage" data-topic-coverage aria-labelledby="topic-coverage-title">
       <h2 id="topic-coverage-title">本场考点回顾</h2><p class="review-help">已问 {{ topicCoverage.askedCount }} · 已答 {{ topicCoverage.answeredCount }} · 新练 {{ topicCoverage.newCount }} · 复习 {{ topicCoverage.reviewCount }}</p>

@@ -28,14 +28,31 @@ public class MaterialService {
     static final int TEXT_LIMIT=24000;
     static final int CONTEXT_LIMIT=30000;
     final SqliteStore store;
+    private cn.interview.client.source.GitHubCodeClient github;
+    @org.springframework.beans.factory.annotation.Autowired
+    void github(cn.interview.client.source.GitHubCodeClient client){this.github=client;}
     public MaterialService(SqliteStore store){this.store=store;}
     public List<Material> list(String kind){return store.materials(kind);}
     public synchronized Material create(JsonNode body){
         String kind=choice(required(body,"kind",20),"RESUME","PROJECT","JD");
         String name=required(body,"name",120),content=optional(body,"content","",TEXT_LIMIT),id=id(),now=now();
-        store.insertMaterial(id,kind,name,content,now);return store.material(id);
+        JsonNode repository=binding(kind,body,null);
+        return store.atomic(()->{store.insertMaterial(id,kind,name,content,now);store.saveRepository(id,repository);return store.material(id);});
     }
-    public synchronized Material update(String id,JsonNode body){store.material(id);String name=required(body,"name",120),content=optional(body,"content","",TEXT_LIMIT);store.updateMaterial(id,name,content,now());return store.material(id);}
+    public synchronized Material update(String id,JsonNode body){
+        Material old=store.material(id);String name=required(body,"name",120),content=optional(body,"content","",TEXT_LIMIT);
+        JsonNode repository=binding(old.kind(),body,old.repository());
+        return store.atomic(()->{store.updateMaterial(id,name,content,now());store.saveRepository(id,repository);return store.material(id);});
+    }
+    private JsonNode binding(String kind,JsonNode body,JsonNode previous){
+        if(!body.has("githubUrl"))return previous;
+        String url=optional(body,"githubUrl","",300);if(url.isBlank())return null;
+        if(!"PROJECT".equals(kind))throw ApiException.bad("只有项目资料可以关联 GitHub 仓库");
+        String repo=cn.interview.client.source.GitHubCodeClient.repository(url);
+        if(previous!=null&&repo.equals(previous.path("repository").asText())&&previous.path("status").asText().equals("READY"))return previous;
+        try{return github.resolve(repo);}
+        catch(ApiException e){return com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode().put("repository",repo).put("url","https://github.com/"+repo).put("status","FAILED").put("error",e.getMessage());}
+    }
     public synchronized void delete(String id){
         store.material(id);List<String> files=store.documentStorageNames(id);
         store.deleteMaterial(id);files.forEach(this::removeFile);
