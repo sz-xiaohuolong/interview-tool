@@ -15,7 +15,9 @@ interface Attempt { id: string; ordinal: number; revision: number; status: strin
 interface Case { id: string; sourceKind?: string; sourceId?: string; sourceSessionKind?: 'SESSION' | 'V3'; questionIndex?: number; revision: number; question: string; caseVersion: number; mock: boolean; context?: string; contextOrigin: string; contextTruncated?: boolean; priorDialogue: { id: string; role: string; content: string }[]; analysisExposure: string }
 interface Comparison { id: string; leftAttemptId: string; rightAttemptId: string; status: string; comparability: string; scopeNotice?: string; leftAnswer?: string; rightAnswer?: string; operationId?: string; result?: Record<string, any> }
 
-const route = useRoute(), router = useRouter(), id = computed(() => String(route.params.id || ''))
+const props = withDefaults(defineProps<{ embedded?: boolean; caseId?: string }>(), { embedded: false })
+const emit = defineEmits<{ changed: [] }>()
+const route = useRoute(), router = useRouter(), id = computed(() => String(props.caseId || route.params.id || ''))
 const source = ref<Case | null>(null), cases = ref<Case[]>([]), attempts = ref<Attempt[]>([]), active = ref<Attempt | null>(null)
 const answer = ref(''), serverText = ref<string | null>(null), error = ref(''), notice = ref(''), recovery = ref<ApiError | null>(null)
 const busy = ref(false), loading = ref(true), comparison = ref<Comparison | null>(null), comparisonFailed = ref(false)
@@ -93,23 +95,24 @@ async function load(cursor = '') {
     const requested = String(route.query.attemptId || pending)
     if (requested) {
       const saved = attempts.value.find(a => a.id === requested)
-      if (!saved) throw new Error('找不到这次作答，请返回错题复习重新打开。')
+      if (!saved) throw new Error('找不到这次作答，请返回错题重练重新打开。')
       await select(saved)
       if (saved.status === 'READY') await compare(false)
     } else {
       const latest = attempts.value.at(-1)
       const draft = attempts.value.find(a => a.status === 'DRAFT')
       if (!draft && latest && ['FAILED', 'INTERRUPTED', 'EVALUATING', 'SUBMITTED'].includes(latest.status)) await select(latest)
+      else if (props.embedded && !draft && latest?.status === 'READY') { await select(latest); await compare(false) }
       else await prepareDraft()
     }
     if (source.value.sourceKind === 'SESSION' && !projectGap.value) {
       const review = await training<{ id: string | null }>(`/review-item-for-source?sessionId=${encodeURIComponent(source.value.sourceId || '')}&questionIndex=${source.value.questionIndex}`)
       reviewId.value = review.id || ''
     }
-  } catch (e) { failed(e) } finally { loading.value = false }
+  } catch (e) { failed(e) } finally { loading.value = false; if (props.embedded) emit('changed') }
 }
 async function keepResultRoute() {
-  if (active.value && active.value.status !== 'DRAFT') {
+  if (active.value && active.value.status !== 'DRAFT' && String(route.params.id || '') === id.value) {
     await router.replace({ path: route.path, query: { ...route.query, attemptId: active.value.id } })
     try { sessionStorage.removeItem(`v2:practice-submission:${id.value}`) } catch { /* 结果地址已保留作答 ID。 */ }
   }
@@ -140,7 +143,7 @@ async function save(submit: boolean) {
       else if (submit) sessionStorage.removeItem(`v2:practice-submission:${id.value}`)
     } catch { /* 连接失败时仍保留本页输入。 */ }
   } finally {
-    busy.value = false; await nextTick()
+    busy.value = false; emit('changed'); await nextTick()
     if (origin?.isConnected && !origin.disabled && (document.activeElement === document.body || document.activeElement === origin)) origin.focus()
   }
 }
@@ -167,7 +170,7 @@ async function again() {
     try { sessionStorage.removeItem(`v2:practice-submission:${id.value}`) } catch { /* 新草稿已保存。 */ }
     const { attemptId, ...query } = route.query
     await router.replace({ path: route.path, query })
-    await nextTick(); document.querySelector<HTMLTextAreaElement>('#new-answer')?.focus()
+    emit('changed'); await nextTick(); document.querySelector<HTMLTextAreaElement>('#new-answer')?.focus()
   } catch (e) { failed(e) } finally { busy.value = false }
 }
 async function revealAnalysis(event: Event) {
@@ -176,7 +179,7 @@ async function revealAnalysis(event: Event) {
   try {
     const fresh = await training<Case>(`/practice-cases/${id.value}`)
     const saved = await writeTraining<{ content?: Record<string, any> }>(`/practice-cases/${id.value}/reveal`, { revealKind: 'SOURCE_ANALYSIS', expectedVersion: fresh.revision })
-    reveal.value = saved.content || {}; source.value.analysisExposure = 'PROVIDED'
+    reveal.value = saved.content || {}; source.value.analysisExposure = 'PROVIDED'; emit('changed')
   } catch (e) { failed(e) } finally { referenceLoading.value = false }
 }
 async function histories(more = false) {
@@ -196,18 +199,21 @@ async function newGroup() {
   busy.value = true
   try { await writeTraining(`/practice-cases/${id.value}/evaluation-groups`, { attemptId: active.value.id }); await loadGroups() } catch (e) { failed(e) } finally { busy.value = false }
 }
+watch(() => route.query.attemptId, value => {
+  if (props.embedded && String(route.params.id || '') === id.value && !loading.value && !busy.value && value && value !== active.value?.id) void load()
+})
 watch(id, () => { source.value = null; active.value = null; comparison.value = null; reveal.value = null; reviewId.value = ''; answer.value = ''; attempts.value = []; void load() }, { immediate: true })
 </script>
 
 <template>
   <div class="page training-page practice-page">
-    <div class="page-heading"><h1>{{ reviewGap ? '围绕本场回答，定向补练。' : projectGap ? '围绕项目缺口，定向补练。' : id ? '同一道题，再回答一次。' : '独立作答，保留每次变化。' }}</h1><p>{{ reviewGap ? '结合本场岗位与原答缺口练一道新题，结果单独保存，不修改原复盘。' : projectGap ? '结合本场主项目独立作答。补练结果单独保存，不修改原面试证据矩阵。' : id ? '写下新答案，直接查看这次补齐了什么。' : '选择一道题，继续练习。' }}</p><RouterLink v-if="projectGap" :to="projectReportPath" class="text-link">{{ reviewGap ? '返回原面试复盘' : '返回原面试证据矩阵' }}</RouterLink></div>
+    <div v-if="!props.embedded" class="page-heading"><h1>{{ reviewGap ? '围绕本场回答，定向补练。' : projectGap ? '围绕项目缺口，定向补练。' : id ? '同一道题，再回答一次。' : '独立作答，保留每次变化。' }}</h1><p>{{ reviewGap ? '结合本场岗位与原答缺口练一道新题，结果单独保存，不修改原复盘。' : projectGap ? '结合本场主项目独立作答。补练结果单独保存，不修改原面试证据矩阵。' : id ? '写下新答案，直接查看这次补齐了什么。' : '选择一道题，继续练习。' }}</p><RouterLink v-if="projectGap" :to="projectReportPath" class="text-link">{{ reviewGap ? '返回原面试复盘' : '返回原面试证据矩阵' }}</RouterLink></div>
     <Notice :message="error" kind="error" /><Notice :message="notice" />
     <ModelRecovery :error="recovery" @recovered="recoverResult" />
     <button v-if="error && !active" class="btn btn-secondary" :disabled="loading" @click="load()">重新读取作答记录</button>
     <LoadingState v-if="loading" label="正在准备作答…" />
     <template v-if="!id && !loading">
-      <div v-if="!cases.length" class="panel training-empty"><h2>还没有同题案例</h2><p>在报告或复习项中，选择一道已有回答的问题开始。</p><RouterLink to="/review" class="btn btn-primary">前往错题复习</RouterLink></div>
+      <div v-if="!cases.length" class="panel training-empty"><h2>还没有同题案例</h2><p>在报告或复习项中，选择一道已有回答的问题开始。</p><RouterLink to="/review" class="btn btn-primary">前往错题重练</RouterLink></div>
       <div v-else class="panel training-list"><article v-for="c in cases" :key="c.id" class="training-list-row"><div><span class="tiny muted">案例版本 {{ c.caseVersion }}</span><h2>{{ c.question }}</h2></div><RouterLink :to="`/practice/${c.id}`" class="btn btn-secondary">开始作答</RouterLink></article></div>
       <button v-if="casesCursor" class="btn btn-secondary" @click="load(casesCursor || '')">加载更多案例</button>
     </template>
@@ -234,7 +240,7 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
       </section>
       <section v-if="comparison?.result" class="panel training-flow training-section practice-result" aria-label="本次对比结果" aria-live="polite"><h2>这次回答，有哪些变化？</h2><ComparisonResult :result="comparison.result" /><p v-if="comparison.scopeNotice" class="tiny muted">{{ comparison.scopeNotice }}</p></section>
       <button v-if="canCompare && !comparison?.result && !recovery?.operationId" class="btn btn-secondary training-section" data-action="retry-comparison" :disabled="busy" @click="retryComparison">{{ comparisonFailed ? '重试对比' : '生成本次对比' }}</button>
-      <div v-if="active && active.status !== 'DRAFT'" class="practice-actions practice-exits"><button class="btn btn-primary" data-action="again" :disabled="busy" @click="again">再练一次</button><RouterLink :to="projectGap ? projectReportPath : '/review'" class="btn btn-secondary">{{ reviewGap ? '返回原面试复盘' : projectGap ? '返回原面试证据矩阵' : '返回错题复习' }}</RouterLink></div>
+      <div v-if="active && active.status !== 'DRAFT'" class="practice-actions practice-exits"><button class="btn btn-primary" data-action="again" :disabled="busy" @click="again">再练一次</button><RouterLink :to="projectGap ? projectReportPath : '/review'" class="btn btn-secondary">{{ reviewGap ? '返回原面试复盘' : projectGap ? '返回原面试证据矩阵' : '返回错题重练' }}</RouterLink></div>
       <details class="practice-debug training-section"><summary>历史记录与评估详情</summary><div class="training-flow">
         <p class="tiny muted">案例版本 {{ source.caseVersion }} · {{ exposure[source.analysisExposure] }}。历史原答的评分协议保留未知，配对重评另存结果。</p>
         <p v-if="source.contextTruncated" class="tiny muted">原资料已截断，不能据此断言内容缺失。</p>

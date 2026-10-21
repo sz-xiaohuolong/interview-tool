@@ -1,6 +1,7 @@
 package cn.interview.controller.training;
 
 import cn.interview.common.ApiResponses;
+import cn.interview.service.training.TrainingRecordRemovalService;
 import cn.interview.service.training.PracticeService;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -8,9 +9,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping({"/api/training", "/api/v2"})
 class PracticeController {
-    final PracticeService s;PracticeController(PracticeService s){this.s=s;}
+    final PracticeService s;final TrainingRecordRemovalService removal;PracticeController(PracticeService s,TrainingRecordRemovalService removal){this.s=s;this.removal=removal;}
     @PostMapping("/practice-cases") Object create(@RequestBody JsonNode b){return ApiResponses.created("PRACTICE_CASE","LOCAL_USER",b,()->s.create(b));}
     @GetMapping("/practice-cases") Object list(@RequestParam(required=false)String cursor,@RequestParam(defaultValue="20")int limit,@RequestParam(required=false)String sourceId){return s.caseList(cursor,limit,sourceId);}
+    @DeleteMapping("/practice-cases/{id}") Object delete(@PathVariable String id,@RequestBody JsonNode body){return removal.practice(id,body);}
     @GetMapping("/practice-cases/{id}") Object detail(@PathVariable String id){return s.getCase(id);}
     @PostMapping("/practice-cases/{id}/reveal") Object reveal(@PathVariable String id,@RequestBody JsonNode b){return s.reveal(id,b);}
     @GetMapping("/practice-cases/{id}/attempts") Object attempts(@PathVariable String id,@RequestParam(required=false)String cursor,@RequestParam(defaultValue="20")int limit){return s.attempts(id,cursor,limit);}

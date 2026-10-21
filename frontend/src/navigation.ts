@@ -8,11 +8,13 @@ export type PrimarySection = 'overview' | 'quick' | 'interview' | 'materials' | 
 export interface LocationStep { title: string; to?: string }
 
 export const trainingNavigation = [
-  { to: '/review', title: '错题复习', detailTitle: '复习详情' },
-  { to: '/skills', title: '能力看板', detailTitle: '能力详情' },
-  { to: '/practice', title: '原题重练', detailTitle: '作答详情' },
-  { to: '/jd-diagnostics', title: '岗位诊断', detailTitle: '诊断详情' },
+  { to: '/review', title: '错题重练', detailTitle: '练习详情' },
   { to: '/stories', title: '项目经历', detailTitle: '经历详情' },
+]
+// 历史页面继续可读，但不再占用日常专项入口。
+const legacyTraining = [
+  { to: '/skills', title: '能力看板', detailTitle: '能力详情' },
+  { to: '/jd-diagnostics', title: '岗位诊断', detailTitle: '诊断详情' },
   { to: '/design-practice', title: '系统设计', detailTitle: '训练详情' },
 ]
 
@@ -22,10 +24,11 @@ export function navigationFor(path: string, pageTitle = '', sessionType?: Interv
   path = path.toLowerCase().replace(/\/+$/, '') || '/'
   // 兼容旧书签，导航归属仍使用当前业务路径。
   path = path.replace(/^\/interview-v3(?=\/|$)/, '/interviews')
-  const training = trainingNavigation.find(item => belongsTo(path, item.to)
+  const training = [...trainingNavigation, ...legacyTraining].find(item => belongsTo(path, item.to)
+    || (item.to === '/review' && belongsTo(path, '/practice'))
     || (item.to === '/jd-diagnostics' && belongsTo(path, '/sprints')))
   if (training) {
-    const detail = path !== training.to
+    const detail = path !== training.to && path !== '/practice'
     const breadcrumbs: LocationStep[] = [{ title: '专项训练', to: '/review' },
       { title: training.title, ...(detail ? { to: training.to } : {}) }]
     if (detail) breadcrumbs.push({ title: belongsTo(path, '/sprints') ? '训练清单' : training.detailTitle })

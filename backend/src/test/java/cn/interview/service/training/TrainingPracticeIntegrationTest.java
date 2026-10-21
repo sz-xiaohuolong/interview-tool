@@ -40,6 +40,59 @@ class TrainingPracticeIntegrationTest {
         var a=postJson("/api/v2/practice-cases/"+caseId+"/attempts",Map.of("requestId",UUID.randomUUID().toString(),"exposureDeclaration","NOT_SEEN"));
         return postJson("/api/v2/practice-attempts/"+a.path("id").asText()+"/submit",Map.of("requestId","submit","expectedVersion",0,"answer",answer));
     }
+    @Test void 删除独立案例保留原始问答且幂等并阻止旧作答入口()throws Exception {
+        var source=source();var c=caseFor(source,0);var other=caseFor(source,2);String cid=c.path("id").asText();
+        var draft=postJson("/api/training/practice-cases/"+cid+"/attempts",Map.of("requestId","delete-draft","exposureDeclaration","UNKNOWN"));
+        var before=legacy.session(source.path("id").asText());
+        var body=Map.of("requestId","delete-case","expectedVersion",c.path("revision").asInt());
+        for(int i=0;i<2;i++)mvc.perform(delete("/api/training/practice-cases/"+cid).contentType("application/json").content(json.writeValueAsBytes(body))).andExpect(status().isOk());
+        mvc.perform(get("/api/v2/practice-cases/"+cid)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/training/practice-attempts/"+draft.path("id").asText())).andExpect(status().isNotFound());
+        mvc.perform(post("/api/training/practice-attempts/"+draft.path("id").asText()+"/submit").contentType("application/json")
+            .content(json.writeValueAsBytes(Map.of("requestId","after-delete","expectedVersion",0,"answer","不可继续写入")))).andExpect(status().isNotFound());
+        assertThat(getJson("/api/training/practice-cases?sourceId="+source.path("id").asText()).path("items").findValuesAsText("id"))
+            .contains(other.path("id").asText()).doesNotContain(cid);
+        assertThat(legacy.session(source.path("id").asText())).isEqualTo(before);
+    }
+
+    @Test void 删除复习整题同时隐藏相关案例且不复活已删项()throws Exception {
+        var source=source();var c=caseFor(source,0);
+        var preview=getJson("/api/training/review-import-preview?sessionId="+source.path("id").asText());
+        var imported=postJson("/api/training/review-imports",Map.of("requestId","import-delete","sessionId",source.path("id").asText(),"expectedReportHash",preview.path("reportHash").asText()));
+        var item=imported.path("items").get(0);String rid=item.path("id").asText();
+        mvc.perform(delete("/api/v2/review-items/"+rid).contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId","delete-review","expectedVersion",item.path("revision").asInt())))).andExpect(status().isOk());
+        mvc.perform(get("/api/training/review-items/"+rid)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/training/practice-cases/"+c.path("id").asText())).andExpect(status().isNotFound());
+        var again=postJson("/api/training/review-imports",Map.of("requestId","import-after-delete","sessionId",source.path("id").asText(),"expectedReportHash",preview.path("reportHash").asText()));
+        assertThat(again.path("items").findValuesAsText("id")).doesNotContain(rid);
+        assertThat(getJson("/api/training/review-items?limit=100").path("items").findValuesAsText("id")).doesNotContain(rid);
+    }
+
+    @Test void 删除修订冲突或评估运行中不得移除记录()throws Exception {
+        var c=caseFor(source(),0);String cid=c.path("id").asText();
+        mvc.perform(delete("/api/training/practice-cases/"+cid).contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId","stale-delete","expectedVersion",99)))).andExpect(status().isConflict());
+        var running=db.object().put("caseId",cid).put("status","RUNNING");running.putArray("attemptIds");db.atomic(()->db.insert("v2_practice_evaluation_groups",running));
+        mvc.perform(delete("/api/training/practice-cases/"+cid).contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId","busy-delete","expectedVersion",0)))).andExpect(status().isConflict());
+        assertThat(getJson("/api/training/practice-cases/"+cid).path("id").asText()).isEqualTo(cid);
+    }
+
+    @Test void 整题删除检查所有关联运行状态并隔离同ID综合来源()throws Exception {
+        var source=source();var first=caseFor(source,0);var second=caseFor(source,2);
+        var independent=(com.fasterxml.jackson.databind.node.ObjectNode)first.deepCopy();independent.remove("id");independent.put("familyId",UUID.randomUUID().toString());independent.put("sourceSessionKind","V3");independent.put("contextOrigin","REVIEW_GAP");
+        db.atomic(()->db.insert("v2_practice_cases",(com.fasterxml.jackson.databind.node.ObjectNode)independent));
+        var preview=getJson("/api/training/review-import-preview?sessionId="+source.path("id").asText());
+        var item=postJson("/api/training/review-imports",Map.of("requestId","atomic-import","sessionId",source.path("id").asText(),"expectedReportHash",preview.path("reportHash").asText())).path("items").get(0);
+        var running=db.object().put("caseId",second.path("id").asText()).put("status","RUNNING");running.putArray("attemptIds");
+        db.atomic(()->db.insert("v2_practice_evaluation_groups",running));
+        String path="/api/training/review-items/"+item.path("id").asText();
+        mvc.perform(delete(path).contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId","atomic-busy","expectedVersion",item.path("revision").asInt())))).andExpect(status().isConflict());
+        assertThat(getJson("/api/training/practice-cases/"+first.path("id").asText()).has("deletedAt")).isFalse();
+        assertThat(getJson(path).has("deletedAt")).isFalse();
+        running.put("status","READY");db.atomic(()->db.save("v2_practice_evaluation_groups",running,0));
+        mvc.perform(delete(path).contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId","atomic-delete","expectedVersion",item.path("revision").asInt())))).andExpect(status().isOk());
+        assertThat(getJson("/api/training/practice-cases/"+independent.path("id").asText()).path("sourceSessionKind").asText()).isEqualTo("V3");
+    }
+
     @Test void mainAndFollowUpFreezeSeparateQuestionsAndNeverLeakTargetAnswer()throws Exception {
         var s=source();String before=legacy.session(s.path("id").asText()).toString();
         var main=caseFor(s,0);var follow=caseFor(s,2);

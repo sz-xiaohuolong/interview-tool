@@ -9,8 +9,10 @@ import { training, writeTraining } from '../../api/training'
 import { reviewLabels, findingLabels, localDate } from '../../models/training'
 import type { ReviewItem, Page, Skill } from '../../models/training'
 
+const props = withDefaults(defineProps<{ embedded?: boolean; reviewId?: string }>(), { embedded: false })
+const emit = defineEmits<{ changed: [] }>()
 const route = useRoute(), router = useRouter()
-const id = computed(() => String(route.params.id || route.query.id || ''))
+const id = computed(() => String(props.reviewId || route.params.id || route.query.id || ''))
 const item = ref<ReviewItem | null>(null), items = ref<ReviewItem[]>([]), skills = ref<Skill[]>([])
 const selected = ref<string[]>([]), reason = ref(''), error = ref(''), message = ref(''), busy = ref(false), loading = ref(true)
 const findingIds = ref<string[]>([]), history = ref<any[]>([]), historyCursor = ref<string | null>(null), historical = ref<any>(null)
@@ -28,7 +30,7 @@ async function caseFrom(m: { id: string }) {
 }
 const tab = ref(route.query.status === 'RESOLVED' ? 'done' : 'todo'), visibleCount = ref(20), listReady = ref(false)
 const moreOpen = ref(['ARCHIVED', 'WAITING_EVIDENCE'].includes(String(route.query.status || '')))
-interface PracticeCase { id: string; sourceKind: string; sourceId: string; messageId: string; questionIndex: number; mock: boolean; createdAt?: string }
+interface PracticeCase { id: string; sourceSessionKind?: string; sourceKind: string; sourceId: string; messageId: string; questionIndex: number; mock: boolean; createdAt?: string }
 interface PracticeAttempt { id: string; ordinal: number; status: string; submittedAt?: string; updatedAt?: string }
 interface Progress { path: string; done: boolean; updatedAt?: string; report?: boolean }
 const progress = ref<Record<string, Progress>>({})
@@ -46,7 +48,7 @@ async function allPages<T>(path: string) {
   return result
 }
 async function sourceCases(entry: ReviewItem) {
-  return allPages<PracticeCase>(`/practice-cases?sourceId=${encodeURIComponent(entry.sourceSessionId)}`)
+  return (await allPages<PracticeCase>(`/practice-cases?sourceId=${encodeURIComponent(entry.sourceSessionId)}`)).filter(c => (c.sourceSessionKind || 'SESSION') === 'SESSION')
 }
 async function loadProgress(entries: ReviewItem[]) {
   const next: Record<string, Progress> = {}
@@ -132,7 +134,7 @@ async function action(name: string, extra: Record<string, unknown> = {}) {
   busy.value = true; error.value = ''; message.value = ''
   try {
     item.value = await writeTraining<ReviewItem>(`/review-items/${item.value.id}/actions`, { expectedVersion: item.value.revision, action: name, ...extra })
-    message.value = name === 'ARCHIVE' ? '已移出待复习，原文保存在归档中。' : '已保存。'
+    emit('changed'); message.value = name === 'ARCHIVE' ? '已移出待复习，原文保存在归档中。' : '已保存。'
   } catch (e) { error.value = e instanceof Error ? e.message : '保存失败，本页选择已保留。' } finally { busy.value = false }
 }
 async function practice(entry: ReviewItem, chosen?: string[]) {
@@ -163,11 +165,11 @@ watch(id, () => { item.value = null; listReady.value = false; progress.value = {
 
 <template>
   <div class="page training-page">
-    <div class="page-heading heading-row"><div><h1>{{ id ? '回到问题，安排下一次练习。' : '把报告，变成下一次练习。' }}</h1><p>{{ id ? '查看待练内容，或直接开始重练。' : '挑一道没掌握的题，再练一次。' }}</p></div><RouterLink v-if="id" to="/review" class="text-link">返回错题复习</RouterLink></div>
+    <div v-if="!props.embedded" class="page-heading heading-row"><div><h1>{{ id ? '回到问题，安排下一次练习。' : '把报告，变成下一次练习。' }}</h1><p>{{ id ? '查看待练内容，或直接开始重练。' : '挑一道没掌握的题，再练一次。' }}</p></div><RouterLink v-if="id" to="/review" class="text-link">返回错题复习</RouterLink></div>
     <Notice :message="error" kind="error" /><Notice :message="message" />
     <button v-if="error" class="btn btn-secondary" data-action="reload" :disabled="loading" @click="load()"><PhArrowClockwise :size="16" />重新读取服务端记录</button>
     <LoadingState v-if="loading" label="正在读取本机复习记录…" />
-    <template v-if="!id && !loading && listReady">
+    <template v-if="!props.embedded && !id && !loading && listReady">
       <section v-if="ongoing.length" class="review-resume" aria-label="未完成的练习">
         <article v-for="entry in ongoing" :key="entry.id" class="review-resume-row">
           <div><p class="review-eyebrow">{{ progress[entry.id]?.report ? '练习已结束，复盘尚未完成' : '你有一道题尚未练完' }}</p><h2>{{ entry.question }}</h2></div>

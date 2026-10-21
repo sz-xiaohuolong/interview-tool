@@ -68,7 +68,8 @@ public class ReviewService {
                     var item=((ObjectNode)source).deepCopy().put("status","PENDING_CONFIRMATION");item.putNull("nextReviewAt");item.putArray("sourceVersions");
                     items.add(db.insert("v2_review_items",item));
                 } else {
-                    var current=db.get("v2_review_items",ids.getFirst());
+                    var current=db.getStored("v2_review_items",ids.getFirst());
+                    if(current.hasNonNull("deletedAt"))continue;
                     if(!current.path("reportHash").asText().equals(source.path("reportHash").asText())) {
                         var prior=current.deepCopy();prior.remove("sourceVersions");((ArrayNode)current.path("sourceVersions")).add(prior);
                         current.setAll((ObjectNode)source);current.put("confirmationPending",true);
@@ -268,7 +269,7 @@ public class ReviewService {
         });
     }
 
-    public ObjectNode source(String sessionId,int questionIndex) {db.enabled();var ids=db.reviewItemIds(sessionId,questionIndex);var out=db.object();if(ids.isEmpty())out.putNull("id");else out.put("id",ids.getFirst());return out;}
+    public ObjectNode source(String sessionId,int questionIndex) {db.enabled();var ids=db.reviewItemIds(sessionId,questionIndex).stream().filter(id->!db.getStored("v2_review_items",id).hasNonNull("deletedAt")).toList();var out=db.object();if(ids.isEmpty())out.putNull("id");else out.put("id",ids.getFirst());return out;}
 
     public ObjectNode get(String id) {var item=db.get("v2_review_items",id);attachTraining(item);return item;}
 

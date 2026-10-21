@@ -14,7 +14,15 @@ const router = createRouter({
     { path: '/reports/:id', component: () => import('./pages/interview/FocusedInterviewReport.vue'), meta: { title: '面试复盘' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
-  scrollBehavior: () => ({ top: 0 }),
+  scrollBehavior: (to, _from, savedPosition) => {
+    if (to.meta.trainingWorkspace) {
+      if (savedPosition) return savedPosition
+      if (!to.params.id && !to.query.id) {
+        try { return { top: JSON.parse(sessionStorage.getItem('training:workbench:view') || 'null')?.pageScroll || 0 } } catch { /* 无缓存时回到页首。 */ }
+      }
+    }
+    return { top: 0 }
+  },
 })
 
 registerInterviewRoutes(router)

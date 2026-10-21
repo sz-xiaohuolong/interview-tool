@@ -42,15 +42,15 @@ it.each([
 })
 
 it.each([
-  ['/review', '错题复习'], ['/review/item-1', '错题复习'], ['/skills', '能力看板'],
-  ['/practice', '原题重练'], ['/practice/case-1', '原题重练'],
+  ['/review', '错题重练'], ['/review/item-1', '错题重练'], ['/skills', '能力看板'],
+  ['/practice', '错题重练'], ['/practice/case-1', '错题重练'],
   ['/jd-diagnostics', '岗位诊断'], ['/jd-diagnostics/diagnosis-1', '岗位诊断'], ['/sprints/sprint-1', '岗位诊断'],
   ['/stories', '项目经历'], ['/stories/story-1', '项目经历'],
   ['/design-practice', '系统设计'], ['/design-practice/design-1', '系统设计'],
 ])('直接打开 %s 同时标明专项模块和当前工具', async (path, tool) => {
   const { wrapper } = await open(path)
   expect(wrapper.findAll('nav[aria-label="主导航"] a[aria-current="page"]').map(link => link.text())).toEqual(['专项训练'])
-  expect(wrapper.findAll('nav[aria-label="持续训练"] a[aria-current="page"]').map(link => link.text())).toEqual([tool])
+  expect(wrapper.findAll('nav[aria-label="持续训练"] a[aria-current="page"]').map(link => link.text())).toEqual(['错题重练', '项目经历'].includes(tool) ? [tool] : [])
   expect(wrapper.find('nav[aria-label="当前位置"]').text()).toContain(tool)
 })
 
@@ -63,7 +63,7 @@ it('切换到历史再返回时，训练导航随路由恢复，不依赖点击�
   await router.replace('/review/item-1?from=report')
   await flushPromises()
   expect(wrapper.get('nav[aria-label="主导航"] a[aria-current="page"]').text()).toBe('专项训练')
-  expect(wrapper.get('nav[aria-label="持续训练"] a[aria-current="page"]').text()).toBe('错题复习')
+  expect(wrapper.get('nav[aria-label="持续训练"] a[aria-current="page"]').text()).toBe('错题重练')
 })
 
 it('复习详情的面包屑可以返回已有列表路径', async () => {
@@ -79,8 +79,8 @@ it.each(['/REVIEW', '/review/'])('路由兼容路径 %s 保持列表归属与原
   const { wrapper, router } = await open(path)
   expect(router.currentRoute.value.path).toBe(path)
   expect(wrapper.get('nav[aria-label="主导航"] a[aria-current="page"]').text()).toBe('专项训练')
-  expect(wrapper.get('nav[aria-label="持续训练"] a[aria-current="page"]').text()).toBe('错题复习')
-  expect(wrapper.get('nav[aria-label="当前位置"]').text()).not.toContain('复习详情')
+  expect(wrapper.get('nav[aria-label="持续训练"] a[aria-current="page"]').text()).toBe('错题重练')
+  expect(wrapper.get('nav[aria-label="当前位置"]').text()).not.toContain('练习详情')
 })
 
 it('专项训练 关闭时保留快速与综合两项面试入口，不暴露专项入口', async () => {
@@ -104,4 +104,13 @@ it('专项训练 关闭时保留快速与综合两项面试入口，不暴露专
     expect(wrapper.get('nav[aria-label="主导航"] a[aria-current="page"]').text()).toBe('快速练习')
     expect(wrapper.get('nav[aria-label="当前位置"]').text()).toContain('快速练习')
   } finally { vi.mocked(request).mockImplementation(original) }
+})
+
+it('专项只展示错题重练与项目经历，原题地址归属同一入口', async () => {
+  const { wrapper, router } = await open('/practice/case-1')
+  expect(wrapper.findAll('nav[aria-label="持续训练"] a').map(a => a.text())).toEqual(['错题重练', '项目经历'])
+  expect(wrapper.get('nav[aria-label="持续训练"] a[aria-current="page"]').text()).toBe('错题重练')
+  await router.push('/skills'); await flushPromises()
+  expect(wrapper.findAll('nav[aria-label="持续训练"] a').map(a => a.text())).toEqual(['错题重练', '项目经历'])
+  expect(wrapper.get('nav[aria-label="当前位置"]').text()).toContain('能力看板')
 })

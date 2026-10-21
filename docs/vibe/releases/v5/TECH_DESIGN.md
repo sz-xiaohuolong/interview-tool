@@ -78,3 +78,26 @@ PLAN输入在所选 `agentPractice.points[]` 中新增可选 `seedQuestion`（ID
 - 获取状态为 `FETCHED`、`CACHED`、`HTTP_ERROR`、`TIMEOUT`、`NETWORK_DISABLED`、`INVALID_CONTENT`、`LIMIT_EXCEEDED`、`NETWORK_ERROR`。例：`{"sourceId":"官方来源ID","status":"HTTP_ERROR","httpStatus":503,"message":"参考文档返回HTTP 503","cacheUsed":true,"stale":false}`，对应主提示“已使用本地缓存”。无正文时不伪造成功引用，主提示“本次未获取到参考文档”。
 
 `KnowledgeService`继续受控域名、2MiB、48小时TTL和最多六篇资料；完整单请求10秒、并行整组11秒，无自动重试。有效缓存直接复用；失败时按真实有效性回退，过期状态仍阻止以旧资料直接判错。没有新增依赖、表、数据迁移或外部采集；状态保存在原JSON快照中，旧场继续读取，前端缺少新字段时保持兼容。
+
+
+## 7. 错题重练工作台与删除（2026-10-21）
+
+`routing/training.ts` 将 `/review`、`/review/:id`、`/practice`、`/practice/:id` 接到同一个 `TrainingWorkbench.vue`。App 对这四条路由保留工作台实例，右侧复用 `Review.vue` 与 `Practice.vue` 的嵌入模式，不复制评估链路。桌面为列表与详情双栏，760px以下切换列表/详情；筛选、搜索和滚动位置保存在当前浏览器会话，未提交回答沿用原有按attemptId保存的草稿。显式结果地址和浏览器恢复继续读取原尝试，不自动新建作答；点击“再练一次”才创建新草稿。
+
+整题下的既有案例保留在“同题作答记录”折叠区；进入已有追问时携带该案例的最新attemptId，直接恢复原尝试。列表容器滚动与手机整页滚动分别保存；路由返回列表时恢复整页位置，异步读取完成后补偿恢复，不影响其他页面的回到页首行为。
+
+导航只展示错题重练、项目经历；能力看板、岗位诊断和系统设计的旧路由、组件、服务及数据保留。全站一级入口和原面试接口不调整。列表合并所有复习项与独立案例，按SESSION来源、SESSION场次类型、sourceId、questionIndex和Mock身份关联；V3复盘补练、项目补练、故事单独保留。状态为待练习、练习中、已完成、待核实/归档；完成仅表示作答评估完成，不推断掌握。
+
+### HTTP契约与数据边界
+
+所有接口继续由 `api/training.ts` 调用 `/api/training`；旧 `/api/v2` 是同一控制器的别名。
+
+| 方法与地址 | 输入与返回 | 约束 |
+|---|---|---|
+| `GET /practice-cases` | 原分页列表追加可选 `latestAttempt: {id, ordinal, status, submittedAt?, updatedAt?}` | 不附完整答案，供工作台状态和恢复地址使用；旧客户端可忽略 |
+| `DELETE /practice-cases/{id}` | JSON `{requestId, expectedVersion}`，200返回 `{id, deletedAt, revision}` | 只移除此案例及作答/评估/对比入口 |
+| `DELETE /review-items/{id}` | 同上 | 移除整题复习入口及身份匹配的关联案例；同ID但不同来源不受影响 |
+
+删除由 `TrainingRecordRemovalService` 与现有 `OperationService.write` 在同一事务内执行。所有关联资源先检查状态；生成、提交、评估或对比运行中返回409，版本不符返回409。相同requestId和输入幂等返回已保存结果；已删除地址和旧作答写入返回404。删除成功后工作台刷新列表；取消不请求服务端，失败保留原记录及输入。
+
+沿用故事库已有的JSON `deletedAt` 逻辑删除模式。`TrainingStore.get/page/ids` 在业务读取时过滤删除标记，子资源检查所属案例；原始行仍留在本机数据库用于内部追溯，不新增SQL迁移。复习导入通过内部 `getStored` 识别已删除项并跳过，避免重复导入复活及唯一索引冲突。原始面试、报告、资料与技能事件不修改，也不以删除重算能力。日常个人记录不用于删除验收。

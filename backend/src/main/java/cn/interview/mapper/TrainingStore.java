@@ -51,6 +51,15 @@ public class TrainingStore {
         return out.toString();
     }
     public ObjectNode get(String table, String id) {
+        var row=getStored(table,id);
+        if(Set.of("v2_stories","v2_review_items","v2_practice_cases").contains(table)&&row.hasNonNull("deletedAt"))
+            throw new RecoveryException(404,"V2_NOT_FOUND","记录已删除，请返回列表。","LOAD_LATEST");
+        if(Set.of("v2_practice_attempts","v2_practice_evaluation_groups","v2_practice_comparisons").contains(table))
+            get("v2_practice_cases",row.path("caseId").asText());
+        return row;
+    }
+    /** 仅供导入防复活和审计使用；公开业务读取须调用get。 */
+    public ObjectNode getStored(String table, String id) {
         columns(table);
         var found=database.jdbc.query("SELECT * FROM "+table+" WHERE id=?",(rs,n)->{
             ObjectNode row=database.decode(rs.getString("payload"));
@@ -60,7 +69,7 @@ public class TrainingStore {
             }
             return row;
         },id);
-        if(found.isEmpty()||table.equals("v2_stories")&&found.getFirst().hasNonNull("deletedAt")) throw new RecoveryException(404,"V2_NOT_FOUND","记录不存在或来源已删除，请返回列表。","LOAD_LATEST");
+        if(found.isEmpty()) throw new RecoveryException(404,"V2_NOT_FOUND","记录不存在或来源已删除，请返回列表。","LOAD_LATEST");
         return found.getFirst();
     }
     public ObjectNode insert(String table,ObjectNode row) {
@@ -98,7 +107,9 @@ public class TrainingStore {
     }
     public ObjectNode page(String table,String cursor,int limit,String status,String filterColumn,String filterValue) {
         columns(table);limit=Math.max(1,Math.min(100,limit));var args=new ArrayList<Object>();String where=" WHERE 1=1";
-        if(table.equals("v2_stories"))where+=" AND json_extract(payload,'$.deletedAt') IS NULL";
+        if(Set.of("v2_stories","v2_review_items","v2_practice_cases").contains(table))where+=" AND json_extract(payload,'$.deletedAt') IS NULL";
+        if(Set.of("v2_practice_attempts","v2_practice_evaluation_groups","v2_practice_comparisons").contains(table))
+            where+=" AND case_id IN (SELECT id FROM v2_practice_cases WHERE json_extract(payload,'$.deletedAt') IS NULL)";
         if(status!=null&&!status.isBlank()) {where+=" AND "+(table.equals("v2_operations")?"state":"status")+"=?";args.add(status);}
         if(filterColumn!=null) {if(!columns(table).contains(filterColumn))throw new IllegalArgumentException("无效筛选字段");where+=" AND "+filterColumn+"=?";args.add(filterValue);}
         if(cursor!=null&&!cursor.isBlank()) {
@@ -112,7 +123,7 @@ public class TrainingStore {
         else out.putNull("nextCursor");return out;
     }
     public ObjectNode reviewPage(String cursor,int limit,String status) {
-        enabled();limit=Math.max(1,Math.min(100,limit));var args=new ArrayList<Object>();String where=" WHERE 1=1";
+        enabled();limit=Math.max(1,Math.min(100,limit));var args=new ArrayList<Object>();String where=" WHERE json_extract(payload,'$.deletedAt') IS NULL";
         if(status!=null&&!status.isBlank()){where+=" AND status=?";args.add(status);}
         String due="COALESCE(next_review_at,'9999')";
         if(cursor!=null&&!cursor.isBlank())try {
@@ -126,7 +137,15 @@ public class TrainingStore {
     }
     public List<String> ids(String table,String column,String value) {
         if(!columns(table).contains(column))throw new IllegalArgumentException("无效索引字段");
-        return database.jdbc.query("SELECT id FROM "+table+" WHERE "+column+"=? ORDER BY created_at,id",(rs,n)->rs.getString(1),value);
+        return database.jdbc.query("SELECT id FROM "+table+" WHERE "+column+"=?"+(Set.of("v2_stories","v2_practice_cases").contains(table)?" AND json_extract(payload,'$.deletedAt') IS NULL":"")+" ORDER BY created_at,id",(rs,n)->rs.getString(1),value);
+    }
+
+    public ObjectNode latestAttemptSummary(String caseId) {
+        var ids=database.jdbc.query("SELECT id FROM v2_practice_attempts WHERE case_id=? ORDER BY ordinal DESC LIMIT 1",(rs,n)->rs.getString(1),caseId);
+        if(ids.isEmpty())return null;
+        var row=get("v2_practice_attempts",ids.getFirst());var out=object();
+        for(String key:List.of("id","ordinal","status","submittedAt","updatedAt"))if(row.has(key))out.set(key,row.path(key).deepCopy());
+        return out;
     }
 
     public SqliteStore database() {return database;}
