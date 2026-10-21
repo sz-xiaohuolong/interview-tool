@@ -42,7 +42,7 @@
 | Agent考点目录与独立验收 | [60项目录及逐项引用](backend/src/main/resources/knowledge/agent-interview-topics.json) · [28次协议与实际结果](evals/agent-topic-coverage/README.md) | 17/28次已尝试 / STOPPED_ON_FAILURE | 首批6次PLAN及18题获人工总体通过；新增1 PLAN、9 FOLLOWUP通过，第一场复盘HTTP 408，第二场未启动，剩余11次未发送。已知107230 Token、失败用量未知；原24例及独立12轮账本保持独立 |
 | 跨轮发现与追问优先级改进 | [目标、验收与执行结果](evals/interview-agent/multiturn/README.md#12-未解风险和矛盾追问优先级) · [剧本与逐例验收表](evals/interview-agent/multiturn/CASES.md) | 最小实现完成 / 固定历史质量PARTIAL | 未加记忆；18份真实配对中C02、Q03改善，原C04未通过，两项明确同路径控制另行通过。Token增加20.9%、平均耗时增加1355毫秒；标准后端352通过／7跳过、前端282及构建通过。原发现及V4账本独立，完整场次未验收 |
 
-| GitHub 公开仓库源码面试 | [冻结范围](docs/vibe/releases/v5/SPEC.md) · [实现设计](docs/vibe/releases/v5/TECH_DESIGN.md) · [实施记录](docs/vibe/releases/v5/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v5/VERIFICATION.md) | 已本机启用 / 限定证据VERIFIED | 单项目固定Commit、两条面试及复盘引用；后端376通过／8跳过、前端289及构建、浏览器46项；真实两种规划8道源码主问核对通过，完整真实问答复盘未测；持续授权同步origin/main，正式Release仍V1 |
+| GitHub 公开仓库源码面试 | [冻结范围](docs/vibe/releases/v5/SPEC.md) · [实现设计](docs/vibe/releases/v5/TECH_DESIGN.md) · [实施记录](docs/vibe/releases/v5/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v5/VERIFICATION.md) · [大提交关联修复](docs/vibe/releases/v5/VERIFICATION.md#github大提交导致仓库关联失败修复2026-10-21) | 已本机启用 / 限定证据VERIFIED | 单项目固定Commit、两条面试及复盘引用；后端376通过／8跳过、前端289及构建、浏览器46项；真实两种规划8道源码主问核对通过，完整真实问答复盘未测；持续授权同步origin/main，正式Release仍V1 |
 
 | V5 独立题单与获取详情优化 | [需求Q1～Q4](docs/vibe/releases/v5/SPEC.md#独立题单映射与覆盖验证2026-10-21) · [设计与接口](docs/vibe/releases/v5/TECH_DESIGN.md#6-独立题单与技术资料获取2026-10-21) · [映射与缺口](backend/src/main/resources/knowledge/questions/README.md) · [本轮验证](docs/vibe/releases/v5/VERIFICATION.md#独立题单映射与覆盖验证2026-10-21) | 有限闭环VERIFIED | 原60考点不改，60道素材覆盖31项、29项动态回退；386后端通过／8跳过、294前端及构建、8浏览器；真实1次5题规划核对通过，完整真实问答/复盘未测，日常重启与原数据核对通过 |
 

@@ -80,13 +80,18 @@ public final class FixedHttpTransport implements KnowledgeTransport {
             .header("Accept-Encoding", "identity")
             .GET()
             .build();
-    var pending = client.sendAsync(request, response -> new BoundedBody(maximum));
+    var body = new BoundedBody(maximum);
+    var pending = client.sendAsync(request, response -> body);
     try {
       var response = pending.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
       return new KnowledgeTransport.Payload(
           response.statusCode(),
           response.headers().firstValue("content-type").orElse(""),
           response.body());
+    } catch (Exception error) {
+      // HTTP/2取消可能将原始大小错误包装成IOException，仍须保留准确原因。
+      if (body.exceeded) throw new IllegalStateException("公开资料超过大小限制", error);
+      throw error;
     } finally {
       if (!pending.isDone()) pending.cancel(true);
     }
@@ -97,6 +102,7 @@ public final class FixedHttpTransport implements KnowledgeTransport {
     private final ByteArrayOutputStream output = new ByteArrayOutputStream();
     private final CompletableFuture<byte[]> completion = new CompletableFuture<>();
     private Flow.Subscription subscription;
+    private volatile boolean exceeded;
 
     BoundedBody(int maximum) {
       this.maximum = maximum;
@@ -117,8 +123,9 @@ public final class FixedHttpTransport implements KnowledgeTransport {
     public void onNext(List<ByteBuffer> buffers) {
       for (ByteBuffer buffer : buffers) {
         if ((long) output.size() + buffer.remaining() > maximum) {
-          subscription.cancel();
+          exceeded = true;
           completion.completeExceptionally(new IllegalStateException("公开资料超过大小限制"));
+          subscription.cancel();
           return;
         }
         byte[] part = new byte[buffer.remaining()];

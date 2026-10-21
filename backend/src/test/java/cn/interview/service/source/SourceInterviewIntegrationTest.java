@@ -38,6 +38,24 @@ class SourceInterviewIntegrationTest {
     ObjectNode request(){return json.createObjectNode().put("requestId",UUID.randomUUID().toString());}
     JsonNode project()throws Exception{return post("/api/materials",json.createObjectNode().put("kind","PROJECT").put("name","合成订单项目").put("content","使用 Java 开发订单接口；本人负责参数校验与异常处理。").put("githubUrl","https://github.com/acme/orders"));}
     JsonNode waitFor(String id,String state)throws Exception {for(int i=0;i<200;i++){var s=get("/api/interviews/"+id);if(s.path("status").asText().equals(state))return s;Thread.sleep(20);}throw new AssertionError(get("/api/interviews/"+id));}
+    @Test void 相同仓库的失败关联可通过保存恢复且项目正文保持()throws Exception {
+        when(github.resolve("acme/orders")).thenThrow(GitHubCodeClient.failure("SOURCE_TOO_LARGE","GitHub 响应超过读取上限，未自动重试"))
+            .thenReturn(json.createObjectNode().put("repository","acme/orders").put("url","https://github.com/acme/orders")
+                .put("branch","main").put("commitSha","b".repeat(40)).put("status","READY"));
+        var failed=project();
+        assertThat(failed.path("repository").path("status").asText()).isEqualTo("FAILED");
+        assertThat(failed.path("repository").path("error").asText()).contains("读取上限").doesNotContain("超时");
+        var body=json.createObjectNode().put("name",failed.path("name").asText()).put("content",failed.path("content").asText())
+            .put("githubUrl",failed.path("repository").path("url").asText());
+        var result=json.readTree(mvc.perform(put("/api/materials/"+failed.path("id").asText()).contentType("application/json")
+            .content(body.toString())).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertThat(result.path("repository").path("status").asText()).isEqualTo("READY");
+        assertThat(result.path("repository").path("commitSha").asText()).isEqualTo("b".repeat(40));
+        assertThat(result.path("name")).isEqualTo(failed.path("name"));
+        assertThat(result.path("content")).isEqualTo(failed.path("content"));
+        assertThat(get("/api/materials").toString()).contains("b".repeat(40));
+    }
+
     @Test void focusedSnapshotSurvivesUnbindingAndOnlyReportExposesCode()throws Exception {
         var project=project();String pid=project.path("id").asText();
         assertThat(project.path("repository").path("commitSha").asText()).isEqualTo("a".repeat(40));

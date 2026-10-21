@@ -141,3 +141,5 @@ ANALYZE 不接收源码；PLAN、相关 FOLLOWUP 和 REVIEW 复用本场证据�
 进行中只公开仓库、版本、状态和有无源码依据，复盘才展示核验片段与固定行号链接。模型题干由服务端检查已知源码/路径/目标泄漏。源码用量单独保存于 `sourceCode.modelUsage`，未并入原主流程界面合计；可通过 `SOURCE_ENABLED=false` 关闭后续探索。详细限额、文件职责和状态见[V5技术设计](releases/v5/TECH_DESIGN.md)，实际证据见[V5验证](releases/v5/VERIFICATION.md)。
 
 2026-10-21 快速练习追加可选素材身份及参考文档获取详情，接口地址不变；数据、失败状态与前端调用说明见[V5设计第6节](releases/v5/TECH_DESIGN.md#6-独立题单与技术资料获取2026-10-21)。考点与原题ID分别记录，旧数据不回填。
+
+2026-10-21 GitHub版本查询改用轻量分支摘要获取Commit，避免大提交详情触发256KiB限额；共用HTTP读取器保留响应超限原因，GitHub接口区分超限与JSON格式错误。范围、恢复与真实验证见[V5修复记录](releases/v5/VERIFICATION.md#github大提交导致仓库关联失败修复2026-10-21)。

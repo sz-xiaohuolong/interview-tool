@@ -28,7 +28,7 @@ class GitHubCodeClientTest {
         KnowledgeTransport transport=(uri,timeout,max)->{
             requests.add(uri.toString());String path=uri.getPath();
             if(path.equals("/repos/acme/orders"))return payload("{\"private\":false,\"full_name\":\"acme/orders\",\"default_branch\":\"main\"}");
-            if(path.equals("/repos/acme/orders/commits/main"))return payload("{\"sha\":\""+sha+"\"}");
+            if(path.equals("/repos/acme/orders/branches/main"))return payload("{\"commit\":{\"sha\":\""+sha+"\"}}");
             if(path.equals("/repos/acme/orders/git/trees/"+sha))return payload("{\"tree\":[{\"path\":\"src/Orders.java\",\"mode\":\"100644\",\"type\":\"blob\",\"sha\":\""+blob+"\",\"size\":"+source.length+"}]}");
             if(path.matches("/repos/acme/(orders|billing)/git/blobs/"+blob))return payload("{\"sha\":\""+blob+"\",\"encoding\":\"base64\",\"content\":\""+Base64.getEncoder().encodeToString(source)+"\"}");
             throw new AssertionError("未知请求："+uri);
@@ -62,5 +62,38 @@ class GitHubCodeClientTest {
         var timeout=new GitHubCodeClient(json,(u,t,m)->{throw new java.net.http.HttpTimeoutException("测试超时");},cache);
         assertThatThrownBy(()->timeout.resolve("acme/orders")).isInstanceOf(ApiException.class).hasMessageContaining("超时");
     }
+    @Test void 默认分支版本查询不读取完整提交变更且保留分支转义() {
+        String sha="c".repeat(40);
+        var requests=new ArrayList<String>();
+        var client=new GitHubCodeClient(json,(uri,timeout,max)->{
+            requests.add(uri.getRawPath());
+            if(uri.getRawPath().equals("/repos/acme/orders"))return payload("{\"private\":false,\"full_name\":\"acme/orders\",\"default_branch\":\"release/java21\"}");
+            if(uri.getRawPath().equals("/repos/acme/orders/branches/release%2Fjava21")) {
+                assertThat(max).isEqualTo(256*1024);
+                return payload("{\"name\":\"release/java21\",\"commit\":{\"sha\":\""+sha+"\"}}");
+            }
+            throw new AssertionError("不得请求完整提交或未知接口："+uri);
+        },cache);
+        var snapshot=client.resolve("acme/orders");
+        assertThat(snapshot.path("commitSha").asText()).isEqualTo(sha);
+        assertThat(snapshot.path("branch").asText()).isEqualTo("release/java21");
+        assertThat(requests).containsExactly("/repos/acme/orders","/repos/acme/orders/branches/release%2Fjava21");
+    }
+
+    @Test void 响应超过上限与损坏JSON不能误报为连接超时() {
+        var tooLarge=new GitHubCodeClient(json,(uri,timeout,max)->{
+            throw new java.util.concurrent.ExecutionException(new IllegalStateException("公开资料超过大小限制"));
+        },cache);
+        assertThatThrownBy(()->tooLarge.resolve("acme/orders")).isInstanceOfSatisfying(ApiException.class,error->{
+            assertThat(error.code).isEqualTo("SOURCE_TOO_LARGE");
+            assertThat(error.getMessage()).contains("读取上限").doesNotContain("超时");
+        });
+        var invalid=new GitHubCodeClient(json,(uri,timeout,max)->payload("不是JSON"),cache);
+        assertThatThrownBy(()->invalid.resolve("acme/orders")).isInstanceOfSatisfying(ApiException.class,error->{
+            assertThat(error.code).isEqualTo("SOURCE_INVALID");
+            assertThat(error.getMessage()).contains("格式").doesNotContain("超时");
+        });
+    }
+
     KnowledgeTransport.Payload payload(String text){return new KnowledgeTransport.Payload(200,"application/json",text.getBytes(StandardCharsets.UTF_8));}
 }

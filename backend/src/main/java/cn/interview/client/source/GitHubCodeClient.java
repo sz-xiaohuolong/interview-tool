@@ -50,7 +50,8 @@ public class GitHubCodeClient {
             throw failure("SOURCE_NOT_PUBLIC","仓库不是可核验的 GitHub 公开仓库");
         String branch=info.path("default_branch").asText();
         if(branch.isBlank()||branch.length()>200)throw failure("SOURCE_EMPTY","仓库没有可读取的默认分支");
-        String commit=get("/repos/"+repo+"/commits/"+URLEncoder.encode(branch,StandardCharsets.UTF_8),256*1024).path("sha").asText();
+        // 分支摘要足以锁定版本，避免提交详情携带大批文件差异。
+        String commit=get("/repos/"+repo+"/branches/"+URLEncoder.encode(branch,StandardCharsets.UTF_8),256*1024).path("commit").path("sha").asText();
         if(!commit.matches("[a-f0-9]{40}"))throw failure("SOURCE_INVALID","GitHub 未返回有效的代码版本");
         return json.createObjectNode().put("repository",repo).put("url","https://github.com/"+repo)
                 .put("commitSha",commit).put("branch",branch).put("status","READY").put("checkedAt",java.time.Instant.now().toString());
@@ -131,7 +132,14 @@ public class GitHubCodeClient {
             if(response.status()!=200)throw failure("SOURCE_UNAVAILABLE","GitHub 暂不可用，未自动重试");
             if(response.body().length>maximum)throw failure("SOURCE_TOO_LARGE","GitHub 响应超过读取上限");
             return json.readTree(response.body());
-        }catch(ApiException e){throw e;}catch(Exception e){throw failure("SOURCE_UNAVAILABLE","GitHub 读取超时或连接失败，未自动重试");}
+        }catch(ApiException e){throw e;}
+        catch(com.fasterxml.jackson.core.JsonProcessingException e){throw failure("SOURCE_INVALID","GitHub 响应格式无效，未自动重试");}
+        catch(Exception e){
+            for(Throwable cause=e;cause!=null;cause=cause.getCause())
+                if("公开资料超过大小限制".equals(cause.getMessage()))
+                    throw failure("SOURCE_TOO_LARGE","GitHub 响应超过读取上限，未自动重试");
+            throw failure("SOURCE_UNAVAILABLE","GitHub 读取超时或连接失败，未自动重试");
+        }
     }
     public static ApiException failure(String code,String message){return new ApiException(503,code,message);}
 }
