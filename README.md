@@ -56,7 +56,7 @@ INTERVIEW_MODEL_NAME="deepseek-chat"
 脚本将同时拉起 Spring Boot 后端与 Vite 前端：
 - 🖥️ **前端界面**：[http://localhost:5173](http://localhost:5173)
 - ⚙️ **后端接口**：[http://127.0.0.1:8080](http://127.0.0.1:8080)
-- 🩺 **健康检查**：[http://127.0.0.1:8080/actuator/health](http://127.0.0.1:8080/actuator/health)
+- 🩺 **状态检查**：[http://127.0.0.1:8080/api/training/status](http://127.0.0.1:8080/api/training/status)
 
 ---
 
