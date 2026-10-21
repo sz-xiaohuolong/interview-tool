@@ -232,6 +232,7 @@ watch(answer, value => {
 watch(expired, value => { if (value) speech.value?.stopAndKeepDraft() }, { flush: 'sync' })
 watch(() => messages.value.length, async () => {
   await nextTick()
+  // 新问题与输入框同时就绪，避免平滑滚动期间仍停留在旧问题。
   if (messagesPanel.value) messagesPanel.value.scrollTop = messagesPanel.value.scrollHeight
 })
 
@@ -250,14 +251,14 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 </script>
 
 <template>
-  <div class="page interview-page">
+  <div class="page interview-page interview-session-page">
     <header class="page-heading"><nav class="interview-actions" :aria-label="quick ? '快速练习导航' : '综合面试导航'"><RouterLink :to="quick ? '/configure/quick' : '/interviews'" class="text-link">← {{ quick ? '快速练习' : '综合面试与记录' }}</RouterLink><RouterLink to="/" class="text-link">返回练习概览</RouterLink></nav><h1>{{ session?.role || '综合面试' }}</h1><p v-if="session">{{ levelLabels[session.level] || session.level }} · {{ quick ? '快速练习' : enhanced ? session.interviewMode === 'TIMED' ? `${session.timeLimitMinutes} 分钟计时实战` : '不限时训练' : `${session.durationMinutes} 分钟目标` }}<span v-if="session.plannedQuestionCount"> · {{ quick ? '' : '计划 ' }}{{ session.plannedQuestionCount }} 道主问题{{ quick ? '，追问另计' : '，实际轮数灵活调整' }}</span> · {{ displayDate(session.createdAt) }}</p></header>
     <Notice :message="state.error" kind="error" />
     <Notice :message="state.pollError" kind="warning" />
     <div v-if="state.pollError || state.error" class="interview-actions"><button class="btn btn-secondary" :disabled="state.busy !== ''" data-action="reload" @click="load">刷新已保存状态</button></div>
     <p v-if="state.loading" role="status" class="muted">正在恢复本场面试…</p>
     <template v-if="session">
-      <SourceCodeEvidence :source="session.sourceCode" />
+      <SourceCodeEvidence v-if="!hasStarted" :source="session.sourceCode" />
       <div class="interview-meta"><span class="badge">{{ statusLabels[session.status] || '任务处理中' }}</span><span v-if="session.mock" class="badge badge-orange">Mock 测试 · 非真实模型评估</span><span class="tiny muted">离开或刷新后可继续查看</span></div>
       <section v-if="session.status === 'FAILED' || session.status === 'INTERRUPTED'" class="interview-recovery" aria-labelledby="interview-recovery-title">
         <Notice v-if="session.error" :message="session.error" kind="error" />
@@ -302,6 +303,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       </section>
 
       <ReportReview v-if="session.report?.version === 2" :session="session" />
+      <div class="interview-workspace" :class="{ 'is-live': hasStarted && !session.report }">
       <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel interview-dialogue" aria-labelledby="interview-dialogue-title">
         <header class="chat-header"><h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : quick ? '围绕技术，讲清思路' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
         <div ref="messagesPanel" class="chat-messages interview-messages" role="log" aria-label="面试对话" aria-live="polite">
@@ -321,22 +323,30 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <section v-if="session.report && session.report.version !== 2" class="interview-report" aria-labelledby="interview-report-title"><div class="heading-row"><h2 id="interview-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel interview-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel interview-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="interview-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="interview-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#interview-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
 
       <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
+      <aside class="interview-inspector" aria-label="面试上下文与依据">
+        <template v-if="hasStarted && !session.report">
+          <div class="inspector-heading"><h2>本场上下文</h2><span class="tiny muted">只读</span></div>
+          <section class="inspector-context"><h3>{{ session.role }}</h3><p class="form-help">{{ levelLabels[session.level] || session.level }} · {{ quick ? '快速练习' : '综合面试' }}</p><dl class="context-data"><div><dt>已提交回答</dt><dd>{{ messages.filter(m => m.role === 'USER').length }}</dd></div><div v-if="session.plannedQuestionCount"><dt>计划主问题</dt><dd>{{ session.plannedQuestionCount }}</dd></div></dl><template v-if="session.mainProject"><h3>{{ session.mainProject.name }}</h3><p>{{ session.mainProject.brief }}</p></template><p class="form-help">正式作答时不展示参考答案。完成复盘后，可回查回答与技术依据。</p></section>
+          <SourceCodeEvidence :source="session.sourceCode" />
+        </template>
       <KnowledgeSources v-if="sources.length || session.agentTopics?.length || session.knowledgeRetrieval?.length" :sources="sources" :retrieval="session.knowledgeRetrieval" :agent-topics="session.agentTopics" :planned-question-count="session.plannedQuestionCount" />
-      <footer class="footer-note"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }}<template v-if="session.usage?.maxCalls"> / {{ session.usage.maxCalls }}</template> 次。</span><span v-if="hasTokenUsage" data-token-usage>已统计 Token：输入 {{ tokenCount(session.usage?.promptTokens) }} · 输出 {{ tokenCount(session.usage?.completionTokens) }} · 合计 {{ tokenCount(session.usage?.totalTokens) }}<template v-if="session.usage?.usageIncomplete">；部分调用未返回用量，统计不完整。</template></span><span v-else data-token-usage>暂未取得 Token 用量。</span></footer>
+      </aside>
+      </div>
+      <footer class="footer-note mono"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }}<template v-if="session.usage?.maxCalls"> / {{ session.usage.maxCalls }}</template> 次。</span><span v-if="hasTokenUsage" data-token-usage>已统计 Token：输入 {{ tokenCount(session.usage?.promptTokens) }} · 输出 {{ tokenCount(session.usage?.completionTokens) }} · 合计 {{ tokenCount(session.usage?.totalTokens) }}<template v-if="session.usage?.usageIncomplete">；部分调用未返回用量，统计不完整。</template></span><span v-else data-token-usage>暂未取得 Token 用量。</span></footer>
     </template>
   </div>
 </template>
 
 <style scoped>
-.interview-page .btn { min-height: 44px; }
-.interview-page .panel { margin-bottom: 24px; }
+.interview-page .btn { min-height: 32px; }
+.interview-page .panel { margin-bottom: 16px; }
 .interview-page :is(button, a, summary, textarea, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .interview-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin: 18px 0; }
-.interview-actions .text-link { display: inline-flex; align-items: center; min-height: 44px; }
+.interview-actions .text-link { display: inline-flex; align-items: center; min-height: 32px; }
 .interview-page .page-heading .interview-actions { margin: 0 0 14px; }
 .interview-meta { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 20px; }
-.interview-session-notices { margin-bottom: 24px; border-block: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 15px; line-height: 1.8; }
-.interview-session-notices summary { min-height: 44px; padding-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.interview-session-notices { margin-bottom: 16px; border-block: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 13px; line-height: 1.8; }
+.interview-session-notices summary { min-height: 32px; padding-block: 8px; cursor: pointer; overflow-wrap: anywhere; }
 .interview-session-notices summary:hover { color: var(--accent-ink); }
 .interview-session-notices summary > span + span { margin-left: 12px; }
 .interview-notice-count { color: var(--text-muted); font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -344,11 +354,11 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .interview-session-notices li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding-block: 12px; }
 .interview-session-notices li + li { border-top: 1px solid var(--border-subtle); }
 .interview-notice-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
-.interview-recovery { margin-bottom: 24px; }
-.interview-recovery h2 { font-size: 18px; line-height: 1.6; }
+.interview-recovery { margin-bottom: 16px; }
+.interview-recovery h2 { font-size: 14px; line-height: 1.6; }
 .interview-recovery .form-help { font-size: 14px; }
 .interview-recovery .interview-actions { margin-bottom: 0; }
-.interview-recovery :deep(.notice) { font-size: 16px; }
+.interview-recovery :deep(.notice) { font-size: 13px; }
 .interview-note { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
 .interview-preparation > p { margin-top: 12px; }
 .interview-steps { padding: 0; list-style: none; display: flex; gap: 12px; margin-block: 24px; flex-wrap: wrap; }
@@ -356,16 +366,16 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .interview-steps li.active { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
 .interview-steps li.passed { color: var(--text-primary); }
 .interview-steps li span { font-variant-numeric: tabular-nums; }
-.interview-summary > p { margin-bottom: 24px; }
+.interview-summary > p { margin-bottom: 16px; }
 .interview-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; }
-.interview-summary-grid h3 { margin-bottom: 10px; font-size: 15px; }
+.interview-summary-grid h3 { margin-bottom: 10px; font-size: 13px; }
 .interview-summary-grid section { min-width: 0; }
-.interview-main-project { margin-block: 22px; padding: 18px; background: var(--surface-soft); border-left: 3px solid var(--accent); }
+.interview-main-project { margin-block: 22px; padding: 18px; background: var(--surface-soft); border-left: 1px solid var(--accent); }
 .interview-main-project > p { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 10px; }
 .interview-clock { font-size: 21px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .interview-clock.urgent { color: var(--accent-ink); }
 .interview-rounds { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; list-style: none; padding: 0; margin: 20px 0 12px; }
-.interview-rounds li { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-top: 3px solid var(--border-subtle); color: var(--text-muted); }
+.interview-rounds li { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-top: 1px solid var(--border-subtle); color: var(--text-muted); }
 .interview-rounds li.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
 .interview-rounds li.complete { color: var(--text-primary); }
 .interview-rounds strong { font-size: 14px; line-height: 1.6; }
@@ -373,26 +383,26 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .interview-expired { line-height: 1.8; padding: 14px; background: var(--accent-soft); color: var(--accent-ink); }
 @media (max-width: 700px) { .interview-rounds { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
 .interview-correction h2 + p { margin: 12px 0 20px; }
-.interview-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 14px 0; font-weight: 400; }
+.interview-check { display: flex; align-items: center; gap: 10px; min-height: 32px; margin: 14px 0; font-weight: 400; }
 .interview-check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .interview-dialogue { padding: 0; }
 .interview-dialogue .chat-header { padding: 20px 24px; border-bottom: 1px solid var(--border-subtle); }
-.interview-dialogue h2 { font-size: 19px; }
+.interview-dialogue h2 { font-size: 14px; }
 .interview-dialogue .chat-header > .tiny, .interview-dialogue .message-meta { font-size: 14px; line-height: 1.8; }
 .interview-dialogue .message > div { min-width: 0; }
-.interview-dialogue .message-content { font-size: 18px; line-height: 1.8; max-width: 72ch; }
-.interview-messages { max-height: 65dvh; min-height: 120px; }
+.interview-dialogue .message-content { font-size: 14px; line-height: 1.8; max-width: 72ch; }
+.interview-messages { max-height: 65dvh; min-height: 120px; scroll-behavior: auto; }
 .interview-thinking { display: flex; align-items: flex-start; gap: 12px; padding: 18px 24px; background: var(--accent-soft); color: var(--accent-ink); border-top: 1px solid var(--border-subtle); }
 .interview-thinking strong { font-size: 14px; }.interview-thinking p { margin-top: 6px; }
 .interview-thinking .spinner { margin-top: 3px; flex: 0 0 auto; }
 .interview-thinking .btn { margin-top: 14px; }
-.interview-page .composer label { font-size: 18px; line-height: 1.8; }
-.interview-page .composer textarea { min-height: 140px; font-size: 18px; line-height: 1.8; }
-.interview-page .composer textarea::placeholder { font-size: 16px; }
-.interview-page .composer .btn { font-size: 16px; }
+.interview-page .composer label { font-size: 14px; line-height: 1.8; }
+.interview-page .composer textarea { min-height: 88px; font-size: 14px; line-height: 1.8; }
+.interview-page .composer textarea::placeholder { font-size: 13px; }
+.interview-page .composer .btn { font-size: 13px; }
 .interview-page .composer-footer .tiny, .interview-finish .tiny, .interview-dialogue .interview-thinking .tiny { font-size: 14px; line-height: 1.8; }
 .interview-page .composer :deep(.speech-input .form-help) { font-size: 14px; line-height: 1.8; }
-.interview-page .composer :deep(.speech-input .btn) { font-size: 16px; }
+.interview-page .composer :deep(.speech-input .btn) { font-size: 13px; }
 .interview-finish { margin-bottom: 28px; }
 .interview-report-summary, .interview-finding p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .interview-finding h3 { font-size: 17px; line-height: 1.7; margin-bottom: 14px; }
@@ -400,4 +410,30 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .interview-source-quote { border-left: 2px solid var(--accent); padding-left: 14px; color: var(--text-secondary); }
 .interview-finding .interview-actions { margin-bottom: 0; }
 @media (max-width: 700px) { .interview-summary-grid { grid-template-columns: minmax(0, 1fr); }.interview-dialogue .chat-header { padding: 16px; }.interview-thinking { padding: 16px; }.interview-steps { gap: 8px; }.interview-steps li { flex-basis: 120px; } }
+
+.interview-session-page { max-width:none; padding:0 24px 20px; }
+.interview-session-page .page-heading { display:grid; grid-template-columns:1fr auto; gap:4px 16px; padding:12px 0; border-bottom:1px solid var(--border-subtle); margin-bottom:12px; }
+.interview-session-page .page-heading h1 { font-size:18px; grid-row:1; }
+.interview-session-page .page-heading .interview-actions { grid-column:2; grid-row:1; margin:0; }
+.interview-session-page .page-heading p { grid-column:1/-1; margin:0; font-size:12px; }
+.interview-meta { margin-bottom:12px; }.interview-meta .badge { padding:2px 6px; }
+.interview-round-progress { border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; padding:0 0 8px; }
+.interview-round-progress .heading-row { margin:0; }.interview-round-progress h2 { font-size:12px; }
+.interview-rounds { margin:8px 0; gap:8px; }.interview-rounds li { flex-direction:row; justify-content:space-between; padding:8px; }.interview-rounds strong, .interview-rounds span { font-size:12px; }
+.interview-round-progress .interview-actions { margin:0; }.interview-clock { font:600 14px var(--font-mono); }
+.interview-workspace.is-live { display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); grid-template-rows:auto auto; border:1px solid var(--border-subtle); border-radius:8px; overflow:clip; }
+.is-live .interview-dialogue { grid-column:1; grid-row:1; margin:0; border:0; border-radius:0; display:flex; flex-direction:column; }
+.is-live .interview-messages { min-height:160px; height:clamp(160px,calc(100dvh - 760px),420px); max-height:none; }
+.interview-dialogue .chat-header { padding:12px 16px; min-height:44px; }.interview-dialogue .chat-header > .tiny { font-size:12px; }
+.interview-dialogue .message-content { font-size:14px; line-height:1.75; }.interview-dialogue .message-meta { font-size:12px; }
+.interview-page .composer { padding:12px 16px; }.interview-page .composer label { font-size:12px; }.interview-page .composer textarea { font-size:14px; field-sizing:content; max-height:220px; }.interview-page .composer textarea::placeholder { font-size:13px; }
+.interview-page .composer-footer .tiny { font-size:11px; }.interview-page .composer-footer { padding-top:8px; }
+.is-live .interview-finish { grid-column:1; grid-row:2; padding:8px 16px; margin:0; border-top:1px solid var(--border-subtle); }
+.interview-inspector { min-width:0; }.is-live .interview-inspector { grid-column:2; grid-row:1/3; border-left:1px solid var(--border-subtle); background:#f8fafc80; max-height:calc(100dvh - 180px); overflow:auto; }
+.inspector-heading { display:flex; justify-content:space-between; align-items:center; min-height:44px; padding:8px 16px; border-bottom:1px solid var(--border-subtle); }.inspector-heading h2 { font-size:13px; }
+.inspector-context { padding:16px; }.inspector-context p { font-size:13px; }.context-data { display:flex; gap:32px; margin:16px 0; padding-block:12px; border-block:1px solid var(--border-subtle); }.context-data dt { font-size:12px; color:var(--text-muted); }.context-data dd { margin:4px 0 0; font:500 20px var(--font-mono); }
+.interview-inspector :deep(.source-code) { margin:0; border:0; border-top:1px solid var(--border-subtle); border-radius:0; background:transparent; }
+.interview-inspector :deep(.interview-sources) { margin:0; padding:0; border:0; }.interview-inspector :deep(.interview-sources-disclosure) { border:0; border-top:1px solid var(--border-subtle); border-radius:0; background:transparent; }
+@media(max-width:1000px) { .interview-workspace.is-live { grid-template-columns:minmax(0,1fr); }.is-live .interview-inspector { grid-column:1; grid-row:3; border-left:0; border-top:1px solid var(--border-subtle); max-height:none; }.interview-session-page .page-heading { display:block; }.interview-session-page .page-heading h1 { margin:8px 0 4px; } }
+@media(max-width:600px) { .interview-session-page { padding:0 12px 20px; }.interview-page .btn,.interview-actions .text-link { min-height:44px; }.interview-rounds { grid-template-columns:repeat(2,minmax(0,1fr)); }.interview-dialogue .chat-header { flex-wrap:wrap; }.interview-page .composer textarea { font-size:16px; }.interview-rounds li { flex-wrap:wrap; } }
 </style>

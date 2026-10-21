@@ -12,6 +12,13 @@ async function expectNoHorizontalOverflow(page: Page) {
   await expect.poll(() => page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth)).toBeLessThanOrEqual(1)
 }
 
+async function expectLatestQuestionVisible(page: Page) {
+  const dialogue = page.getByRole('log', { name: '面试对话' })
+  expect(await dialogue.evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight)).toBeLessThanOrEqual(2)
+  const latest = dialogue.locator('.message:not(.user) .message-content').last()
+  await expect(latest).toBeInViewport()
+}
+
 async function expectQuickWorkbench(page: Page) {
   await expect(page.locator('[data-action="confirm"], [aria-label="面试四阶段"], [aria-label="本场面试进度"], .interview-summary')).toHaveCount(0)
   await expect(page.locator('[data-followup-diagnostics]')).toHaveCount(0)
@@ -74,6 +81,7 @@ for (const scenario of scenarios) {
         await expect(page.locator('[data-action="finish"]')).toHaveText('生成查证复盘')
       } else {
         await expect(page.locator('#interview-answer')).toBeEnabled()
+        await expectLatestQuestionVisible(page)
       }
       await expectQuickWorkbench(page)
       if (index === 1) {
@@ -81,6 +89,7 @@ for (const scenario of scenarios) {
         await expect(page).toHaveURL(path)
         await expect(page.locator('#interview-answer')).toBeEnabled()
         await expect(page.locator('.interview-dialogue .message.user')).toHaveCount(2)
+        await expectLatestQuestionVisible(page)
         for (const submittedAnswer of answers) await expect(page.locator('.interview-dialogue')).toContainText(submittedAnswer)
         await expectQuickWorkbench(page)
         await expectNoHorizontalOverflow(page)

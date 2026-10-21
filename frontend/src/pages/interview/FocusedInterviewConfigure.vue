@@ -1,29 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  PhArrowRight,
-  PhArrowClockwise,
-  PhCheckCircle,
-  PhFileText,
-  PhFilePdf,
-  PhTimer,
-  PhStack,
-  PhSliders,
-  PhLightning,
-  PhCaretDown,
-  PhCaretUp,
-  PhShieldWarning,
-  PhLightbulb,
-  PhChatCircleDots,
-  PhCheck,
-  PhSparkle,
-  PhTarget,
-  PhCompass,
-  PhQuestion,
-  PhArrowsInSimple,
-  PhArrowsOutSimple,
-} from '@phosphor-icons/vue'
+import { ArrowRight, RefreshCw, CircleCheck, FileText, Timer, Layers, SlidersHorizontal, Zap, ChevronDown, ChevronUp, ShieldAlert, Lightbulb, MessageCircle, Check, Sparkles, Target, Compass, CircleHelp, Minimize2, Maximize2,  } from 'lucide-vue-next'
 import { request, post, errorMessage } from '../../api'
 import type { Material, Prediction, Session, InterviewMode } from '../../types'
 import Notice from '../../components/common/Notice.vue'
@@ -174,7 +152,7 @@ async function predict() {
         <p>{{ notes[mode] }}</p>
       </div>
       <div v-if="focus" class="focus-pill">
-        <PhTarget :size="16" weight="bold" />
+        <Target :size="16" />
         <span>专项攻坚：{{ focus }}</span>
       </div>
     </header>
@@ -187,14 +165,14 @@ async function predict() {
       <section v-if="isResume && prediction" class="profile-hero-card">
         <div class="hero-left">
           <div class="resume-avatar">
-            <PhFilePdf :size="28" weight="duotone" />
+            <FileText :size="28" />
           </div>
           <div class="resume-info">
             <div class="resume-headline">
               <h2 class="resume-name">{{ selectedMaterial?.name || '已选简历' }}</h2>
               <span class="role-badge">{{ role }}</span>
               <span class="status-badge" :class="prediction.mock ? 'badge-mock' : 'badge-ready'">
-                <PhCheckCircle :size="14" weight="fill" />
+                <CircleCheck :size="14" />
                 {{ prediction.mock ? 'Mock 模拟评估' : '10 道针对性押题已就绪' }}
               </span>
             </div>
@@ -210,10 +188,10 @@ async function predict() {
             :class="{ active: showConfigDrawer }"
             @click="showConfigDrawer = !showConfigDrawer"
           >
-            <PhSliders :size="15" />
+            <SlidersHorizontal :size="15" />
             <span>{{ showConfigDrawer ? '收起配置' : '调整配置 / 重新计算' }}</span>
-            <PhCaretUp v-if="showConfigDrawer" :size="14" />
-            <PhCaretDown v-else :size="14" />
+            <ChevronUp v-if="showConfigDrawer" :size="14" />
+            <ChevronDown v-else :size="14" />
           </button>
           <button
             type="button"
@@ -221,7 +199,7 @@ async function predict() {
             :disabled="busy || !prediction.questions.length"
             @click="start(prediction.id, prediction.questions[0]?.id)"
           >
-            <PhLightning :size="15" weight="fill" />
+            <Zap :size="15" />
             <span>从第 01 题开始专项练习</span>
           </button>
         </div>
@@ -247,7 +225,7 @@ async function predict() {
             <div v-if="mode !== 'quick'" class="form-field">
               <label for="material-select">{{ isResume ? '选择匹配的简历' : '选择深挖的项目' }}</label>
               <div v-if="materials.length" class="select-wrapper">
-                <select id="material-select" v-model="selected" :disabled="busy">
+                <select id="material-select" :aria-label="isResume ? '选择简历' : '选择项目'" v-model="selected" :disabled="busy">
                   <option v-for="m in materials" :key="m.id" :value="m.id">{{ m.name }}</option>
                 </select>
               </div>
@@ -261,7 +239,7 @@ async function predict() {
                 </RouterLink>
               </EmptyState>
               <div v-if="selectedMaterial" class="form-help">
-                已挂载 {{ selectedMaterial.documents.length }} 份附件快照 · 模型将根据真实经历设计问题
+                {{ selectedMaterial.documents.length }} 份附件 · 使用当前资料创建本场快照
               </div>
               <Notice v-if="truncated" kind="warning" message="所选资料中存在截断文档，模型仅能使用保留的文本。" />
             </div>
@@ -363,9 +341,9 @@ async function predict() {
             >
               <span v-if="busy" class="spinner"></span>
               <template v-else>
-                <PhSparkle v-if="isResume && !prediction" :size="18" weight="fill" />
-                <PhArrowClockwise v-else-if="isResume && prediction" :size="18" />
-                <PhArrowRight v-else :size="18" />
+                <Sparkles v-if="isResume && !prediction" :size="18" />
+                <RefreshCw v-else-if="isResume && prediction" :size="18" />
+                <ArrowRight v-else :size="18" />
               </template>
               <span>
                 {{
@@ -376,7 +354,7 @@ async function predict() {
                     : isResume
                     ? prediction
                       ? '重新生成 10 道针对性押题'
-                      : '✨ 开始智能分析并提炼 10 道押题'
+                      : '生成 10 道针对性押题'
                     : '开始面试'
                 }}
               </span>
@@ -388,9 +366,8 @@ async function predict() {
             <div class="panel aside-card guidance-card">
               <div class="aside-icon-bubble">
                 <component
-                  :is="isResume ? PhFileText : mode === 'project' ? PhStack : PhTimer"
+                  :is="isResume ? FileText : mode === 'project' ? Layers : Timer"
                   :size="26"
-                  weight="duotone"
                 />
               </div>
               <h3>{{ isResume ? '有据可依的面试推演' : '实战沉浸式练习' }}</h3>
@@ -404,15 +381,15 @@ async function predict() {
 
               <div class="feature-checklist">
                 <div class="feature-item">
-                  <PhCheckCircle :size="16" class="feature-icon" weight="fill" />
+                  <CircleCheck :size="16" class="feature-icon" />
                   <span>{{ isResume ? '10 道高价值大厂风格追问' : '每道核心问题支持 2 轮深度追问' }}</span>
                 </div>
                 <div class="feature-item">
-                  <PhCheckCircle :size="16" class="feature-icon" weight="fill" />
+                  <CircleCheck :size="16" class="feature-icon" />
                   <span>{{ isResume ? '配套简历依据、答题思路与可能追问' : '自动留痕作答记录，中断可随时无缝继续' }}</span>
                 </div>
                 <div class="feature-item">
-                  <PhCheckCircle :size="16" class="feature-icon" weight="fill" />
+                  <CircleCheck :size="16" class="feature-icon" />
                   <span>{{ isResume ? '支持单题独立开启专项模拟实战' : '结束后生成四维维度复盘与逐题建议' }}</span>
                 </div>
               </div>
@@ -445,7 +422,7 @@ async function predict() {
 
             <div v-if="isResume && !prediction" class="panel aside-card coaching-mindset-card">
               <div class="card-tag">
-                <PhLightbulb :size="15" weight="fill" />
+                <Lightbulb :size="15" />
                 <span>备战心法</span>
               </div>
               <h4>面试官究竟在问什么？</h4>
@@ -466,12 +443,12 @@ async function predict() {
               <div class="stream-title-row">
                 <h2>高优先级押题与追问演练</h2>
                 <span class="badge badge-accent">共 10 道定制题目</span>
-                <span v-if="prediction.mock" class="badge badge-orange">Mock 仿真结果</span>
+                <span v-if="prediction.mock" class="badge badge-orange">Mock 测试结果</span>
               </div>
               <div class="stream-actions">
                 <button type="button" class="btn btn-ghost btn-sm" @click="expandAllQuestions">
-                  <PhArrowsInSimple v-if="prediction.questions.every(q => expandedQuestions[q.id])" :size="14" />
-                  <PhArrowsOutSimple v-else :size="14" />
+                  <Minimize2 v-if="prediction.questions.every(q => expandedQuestions[q.id])" :size="14" />
+                  <Maximize2 v-else :size="14" />
                   <span>{{ prediction.questions.every(q => expandedQuestions[q.id]) ? '全部收起' : '展开全部思路' }}</span>
                 </button>
               </div>
@@ -484,7 +461,7 @@ async function predict() {
             />
 
             <!-- 题目卡片列表 -->
-            <div class="question-cards-list">
+            <div class="question-cards-list prediction-list">
               <article
                 v-for="(q, i) in prediction.questions"
                 :key="q.id"
@@ -512,7 +489,7 @@ async function predict() {
                       @click="start(prediction.id, q.id)"
                     >
                       <span>练习这道题</span>
-                      <PhArrowRight :size="14" class="btn-arrow" />
+                      <ArrowRight :size="14" class="btn-arrow" />
                     </button>
                   </div>
                 </header>
@@ -520,7 +497,7 @@ async function predict() {
                 <!-- 简历依据标签便签 -->
                 <div class="qcard-evidence-bar">
                   <div class="evidence-pill">
-                    <PhFileText :size="14" class="evidence-icon" />
+                    <FileText :size="14" class="evidence-icon" />
                     <span class="evidence-label">简历依据：</span>
                     <span class="evidence-text">{{ q.evidence }}</span>
                   </div>
@@ -534,10 +511,10 @@ async function predict() {
                     :aria-expanded="!!expandedQuestions[q.id]"
                     @click="toggleQuestion(q.id)"
                   >
-                    <PhChatCircleDots :size="15" />
+                    <MessageCircle :size="15" />
                     <span>{{ expandedQuestions[q.id] ? '收起准备思路与追问' : '查看面试官思路与高频追问链条' }}</span>
-                    <PhCaretUp v-if="expandedQuestions[q.id]" :size="14" />
-                    <PhCaretDown v-else :size="14" />
+                    <ChevronUp v-if="expandedQuestions[q.id]" :size="14" />
+                    <ChevronDown v-else :size="14" />
                   </button>
 
                   <transition name="collapse">
@@ -545,7 +522,7 @@ async function predict() {
                       <!-- 答题思路 -->
                       <div class="outline-section">
                         <div class="section-micro-heading">
-                          <PhLightbulb :size="15" weight="fill" class="micro-icon text-amber" />
+                          <Lightbulb :size="15" class="micro-icon text-amber" />
                           <span>答题结构与核心思路</span>
                         </div>
                         <p class="outline-content">{{ q.answerOutline }}</p>
@@ -554,7 +531,7 @@ async function predict() {
                       <!-- 连环追问链条 -->
                       <div v-if="q.followUps && q.followUps.length" class="followups-section">
                         <div class="section-micro-heading">
-                          <PhCompass :size="15" weight="bold" class="micro-icon text-accent" />
+                          <Compass :size="15" class="micro-icon text-accent" />
                           <span>面试官可能的连环追问预演（{{ q.followUps.length }} 问）</span>
                         </div>
                         <div class="followup-bubbles">
@@ -581,7 +558,7 @@ async function predict() {
             <div v-if="prediction.risks && prediction.risks.length" class="panel defense-card">
               <header class="defense-card-header">
                 <div class="defense-icon-wrap">
-                  <PhShieldWarning :size="22" weight="fill" />
+                  <ShieldAlert :size="22" />
                 </div>
                 <div>
                   <h3 class="defense-title">简历真实度防线诊断</h3>
@@ -610,15 +587,15 @@ async function predict() {
                 @click="showAllRisks = !showAllRisks"
               >
                 <span>{{ showAllRisks ? '收起部分防线' : `查看全部 ${prediction.risks.length} 项防线细节` }}</span>
-                <PhCaretUp v-if="showAllRisks" :size="14" />
-                <PhCaretDown v-else :size="14" />
+                <ChevronUp v-if="showAllRisks" :size="14" />
+                <ChevronDown v-else :size="14" />
               </button>
             </div>
 
             <!-- 考官考核维度卡片 -->
             <div class="panel coaching-tip-card">
               <div class="tip-header">
-                <PhSparkle :size="18" weight="fill" class="tip-icon" />
+                <Sparkles :size="18" class="tip-icon" />
                 <h4>如何通过这 10 道题立住人设？</h4>
               </div>
               <ul class="coaching-points">
@@ -644,806 +621,13 @@ async function predict() {
 </template>
 
 <style scoped>
-.configure-delight {
-  max-width: 1260px;
-  margin: 0 auto;
-  padding-bottom: 64px;
-}
-
-/* 顶部标题区 */
-.heading-content h1 {
-  font-size: 26px;
-  font-weight: 700;
-  color: #1e293b;
-  letter-spacing: -0.02em;
-}
-
-.heading-content p {
-  margin-top: 6px;
-  font-size: 14.5px;
-  color: #64748b;
-  line-height: 1.6;
-}
-
-.focus-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-/* 顶置英雄画像条 */
-.profile-hero-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 18px 24px;
-  margin-bottom: 24px;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(32, 44, 64, 0.03);
-}
-
-.hero-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.resume-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #2563eb;
-  flex-shrink: 0;
-}
-
-.resume-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.resume-headline {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.resume-name {
-  font-size: 17px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.role-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 6px;
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 10px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 600;
-}
-
-.status-badge.badge-ready {
-  background: #ecfdf5;
-  color: #059669;
-}
-
-.status-badge.badge-mock {
-  background: #fff7ed;
-  color: #d97706;
-}
-
-.resume-subtext {
-  font-size: 13px;
-  color: #64748b;
-  margin: 0;
-}
-
-.hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.toggle-config-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.toggle-config-btn.active {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1d4ed8;
-}
-
-.quick-first-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
-}
-
-/* 抽屉式配置表单包裹 */
-.embedded-drawer {
-  margin-bottom: 28px;
-  animation: fadeIn 0.25s ease-out;
-}
-
-.config-form-panel {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 10px rgba(32, 44, 64, 0.03);
-}
-
-.panel-title-group h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.panel-title-group span {
-  display: block;
-  margin-top: 2px;
-  color: #64748b;
-}
-
-/* 下拉菜单和输入框美化 */
-.select-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.select-wrapper select {
-  width: 100%;
-  padding: 9px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background-color: #ffffff;
-  font-size: 14px;
-  color: #1e293b;
-  transition: all 0.2s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 14px;
-}
-
-.select-wrapper select:focus {
-  border-color: #3b82f6;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.jd-select-wrapper {
-  margin-bottom: 10px;
-}
-
-.form-field textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: #1e293b;
-  resize: vertical;
-  transition: all 0.2s ease;
-}
-
-.form-field textarea:focus {
-  border-color: #3b82f6;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.submit-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  margin-top: 8px;
-  padding: 12px 20px;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-/* 侧边栏引导卡片 */
-.aside-card {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  padding: 22px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 8px rgba(32, 44, 64, 0.02);
-}
-
-.aside-icon-bubble {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: #eff6ff;
-  color: #2563eb;
-  margin-bottom: 14px;
-}
-
-.aside-desc {
-  font-size: 13px;
-  line-height: 1.7;
-  color: #64748b;
-  margin-top: 8px;
-}
-
-.feature-checklist {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.feature-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  font-size: 13px;
-  color: #334155;
-  line-height: 1.5;
-}
-
-.feature-icon {
-  color: #10b981;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.level-step {
-  display: flex;
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.level-num {
-  font-size: 12px;
-  font-weight: 700;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 2px 8px;
-  border-radius: 4px;
-  height: fit-content;
-}
-
-/* ================= 押题工作台主体布局 ================= */
-.prediction-workspace {
-  margin-top: 16px;
-}
-
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
-  gap: 24px;
-  align-items: start;
-}
-
-/* 左侧押题流 */
-.stream-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.stream-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.stream-title-row h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-}
-
-.question-cards-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* 单道题目卡片 */
-.question-card {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  padding: 20px 22px;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 1px 3px rgba(32, 44, 64, 0.02);
-}
-
-.question-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 16px rgba(32, 44, 64, 0.05);
-}
-
-.question-card.is-expanded {
-  border-color: #bfdbfe;
-  background: #fcfdfe;
-}
-
-.qcard-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.qcard-main {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  flex: 1;
-}
-
-.qcard-index {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 13.5px;
-  font-weight: 700;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.qcard-question-box {
-  flex: 1;
-}
-
-.qcard-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #0f172a;
-  line-height: 1.6;
-  margin: 0;
-}
-
-.qcard-tags {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.badge-priority-high {
-  background: #fff7ed;
-  color: #c2410c;
-  border: 1px solid #ffedd5;
-  font-weight: 600;
-}
-
-.badge-priority-normal {
-  background: #f8fafc;
-  color: #475569;
-  border: 1px solid #e2e8f0;
-}
-
-.badge-knowledge {
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 12px;
-}
-
-.qcard-action {
-  flex-shrink: 0;
-}
-
-.practice-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  padding: 8px 14px;
-  transition: all 0.2s ease;
-}
-
-.practice-btn:hover .btn-arrow {
-  transform: translateX(3px);
-}
-
-.btn-arrow {
-  transition: transform 0.2s ease;
-}
-
-/* 简历依据便签条 */
-.qcard-evidence-bar {
-  margin-top: 14px;
-  margin-left: 46px;
-}
-
-.evidence-pill {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #475569;
-  max-width: 100%;
-}
-
-.evidence-icon {
-  color: #64748b;
-  flex-shrink: 0;
-  transform: translateY(2px);
-}
-
-.evidence-label {
-  font-weight: 600;
-  color: #334155;
-  flex-shrink: 0;
-}
-
-.evidence-text {
-  color: #475569;
-}
-
-/* 折叠开关与抽屉 */
-.qcard-expandable {
-  margin-top: 14px;
-  margin-left: 46px;
-}
-
-.expand-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  background: transparent;
-  border: 0;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #2563eb;
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.expand-toggle-btn:hover {
-  background: #eff6ff;
-}
-
-.expandable-drawer {
-  margin-top: 12px;
-  padding: 16px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.section-micro-heading {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 8px;
-}
-
-.text-amber {
-  color: #d97706;
-}
-
-.text-accent {
-  color: #2563eb;
-}
-
-.outline-content {
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: #334155;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.followup-bubbles {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.followup-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  background: #f8fafc;
-  border-left: 3px solid #3b82f6;
-  font-size: 13px;
-  color: #1e293b;
-  line-height: 1.5;
-}
-
-.followup-step {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 1px 6px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-/* 右侧防御盾牌卡片 */
-.defense-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.defense-card {
-  background: #ffffff;
-  border: 1px solid #fcd34d;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 10px rgba(217, 119, 6, 0.04);
-}
-
-.defense-card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.defense-icon-wrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: #fef3c7;
-  color: #b45309;
-  flex-shrink: 0;
-}
-
-.defense-title {
-  font-size: 15.5px;
-  font-weight: 700;
-  color: #92400e;
-  margin: 0;
-}
-
-.defense-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.risk-item-card {
-  padding: 12px;
-  border-radius: 8px;
-  background: #fffbeb;
-  border: 1px solid #fef3c7;
-}
-
-.risk-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.risk-index-tag {
-  font-size: 11px;
-  font-weight: 700;
-  color: #b45309;
-  background: #fde68a;
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-
-.risk-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #78350f;
-}
-
-.risk-description {
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: #92400e;
-  margin: 0;
-}
-
-.toggle-risks-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  margin-top: 12px;
-  color: #b45309;
-  font-weight: 600;
-  font-size: 12.5px;
-}
-
-.toggle-risks-btn:hover {
-  background: #fef3c7;
-}
-
-/* 备战心法与立人设卡片 */
-.coaching-tip-card {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.tip-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.tip-icon {
-  color: #2563eb;
-}
-
-.coaching-tip-card h4 {
-  font-size: 15px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.coaching-points {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.coaching-points li {
-  font-size: 13px;
-  line-height: 1.65;
-  color: #475569;
-  position: relative;
-  padding-left: 14px;
-}
-
-.coaching-points li::before {
-  content: '•';
-  position: absolute;
-  left: 0;
-  color: #3b82f6;
-  font-weight: bold;
-}
-
-.coaching-points strong {
-  color: #1e293b;
-}
-
-/* 动画效果 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.drawer-enter-active,
-.drawer-leave-active {
-  transition: all 0.25s ease-out;
-}
-
-.drawer-enter-from,
-.drawer-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-
-.collapse-enter-active,
-.collapse-leave-active {
-  transition: all 0.2s ease-out;
-}
-
-.collapse-enter-from,
-.collapse-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-/* 响应式断点 */
-@media (max-width: 1080px) {
-  .workspace-grid {
-    grid-template-columns: 1fr;
-  }
-  .profile-hero-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .hero-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 768px) {
-  .qcard-header {
-    flex-direction: column;
-  }
-  .qcard-action {
-    width: 100%;
-  }
-  .practice-btn {
-    width: 100%;
-    justify-content: center;
-  }
-  .qcard-evidence-bar,
-  .qcard-expandable {
-    margin-left: 0;
-  }
-}
+.configure-page,.resume-workbench { max-width:1200px; }
+.config-form-panel { padding:20px; }.config-form-panel .heading-row { padding-bottom:12px; border-bottom:1px solid var(--border-subtle); }
+.panel-title-group,.config-summary,.hero-left,.resume-headline,.hero-actions,.stream-title-row,.qcard-tags,.qcard-header,.qcard-main,.qcard-action,.tip-header,.defense-card-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.panel-title-group { flex-direction:column; align-items:flex-start; }.page-heading { margin-bottom:20px; }.page-heading h1 { font-size:24px; }
+.resume-hero { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0; border-block:1px solid var(--border-subtle); margin-bottom:20px; }.resume-avatar { color:var(--accent); }.resume-name { font-size:16px; }.resume-subtext,.role-badge,.status-badge { font-size:12px; color:var(--text-muted); }.role-badge,.status-badge { padding:2px 6px; border-radius:6px; background:var(--surface-soft); }.status-badge { display:inline-flex; align-items:center; gap:4px; }
+.form-field { margin-bottom:16px; }.form-grid { gap:16px; }.form-section { margin-top:16px; padding-top:16px; }.jd-select-wrapper { margin-bottom:8px; }.submit-btn { width:100%; margin-top:16px; }.material-summary { margin-top:8px; font-size:12px; color:var(--text-muted); }.aside-features-panel { padding:0; border:0; }.aside-icon-bubble { color:var(--accent); margin-bottom:12px; }.aside-desc { margin-top:8px; font-size:13px; color:var(--text-muted); }.feature-checklist,.level-step { margin-top:16px; }.feature-item { display:flex; gap:8px; margin-top:12px; font-size:13px; }.feature-icon { color:var(--accent); }.level-num { font:12px var(--font-mono); }
+.prediction-workspace { margin-top:24px; }.workspace-grid { display:grid; grid-template-columns:minmax(0,3fr) minmax(240px,1fr); gap:24px; align-items:start; }.stream-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }.stream-title-row h2 { font-size:16px; }.question-cards-list { display:grid; gap:0; border-top:1px solid var(--border-subtle); }.question-card { padding:16px 0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; }.qcard-header { align-items:flex-start; flex-wrap:nowrap; justify-content:space-between; }.qcard-main { align-items:flex-start; flex-wrap:nowrap; min-width:0; }.qcard-index { font:13px var(--font-mono); color:var(--text-muted); padding-top:4px; }.qcard-question-box { min-width:0; }.qcard-title { font-size:14px; line-height:1.65; }.qcard-tags { margin-top:8px; }.qcard-tags .badge { font-size:11px; }.qcard-action { flex-shrink:0; }.qcard-evidence-bar { margin-top:12px; }.evidence-pill { display:flex; align-items:baseline; gap:6px; font-size:12px; color:var(--text-muted); }.evidence-label { flex-shrink:0; }.evidence-icon { align-self:center; }.qcard-expandable { margin-top:8px; }.expand-toggle-btn { display:flex; align-items:center; gap:6px; min-height:32px; border:0; background:none; color:var(--accent-ink); font-size:12px; }.expandable-drawer { padding:12px 16px; margin-top:8px; background:var(--surface-soft); border-radius:6px; }.section-micro-heading { font-size:12px; margin:8px 0; }.outline-content { font-size:14px; line-height:1.75; white-space:pre-wrap; }.followup-bubbles { display:grid; gap:8px; margin-top:8px; }.followup-item { display:flex; gap:8px; font-size:13px; }.followup-step { font:12px var(--font-mono); }.defense-sidebar { border-left:1px solid var(--border-subtle); padding-left:20px; }.defense-card,.coaching-tip-card { border:0; padding:0; border-radius:0; }.defense-icon-wrap,.tip-icon { color:var(--warning); }.defense-title { font-size:14px; }.defense-list { margin-top:12px; }.risk-item-card { padding:12px 0; border-bottom:1px solid var(--border-subtle); }.risk-title { font-size:13px; }.risk-description { font-size:13px; color:var(--text-muted); margin-top:6px; }.risk-index-tag { font:12px var(--font-mono); }.toggle-risks-btn { margin-top:12px; border:0; background:none; color:var(--accent); }.coaching-tip-card { margin-top:24px; }.coaching-points { padding-left:16px; font-size:13px; line-height:1.75; }.coaching-points li { margin-top:8px; }.text-amber { color:var(--warning); }.text-accent { color:var(--accent); }
+@media(max-width:1000px) { .workspace-grid { grid-template-columns:1fr; }.defense-sidebar { border-left:0; border-top:1px solid var(--border-subtle); padding:16px 0; } }
+@media(max-width:600px) { .resume-hero,.qcard-header { flex-wrap:wrap; }.page-heading h1 { font-size:22px; }.qcard-action { margin-left:24px; }.config-form-panel { padding:16px; }.expand-toggle-btn { min-height:44px; } }
 </style>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { PhArrowUpRight, PhChatsCircle, PhPlay, PhTrash } from '@phosphor-icons/vue'
+import { ArrowUpRight, MessagesSquare, Play, Trash2 } from 'lucide-vue-next'
 import { request, errorMessage } from '../../api'
 import type { Session } from '../../types'
 import { dateTime } from '../../format'
@@ -48,21 +48,22 @@ async function deleteSession(session: { id: string; role: string; source: 'legac
     <div class="page-heading"><h1>每一次练习，都有迹可循。</h1><p>继续上次的对话，或回看你的表达与进步。</p></div>
     <Notice :message="error" kind="error" />
     <div class="tabs" aria-label="面试记录筛选">
-      <button v-for="tab in [{ id: 'all', name: '全部练习' }, { id: 'active', name: '待继续' }, { id: 'done', name: '已完成' }]" :key="tab.id" class="tab" :class="{ active: filter === tab.id }" @click="filter = tab.id">{{ tab.name }}</button>
+      <button v-for="tab in [{ id: 'all', name: '全部练习' }, { id: 'active', name: '待继续' }, { id: 'done', name: '已完成' }]" :key="tab.id" class="tab" :class="{ active: filter === tab.id }" :aria-pressed="filter === tab.id" @click="filter = tab.id">{{ tab.name }}</button>
     </div>
     <LoadingState v-if="loading" />
-    <div v-else class="panel">
+    <div v-else class="panel history-table">
+      <div v-if="shown.length" class="history-table-heading"><span>岗位 / 面试记录</span><span>{{ shown.length }} 条记录</span></div>
       <EmptyState v-if="!shown.length" title="这里还没有面试记录" description="开始一场面试，让每次思考都留下记录。"><RouterLink to="/configure/quick" class="btn btn-primary">开始第一场面试</RouterLink></EmptyState>
       <div v-for="s in shown" :key="s.key" class="list-row history-row">
         <RouterLink :to="s.href" class="history-entry">
-          <div class="list-icon"><PhChatsCircle :size="22" /></div>
+          <div class="list-icon"><MessagesSquare :size="22" /></div>
           <div class="list-body"><h3>{{ s.role }}</h3><p>{{ s.modeLabel }} · {{ dateTime(s.createdAt) }}<span v-if="s.answerCount !== undefined"> · 已回答 {{ s.answerCount }} 次</span><span v-if="s.mock"> · Mock 测试</span></p></div>
           <span class="badge" :class="s.done ? '' : 'badge-orange'">{{ s.statusLabel }}</span>
         </RouterLink>
         <div class="history-actions">
-          <RouterLink v-if="s.done" :to="s.replayHref" class="btn btn-secondary btn-sm"><PhPlay :size="16" />回放</RouterLink>
-          <RouterLink :to="s.href" class="text-link">{{ s.actionLabel }} <PhArrowUpRight :size="16" /></RouterLink>
-          <button type="button" class="btn btn-ghost btn-sm history-delete" :disabled="!!deletingKey" :aria-label="`删除${s.role}的面试记录`" @click="deleteSession(s)"><PhTrash :size="16" />{{ deletingKey === s.key ? '删除中…' : '删除' }}</button>
+          <RouterLink v-if="s.done" :to="s.replayHref" class="btn btn-secondary btn-sm"><Play :size="16" />回放</RouterLink>
+          <RouterLink :to="s.href" class="text-link">{{ s.actionLabel }} <ArrowUpRight :size="16" /></RouterLink>
+          <button type="button" class="btn btn-ghost btn-sm history-delete" :disabled="!!deletingKey" :aria-label="`删除${s.role}的面试记录`" @click="deleteSession(s)"><Trash2 :size="16" />{{ deletingKey === s.key ? '删除中…' : '删除' }}</button>
         </div>
       </div>
     </div>
@@ -70,13 +71,7 @@ async function deleteSession(session: { id: string; role: string; source: 'legac
 </template>
 
 <style scoped>
-.history-entry { display: flex; flex: 1; align-items: center; gap: 14px; min-width: 0; }
-.history-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 16px; }
-.history-actions .text-link { white-space: nowrap; }
-.history-delete { color: var(--danger); flex-shrink: 0; }
-@media (max-width: 600px) {
-  .history-entry { flex-wrap: wrap; flex-basis: 100%; gap: 12px; }
-  .history-actions { width: 100%; gap: 12px; }
-  .history-actions > a, .history-delete { min-height: 44px; }
-}
+.history-table { border:0; border-radius:0; padding:0; }.history-table-heading { display:flex; justify-content:space-between; padding:10px 0; border-block:1px solid var(--border-subtle); font-size:12px; color:var(--text-muted); }.history-row { min-height:56px; padding:10px 0; }.history-entry { display:flex; flex:1; align-items:center; gap:12px; min-width:0; }.history-entry .list-icon { background:transparent; width:24px; }.history-entry .list-icon svg { width:17px; }.history-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:12px; }.history-actions .text-link { white-space:nowrap; }.history-delete { color:var(--danger); flex-shrink:0; }
+@media(max-width:900px) { .history-row { flex-wrap:wrap; }.history-entry { flex-basis:100%; }.history-actions { width:100%; }.history-entry .badge { margin-left:auto; } }
+@media(max-width:600px) { .history-entry { flex-wrap:wrap; gap:8px; }.history-actions > a, .history-delete { min-height:44px; } }
 </style>

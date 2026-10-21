@@ -9,7 +9,7 @@ import type { Health } from './types'
 import ReportTools from './components/training/ReportTools.vue'
 import LinkedConfigure from './components/training/LinkedConfigure.vue'
 import SessionPracticeTools from './components/training/SessionPracticeTools.vue'
-import { PhChartBar } from '@phosphor-icons/vue'
+import { ChartNoAxesColumnIncreasing } from 'lucide-vue-next'
 import { navigationFor, trainingNavigation } from './navigation'
 const props = withDefaults(defineProps<{ trainingEnabled?: boolean }>(), { trainingEnabled: true })
 const route = useRoute(), health = ref<Health | null>(null), loaded = ref(false)
@@ -23,7 +23,7 @@ onModelConfigurationChanged(refreshHealth)
   <AppLayout :provider-label="label" :mock="health?.provider === 'mock'" :configured="health?.configured || false">
     <template v-if="props.trainingEnabled" #training-navigation>
       <RouterLink to="/review" custom v-slot="{ href, navigate }">
-        <a :href="href" @click="navigate" class="nav-link" :class="{ 'router-link-active': location.primary === 'training' }" :aria-current="location.primary === 'training' ? 'page' : undefined"><PhChartBar :size="20" weight="regular" />专项训练</a>
+        <a :href="href" @click="navigate" aria-label="专项训练" title="专项训练" class="nav-link" :class="{ 'router-link-active': location.primary === 'training' }" :aria-current="location.primary === 'training' ? 'page' : undefined"><ChartNoAxesColumnIncreasing :size="16" aria-hidden="true" /><span class="nav-text">专项训练</span></a>
       </RouterLink>
     </template>
     <section v-if="props.trainingEnabled && location.training" class="training-training-navigation" aria-label="专项训练模块">

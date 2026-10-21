@@ -1,18 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  PhSparkle,
-  PhCheck,
-  PhCopy,
-  PhArrowRight,
-  PhPlay,
-  PhTrash,
-  PhFloppyDisk,
-  PhClockCounterClockwise,
-  PhFileText,
-  PhLightning,
-} from '@phosphor-icons/vue'
+import { Sparkles, Check, Copy, ArrowRight, Play, Trash2, Save, History, FileText, Zap,  } from 'lucide-vue-next'
 import Notice from '../../components/common/Notice.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
 import MaterialPicker from '../../components/material/MaterialPicker.vue'
@@ -311,7 +300,7 @@ async function aiDraftFromMaterials() {
     } else {
       setCurrent(generated)
     }
-    message.value = '✨ AI 已为你生成 STAR 结构化事实与口语表达稿，请核对细节！'
+    message.value = 'AI 已为你生成 STAR 结构化事实与口语表达稿，请核对细节！'
   } catch (e) {
     fail(e)
   } finally {
@@ -526,11 +515,6 @@ onMounted(() => load())
     <!-- 页面顶栏 -->
     <header class="studio-header">
       <div class="header-left">
-        <div class="header-eyebrow">
-          <span>AI 经历沉淀工作台</span>
-          <span class="dot-divider">·</span>
-          <span>STAR 故事与自我介绍</span>
-        </div>
         <h1 class="studio-title">
           {{ !id ? '把做过的项目，提炼成听得懂的故事。' : story?.templateKind === 'INTRO' ? '结构化自我介绍' : 'STAR 项目故事' }}
         </h1>
@@ -541,7 +525,7 @@ onMounted(() => load())
 
       <div class="header-actions">
         <RouterLink v-if="id" to="/stories" class="btn btn-secondary btn-sm">
-          ← 返回故事库
+          返回故事库
         </RouterLink>
         <div v-if="!id" class="kind-segmented">
           <button
@@ -611,7 +595,7 @@ onMounted(() => load())
               :disabled="busy || aiStep > 0"
               @click="save"
             >
-              <PhFloppyDisk :size="16" />
+              <Save :size="16" />
               {{ id ? '保存为新版本' : '保存草稿' }}
             </button>
           </div>
@@ -688,7 +672,7 @@ onMounted(() => load())
         <div class="panel sidebar-block ai-generator-card">
           <div class="block-header">
             <div class="sparkle-title">
-              <PhSparkle :size="20" weight="fill" class="sparkle-icon" />
+              <Sparkles :size="20" class="sparkle-icon" />
               <h3>从材料一键提炼</h3>
             </div>
             <span class="tiny muted">智能提取 STAR 事实</span>
@@ -706,8 +690,8 @@ onMounted(() => load())
             :disabled="busy || aiStep > 0 || materialIds.length === 0"
             @click="aiDraftFromMaterials"
           >
-            <PhSparkle :size="18" weight="bold" />
-            <span>{{ !id ? '✨ 从所选材料一键提炼故事' : '✨ 结合材料重新提炼' }}</span>
+            <Sparkles :size="18" />
+            <span>{{ !id ? '从所选材料一键提炼故事' : '结合材料重新提炼' }}</span>
           </button>
           <p v-if="materialIds.length === 0" class="tiny muted text-center mt-1">
             请先在上方勾选至少 1 份资料
@@ -727,8 +711,8 @@ onMounted(() => load())
               :disabled="!expression"
               @click="copyExpression"
             >
-              <PhCopy v-if="!copied" :size="15" />
-              <PhCheck v-else :size="15" class="text-green" />
+              <Copy v-if="!copied" :size="15" />
+              <Check v-else :size="15" class="text-green" />
               <span>{{ copied ? '已复制' : '复制全文' }}</span>
             </button>
           </div>
@@ -765,7 +749,7 @@ onMounted(() => load())
               :disabled="busy || aiStep > 0"
               @click="quickConfirmAll"
             >
-              <PhCheck :size="18" weight="bold" />
+              <Check :size="18" />
               <span>确认全部内容（本人声明）</span>
             </button>
 
@@ -813,7 +797,7 @@ onMounted(() => load())
           <div v-if="story?.status === 'CONFIRMED'" class="practice-section">
             <div class="block-header">
               <div class="confirmed-badge-group">
-                <PhCheck :size="20" weight="bold" class="text-green" />
+                <Check :size="20" class="text-green" />
                 <h3>本版事实已确认</h3>
               </div>
               <span class="badge badge-green">已就绪</span>
@@ -843,7 +827,7 @@ onMounted(() => load())
               :disabled="busy"
               @click="practice(story!.currentVersionId)"
             >
-              <PhPlay :size="18" weight="fill" />
+              <Play :size="18" />
               <span>🎙️ 开始模拟答辩演练</span>
             </button>
             <p class="practice-tip tiny muted text-center mt-1">
@@ -872,7 +856,7 @@ onMounted(() => load())
         >
           <summary class="history-summary">
             <div class="history-summary-title">
-              <PhClockCounterClockwise :size="18" />
+              <History :size="18" />
               <span>查看所有故事版本（{{ history.length || 1 }}）</span>
             </div>
           </summary>
@@ -917,13 +901,13 @@ onMounted(() => load())
     <section v-if="!id && !loading" class="panel story-archive-section">
       <div class="section-header">
         <div>
-          <h2>已保存的故事库</h2>
+          <h2>已保存故事</h2>
           <p class="tiny muted">你可以随时重新打开打磨、修改或发起模拟面试</p>
         </div>
       </div>
 
       <div v-if="!stories.length" class="empty-story-placeholder">
-        <PhFileText :size="40" weight="light" class="text-muted" />
+        <FileText :size="40" class="text-muted" />
         <p class="muted">还没有保存的故事。在上方输入内容或勾选简历，开启你的第一个 STAR 项目故事吧！</p>
       </div>
 
@@ -949,7 +933,7 @@ onMounted(() => load())
               :disabled="busy"
               @click="deleteStory(s)"
             >
-              <PhTrash :size="16" />
+              <Trash2 :size="16" />
               <span>{{ deletingId === s.id ? '删除中…' : '删除' }}</span>
             </button>
           </div>
@@ -964,599 +948,11 @@ onMounted(() => load())
 </template>
 
 <style scoped>
-/* 容器与头部 */
-.story-studio {
-  max-width: 1360px;
-  margin: 0 auto;
-}
-
-.studio-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-}
-
-.header-left {
-  max-width: 760px;
-}
-
-.header-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  margin-bottom: 8px;
-  letter-spacing: -0.01em;
-}
-
-.dot-divider {
-  color: var(--border-control);
-}
-
-.studio-title {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  margin: 0 0 8px;
-}
-
-.studio-subtext {
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.kind-segmented {
-  display: inline-flex;
-  padding: 3px;
-  background: var(--surface-soft);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-}
-
-.kind-btn {
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: calc(var(--radius-control) - 2px);
-  cursor: pointer;
-  transition: all var(--duration-ui) var(--ease-ui);
-}
-
-.kind-btn.active {
-  background: var(--surface);
-  color: var(--accent-ink);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-
-/* AI 分步指示条 */
-.ai-progress-banner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  margin-bottom: 24px;
-  background: linear-gradient(135deg, var(--accent-soft) 0%, #f4f6ff 100%);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-panel);
-}
-
-.ai-progress-content strong {
-  display: block;
-  font-size: 14px;
-  color: var(--accent-ink);
-}
-
-.ai-progress-content p {
-  margin: 2px 0 0;
-}
-
-/* 左右双栏布局 */
-.studio-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(360px, 1.2fr);
-  gap: 24px;
-  align-items: start;
-}
-
-@media (max-width: 1040px) {
-  .studio-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* 左侧主面板 */
-.studio-main-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.main-panel-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  flex-wrap: wrap;
-}
-
-.toolbar-title-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.toolbar-title-group h2 {
-  font-size: 19px;
-  margin: 0;
-}
-
-.toolbar-badges {
-  display: flex;
-  gap: 6px;
-}
-
-.badge-green {
-  background: var(--success-soft);
-  color: var(--success);
-  border: 1px solid rgba(36, 116, 86, 0.2);
-}
-
-/* STAR 卡片组 */
-.star-cards-container {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.star-card {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  transition: border-color var(--duration-ui) var(--ease-ui), box-shadow var(--duration-ui) var(--ease-ui);
-}
-
-.star-card:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
-}
-
-.star-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--surface-soft);
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: var(--radius-control) var(--radius-control) 0 0;
-}
-
-.star-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.star-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  background: var(--accent);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 6px;
-}
-
-.star-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.star-card-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.origin-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: #fff;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-}
-
-.origin-tag.origin-user_assertion {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  border-color: rgba(49, 95, 213, 0.2);
-}
-
-.origin-tag.origin-model_draft {
-  color: #855a16;
-  background: #fff7e8;
-  border-color: rgba(133, 90, 22, 0.2);
-}
-
-.origin-tag.origin-material_quote {
-  color: var(--success);
-  background: var(--success-soft);
-  border-color: rgba(36, 116, 86, 0.2);
-}
-
-.char-count {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.star-card-body {
-  padding: 12px 16px;
-}
-
-.star-textarea {
-  width: 100%;
-  border: 0;
-  padding: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text-primary);
-  resize: vertical;
-  background: transparent;
-  outline: none !important;
-  box-shadow: none !important;
-}
-
-.star-textarea::placeholder {
-  color: #8c9ba5;
-  font-size: 13px;
-}
-
-.star-card-footer {
-  padding: 8px 16px;
-  border-top: 1px dashed var(--border-subtle);
-  background: #fafcff;
-  border-radius: 0 0 var(--radius-control) var(--radius-control);
-}
-
-.source-refs-details summary {
-  cursor: pointer;
-  user-select: none;
-}
-
-.source-refs-list {
-  margin-top: 6px;
-}
-
-/* 服务端对比 */
-.server-diff-details {
-  padding: 12px 16px;
-  background: var(--surface-soft);
-  border-radius: var(--radius-control);
-}
-
-.server-diff-content {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.diff-field pre {
-  margin: 4px 0 0;
-  background: var(--surface);
-  padding: 8px;
-  border-radius: 4px;
-}
-
-/* 右侧侧边栏 */
-.studio-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.sidebar-block {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.block-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.block-header h3 {
-  font-size: 16px;
-  margin: 0;
-  font-weight: 600;
-}
-
-.block-desc {
-  margin: 0;
-  line-height: 1.6;
-}
-
-/* AI 魔法主按钮 */
-.sparkle-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sparkle-icon {
-  color: var(--accent);
-}
-
-.btn-magic {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 12px 20px;
-  background: linear-gradient(135deg, var(--accent) 0%, #1e45b0 100%);
-  color: #fff;
-  border: 0;
-  border-radius: var(--radius-control);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(49, 95, 213, 0.25);
-  transition: all var(--duration-ui) var(--ease-ui);
-}
-
-.btn-magic:hover:not(:disabled) {
-  filter: brightness(1.08);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(49, 95, 213, 0.35);
-}
-
-.btn-magic:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.btn-magic:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-/* 表达稿卡片 */
-.expression-textarea {
-  min-height: 150px;
-  font-size: 14px;
-  line-height: 1.7;
-}
-
-.expression-footer {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.copy-btn {
-  gap: 4px;
-}
-
-.text-green {
-  color: var(--success);
-}
-
-/* 确认与实战卡片 */
-.confirm-section, .practice-section {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.w-full {
-  width: 100%;
-}
-
-.mt-1 { margin-top: 4px; }
-.mt-2 { margin-top: 8px; }
-.mt-4 { margin-top: 16px; }
-.text-center { text-align: center; }
-
-.confirmed-badge-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.practice-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.practice-select {
-  width: 100%;
-}
-
-.practice-cta {
-  min-height: 46px;
-  font-size: 15px;
-  font-weight: 600;
-  gap: 8px;
-}
-
-.advanced-confirm-details {
-  border-top: 1px dashed var(--border-subtle);
-  padding-top: 10px;
-}
-
-.advanced-confirm-body {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.confirm-field-row {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.na-input {
-  margin-top: 4px;
-  font-size: 12px;
-}
-
-.sidebar-secondary-actions {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid var(--border-subtle);
-  padding-top: 12px;
-}
-
-/* 历史卡片 */
-.history-block summary {
-  cursor: pointer;
-  user-select: none;
-}
-
-.history-summary-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.history-body {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.history-item {
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.historical-detail {
-  margin-top: 12px;
-  padding: 12px;
-  background: var(--surface-soft);
-  border-radius: var(--radius-control);
-}
-
-.historical-detail h4 {
-  margin: 0 0 8px;
-  font-size: 14px;
-}
-
-.historical-field {
-  margin-bottom: 8px;
-}
-
-.historical-field pre {
-  margin: 2px 0 0;
-  background: var(--surface);
-  padding: 6px;
-  border-radius: 4px;
-}
-
-.expression-preview {
-  background: var(--surface);
-  padding: 8px;
-  border-radius: 4px;
-  margin-top: 8px;
-}
-
-/* 已保存故事列表 */
-.story-archive-section {
-  margin-top: 32px;
-}
-
-.section-header {
-  margin-bottom: 16px;
-}
-
-.empty-story-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.story-list-grid {
-  display: flex;
-  flex-direction: column;
-}
-
-.story-card-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.story-card-item:last-child {
-  border-bottom: 0;
-}
-
-.story-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.story-card-title-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.story-card-title-row h3 {
-  font-size: 16px;
-  margin: 0;
-}
-
-.story-list-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.story-delete {
-  color: var(--danger);
-}
+.story-studio { max-width:1320px; }.studio-header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; margin-bottom:20px; }.studio-title { font-size:24px; }.studio-subtext { color:var(--text-muted); font-size:13px; max-width:70ch; margin-top:8px; }.header-actions { flex-shrink:0; }.kind-segmented { display:flex; padding:3px; border:1px solid var(--border-subtle); border-radius:6px; background:var(--surface-soft); }.kind-btn { display:flex; align-items:center; gap:6px; border:0; padding:6px 10px; color:var(--text-muted); background:transparent; border-radius:4px; font-size:12px; }.kind-btn.active { background:var(--surface); color:var(--accent-ink); }
+.studio-layout { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(280px,1fr); border-top:1px solid var(--border-subtle); gap:0; }.studio-main-panel { border:0; border-radius:0; padding:0 24px 0 0; }.main-panel-toolbar, .toolbar-title-group, .toolbar-badges, .toolbar-actions, .star-card-header, .star-card-meta, .star-card-status { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }.main-panel-toolbar { justify-content:space-between; padding:16px 0; border-bottom:1px solid var(--border-subtle); }.toolbar-title-group h2 { font-size:14px; }
+.star-card { padding:16px 0; border-bottom:1px solid var(--border-subtle); }.star-card-header { justify-content:space-between; margin-bottom:10px; }.star-label { margin:0; font-size:13px; }.star-badge { color:var(--accent-ink); font:12px var(--font-mono); }.origin-tag, .char-count { font-size:11px; color:var(--text-muted); }.char-count { font-family:var(--font-mono); }.star-textarea { min-height:110px; font-size:14px; line-height:1.8; background:var(--surface); }.star-card-footer { margin-top:8px; }.source-refs-list { padding:10px; margin-top:8px; background:var(--surface-soft); }.source-refs-list p + p { margin-top:8px; }
+.studio-sidebar { border-left:1px solid var(--border-subtle); padding-left:24px; min-width:0; }.sidebar-block { padding:16px 0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; }.block-header { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:12px; flex-wrap:wrap; }.block-header h3 { font-size:13px; }.sparkle-title, .confirmed-badge-group { display:flex; align-items:center; gap:8px; }.sparkle-icon { color:var(--accent); }.block-desc { margin-bottom:12px; }.btn-magic { background:var(--accent); color:white; width:100%; margin-top:12px; }.btn-magic:hover:not(:disabled) { background:var(--accent-hover); }.btn-magic:disabled { color:var(--text-muted); background:var(--surface-soft); border-color:var(--border-control); }.expression-textarea { min-height:180px; font-size:14px; }.expression-footer { margin-top:8px; }.action-card p { margin-bottom:12px; }.advanced-confirm-details { margin-top:12px; }.advanced-confirm-body { padding-top:12px; }.confirm-field-row { padding:10px 0; border-bottom:1px solid var(--border-subtle); }.confirm-field-row .training-inline-check { font-size:12px; }.practice-form { margin:12px 0; }.practice-cta { margin-top:4px; }.sidebar-secondary-actions { margin-top:12px; }.history-summary, .history-summary-title { display:flex; align-items:center; gap:8px; }.history-body { padding-top:12px; }.history-item { padding:8px 0; border-bottom:1px solid var(--border-subtle); }.historical-detail, .server-diff-details { margin-top:16px; padding-top:12px; border-top:1px solid var(--border-subtle); }.historical-field, .diff-field { margin:12px 0; }.historical-field strong, .diff-field strong { font-size:12px; }.historical-field pre, .diff-field pre { margin-top:6px; }
+.ai-progress-banner { display:flex; align-items:center; gap:12px; padding:12px; background:var(--accent-soft); border-radius:6px; margin-bottom:16px; }.story-archive-section { border:0; border-top:1px solid var(--border-subtle); border-radius:0; padding:20px 0 0; margin-top:24px; }.section-header { margin-bottom:12px; }.section-header h2 { font-size:16px; }.empty-story-placeholder { display:flex; gap:12px; align-items:center; padding:20px 0; }.story-list-grid { display:block; }.story-card-item { min-height:52px; padding:10px 0; align-items:center; }.story-card-title-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }.story-card-title-row h3 { font-size:13px; }.story-list-actions { display:flex; align-items:center; gap:8px; }.story-delete, .text-green { color:var(--success); }.story-delete { color:var(--danger); }
+@media(max-width:1000px) { .studio-header { flex-direction:column; gap:12px; }.studio-layout { grid-template-columns:minmax(0,1fr); }.studio-main-panel { padding-right:0; }.studio-sidebar { border:0; padding:0; }.star-card-status { margin-left:auto; } }
+@media(max-width:600px) { .studio-title { font-size:22px; }.star-textarea, .expression-textarea { font-size:16px; }.star-card-header { gap:8px; }.story-card-item { gap:8px; }.story-list-actions { justify-content:flex-end; }.kind-btn { min-height:44px; } }
 </style>

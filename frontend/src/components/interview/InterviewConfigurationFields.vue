@@ -84,10 +84,12 @@ defineProps<{ materials: Material[]; disabled?: boolean; correction?: boolean; l
 </template>
 
 <style scoped>
-.interview-fields { border: 0; min-width: 0; padding: 0; margin: 0; }
+.interview-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; border: 0; min-width: 0; padding: 0; margin: 0; }
 .interview-fields label .muted { font-weight: 400; }
 .interview-fields .text-link { margin-left: 8px; }
 .interview-fields select, .interview-fields textarea { max-width: 100%; }
 .interview-fields :is(select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.interview-fields .form-field { margin-bottom:0; }.interview-fields > .form-grid, .interview-fields > .form-field:has(textarea) { grid-column:1/-1; }.interview-fields .form-grid { gap:16px; }
+@media(max-width:600px) { .interview-fields { grid-template-columns:minmax(0,1fr); } }
 </style>

@@ -42,8 +42,8 @@ async function prepare() {
 </script>
 
 <template>
-  <div class="page interview-page">
-    <header class="page-heading"><span class="badge">综合面试</span><h1>先理解你的经历，再深入面试。</h1><p>结合简历、目标岗位与可回查的技术资料，围绕真实职责、选型权衡和异常处理提问。</p></header>
+  <div class="page interview-page configure-page">
+    <header class="page-heading"><h1>先理解你的经历，再深入面试。</h1><p>结合简历、目标岗位与可回查的技术资料，围绕真实职责、选型权衡和异常处理提问。</p></header>
     <Notice :message="state.error" kind="error" />
     <Notice :message="state.materialError" kind="warning" />
     <Notice v-if="health?.provider === 'mock'" kind="warning" message="当前为 Mock 测试模式，合成结果仅验证流程，不代表真实模型质量。" />
@@ -71,7 +71,6 @@ async function prepare() {
 </template>
 
 <style scoped>
-.interview-page .page-heading .badge { margin-bottom: 12px; }
 .interview-page .configure-aside .reading-list { margin-top: 16px; }
 .interview-page .configure-aside h2 { font-size: 19px; }
 .interview-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 12px; }

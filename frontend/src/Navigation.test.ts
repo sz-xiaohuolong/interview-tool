@@ -114,3 +114,17 @@ it('专项只展示错题重练与项目经历，原题地址归属同一入口'
   expect(wrapper.findAll('nav[aria-label="持续训练"] a').map(a => a.text())).toEqual(['错题重练', '项目经历'])
   expect(wrapper.get('nav[aria-label="当前位置"]').text()).toContain('能力看板')
 })
+
+it('侧栏可折叠且保留所有可访问名称与当前导航，模型入口始终可用', async () => {
+  const { wrapper } = await open('/interviews')
+  const toggle = wrapper.get('[data-sidebar-toggle]')
+  expect(toggle.attributes('aria-expanded')).toBe('true')
+  await toggle.trigger('click')
+  expect(toggle.attributes('aria-expanded')).toBe('false')
+  expect(wrapper.get('.app-shell').classes()).toContain('sidebar-collapsed')
+  expect(wrapper.get('a[href="/materials"]').attributes('aria-label')).toBe('个人资料库')
+  expect(wrapper.get('[data-model-settings]').element.closest('.sidebar')).not.toBeNull()
+  expect(wrapper.get('nav[aria-label="主导航"] a[aria-current="page"]').text()).toBe('综合面试')
+  await toggle.trigger('click')
+  expect(toggle.attributes('aria-expanded')).toBe('true')
+})

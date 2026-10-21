@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { PhCheckCircle, PhWarningCircle } from '@phosphor-icons/vue'
+import { CircleCheck, CircleAlert } from 'lucide-vue-next'
 import type { InterviewSession, ReviewFinding } from '../../models/interview'
 import SourceCodeEvidence from './SourceCodeEvidence.vue'
 import ProjectEvidenceMatrix from '../material/ProjectEvidenceMatrix.vue'
@@ -91,9 +91,12 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
 
 <template>
   <div ref="container" class="review-reading">
+    <div class="review-metrics" aria-label="本场复盘指标"><div><span>已提交回答</span><strong>{{ report.overview?.answeredCount ?? session.messages.filter(m => m.role === 'USER').length }}</strong></div><div><span>主问题</span><strong>{{ report.overview?.mainQuestionCount ?? groups.length }}</strong></div><div><span>有依据支持</span><strong>{{ findings.filter(f => f.status === 'SUPPORTED').length }}</strong></div><div><span>待补强</span><strong>{{ findings.filter(f => f.answerStatus === 'PARTIAL').length }}</strong></div></div>
+    <nav v-if="groups.length" class="review-index" aria-label="复盘题目索引"><h2>本场问题</h2><button v-for="(group, index) in groups" :key="group.id" :data-review-index="group.id" @click="locate(group.entries[0]!.question.questionId!)"><span class="mono">{{ String(index + 1).padStart(2, '0') }}</span><span>{{ group.title }}</span><span class="index-dot" :class="{ clear: group.entries[0]?.finding?.answerStatus === 'CLEAR' }" aria-hidden="true" /></button></nav>
+    <div class="review-detail">
     <div class="review-highlights">
       <section class="panel review-strengths" data-strengths aria-labelledby="review-strengths-title">
-        <h2 id="review-strengths-title"><PhCheckCircle :size="20" aria-hidden="true" />本场已讲清的内容</h2>
+        <h2 id="review-strengths-title"><CircleCheck :size="20" aria-hidden="true" />本场已讲清的内容</h2>
         <article v-for="f in strengths" :key="f.questionId" data-strength-item class="diagnosis-item">
           <h3>{{ f.headline }}</h3><p>{{ f.observation }}</p>
           <button class="text-link" :data-locate="f.questionId" @click="locate(f.questionId)">核对原回答</button>
@@ -101,7 +104,7 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
         <p v-if="!strengths.length" class="review-help">尚无足够证据提炼优势，可从逐题原答继续核对；不强凑结论。</p>
       </section>
       <section class="panel review-improvements" data-improvements aria-labelledby="review-improvements-title">
-        <h2 id="review-improvements-title"><PhWarningCircle :size="20" aria-hidden="true" />待补强</h2>
+        <h2 id="review-improvements-title"><CircleAlert :size="20" aria-hidden="true" />待补强</h2>
         <article v-for="(f, index) in improvements" :key="f.questionId" data-improvement-item class="diagnosis-item">
           <h3>{{ index + 1 }}. {{ f.headline }}</h3><p>{{ f.observation }}</p><p><strong>下一步：</strong>{{ f.suggestion }}</p>
           <button class="text-link" :data-locate="f.questionId" @click="locate(f.questionId)">定位原回答</button>
@@ -185,22 +188,23 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
       <Notice :message="error" kind="error" /><button v-if="error" class="btn btn-secondary" @click="recovered">重新读取补练记录</button><ModelRecovery :key="recovery?.operationId" :error="recovery" @recovered="recovered" />
     </details>
     <details class="panel review-disclosure"><summary>查看完整原始对话</summary><article v-for="m in session.messages" :key="m.id" class="review-entry"><strong>{{ m.role === 'USER' ? '你' : m.kind === 'REPLY' ? '面试官回应' : '面试官' }}</strong><p>{{ m.content }}</p></article></details>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .review-reading { min-width: 0; display: grid; gap: 20px; }
-.detailed-assessment { display: grid; gap: 26px; }
+.detailed-assessment { display: grid; gap: 20px; }
 .assessment-paragraph + .assessment-paragraph { margin-top: 18px; }
 .assessment-actions { list-style: decimal; padding-left: 24px; }
 .assessment-actions li + li { margin-top: 16px; }
 .detailed-assessment .review-actions { margin-top: 8px; }
-.review-reading :is(p, blockquote, dd) { font-size: 16px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 10px; }
-.review-reading h2 { font-size: 18px; margin-bottom: 12px; }
-.review-reading h3 { font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
-.review-reading .review-help, .review-reading .review-meta { font-size: 14px; color: var(--text-secondary); }
-.review-reading blockquote { border-left: 3px solid var(--accent); padding-left: 14px; margin-inline: 0; }
-.review-reading summary { font-size: 16px; line-height: 1.7; cursor: pointer; min-height: 44px; overflow-wrap: anywhere; }
+.review-reading :is(p, blockquote, dd) { font-size: 14px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 10px; }
+.review-reading h2 { font-size: 14px; margin-bottom: 12px; }
+.review-reading h3 { font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+.review-reading .review-help, .review-reading .review-meta { font-size: 12px; color: var(--text-muted); }
+.review-reading blockquote { border-left: 1px solid var(--accent); padding-left: 14px; margin-inline: 0; }
+.review-reading summary { font-size: 14px; line-height: 1.7; cursor: pointer; min-height: 32px; overflow-wrap: anywhere; }
 .review-highlights { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .review-highlights h2 { display: flex; align-items: center; gap: 8px; }
 .review-highlights h2 svg { flex-shrink: 0; }
@@ -210,7 +214,7 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
 .review-improvements h2 { color: var(--warning); }
 .diagnosis-item + .diagnosis-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-subtle); }
 .diagnosis-item p { margin-top: 4px; }
-.review-reading .review-assessment-body { font-size: 18px; max-width: 72ch; }
+.review-reading .review-assessment-body { font-size: 14px; max-width: 72ch; }
 .review-stages { list-style: none; padding: 16px 0 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0 0; border-top: 1px solid var(--border-subtle); }
 .review-stages li { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .review-stages li span { color: var(--text-secondary); }
@@ -224,14 +228,14 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
 .review-entry { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border-subtle); }
 .review-entry:focus { outline: 2px solid var(--accent); outline-offset: 6px; }
 .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
-.review-reading :is(button, a) { min-height: 44px; display: inline-flex; align-items: center; font-size: 14px; }
-.review-reading .panel { margin: 0; padding: 20px 24px; }
+.review-reading :is(button, a) { min-height: 32px; display: inline-flex; align-items: center; font-size: 14px; }
+.review-reading .panel { margin: 0; padding: 16px; }
 .review-reading .review-matrix { margin: 0; }
 .review-reading .question-group + .question-group { margin-top: 10px; }
 .review-disclosure > summary { font-weight: 600; }
 .review-disclosure .diagnosis-item { margin-top: 16px; }
 .review-terms dt { font-weight: 600; font-size: 14px; margin-top: 12px; }
-.review-terms dd { margin-left: 0; font-size: 16px; }
+.review-terms dd { margin-left: 0; font-size: 14px; }
 @media (max-width: 700px) {
   .review-highlights { grid-template-columns: minmax(0, 1fr); }
   .review-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -239,4 +243,17 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
   .topic-coverage-list li { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
 @media (max-width: 360px) { .review-stages { grid-template-columns: minmax(0, 1fr); } }
+
+.review-reading { display:grid; grid-template-columns:200px minmax(0,1fr); gap:20px; align-items:start; }
+.review-metrics { grid-column:1/-1; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-block:1px solid var(--border-subtle); background:var(--surface-soft); }
+.review-metrics > div { display:flex; flex-direction:column; padding:12px 16px; border-right:1px solid var(--border-subtle); gap:4px; }.review-metrics > div:last-child { border:0; }.review-metrics span { color:var(--text-muted); font-size:12px; }.review-metrics strong { font:500 24px var(--font-mono); }
+.review-index { position:sticky; top:16px; min-width:0; }.review-index h2 { color:var(--text-muted); font-size:12px; padding:8px; }
+.review-index button { display:flex; align-items:center; gap:8px; width:100%; border:0; border-bottom:1px solid var(--border-subtle); background:white; padding:10px 8px; text-align:left; font-size:12px; }
+.review-index button:hover { background:var(--surface-soft); }.review-index button > span:nth-child(2) { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; flex:1; }.index-dot { width:6px; height:6px; border-radius:50%; background:var(--warning); flex-shrink:0; }.index-dot.clear { background:var(--success); }
+.review-detail { display:grid; gap:20px; min-width:0; border-left:1px solid var(--border-subtle); padding-left:20px; }
+.review-reading .review-strengths, .review-reading .review-improvements { background:transparent; border:0; border-top:1px solid var(--border-subtle); border-radius:0; padding:12px 0; }
+.review-reading .review-assessment { border:0; border-top:1px solid var(--border-subtle); border-radius:0; padding:16px 0; }
+.review-reading .review-entry p { max-width:75ch; }.review-reading .question-group { border-radius:6px; padding:12px; }
+@media(max-width:1000px) { .review-reading { grid-template-columns:minmax(0,1fr); }.review-index { position:static; display:flex; overflow:auto; gap:4px; }.review-index h2 { flex-shrink:0; }.review-index button { flex:0 0 180px; }.review-detail { border-left:0; padding:0; } }
+@media(max-width:600px) { .review-metrics > div { padding:10px 8px; }.review-metrics strong { font-size:20px; }.review-reading :is(button,a) { min-height:44px; }.review-highlights { gap:16px; } }
 </style>

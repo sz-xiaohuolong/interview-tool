@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import { PhCaretRight } from '@phosphor-icons/vue'
+import { ChevronRight } from 'lucide-vue-next'
 import { agentTopicLabels, displayDate, publicSourceUrl } from '../../api/interviews'
 import type { KnowledgeSource, KnowledgeRetrieval } from '../../models/interview'
 
@@ -39,7 +39,7 @@ watch(() => JSON.stringify(props.sources.map(source => source.id)), revealSource
     <details ref="disclosure" class="interview-sources-disclosure">
       <summary class="interview-sources-summary">
         <h2 id="interview-sources-title">
-          <PhCaretRight class="interview-sources-caret" aria-hidden="true" />
+          <ChevronRight class="interview-sources-caret" aria-hidden="true" />
           <span class="interview-sources-heading">本场知识依据 <span class="interview-sources-count">{{ sources.length }} 份资料</span></span>
           <span class="interview-sources-toggle" aria-hidden="true"><span class="when-closed">展开查看</span><span class="when-open">收起</span></span>
         </h2>
@@ -61,7 +61,7 @@ watch(() => JSON.stringify(props.sources.map(source => source.id)), revealSource
           </li></ul>
         </details>
         <details v-for="source in sources" :id="`interview-source-${source.id}`" :key="source.id" :data-source="source.id" class="interview-source">
-          <summary><PhCaretRight class="interview-source-caret" aria-hidden="true" /><span>{{ source.title }}<span class="interview-source-kind">{{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></span></summary>
+          <summary><ChevronRight class="interview-source-caret" aria-hidden="true" /><span>{{ source.title }}<span class="interview-source-kind">{{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></span></summary>
           <div class="interview-source-content">
             <p class="interview-source-meta">版本：{{ source.version || '未标明' }} · 获取：{{ displayDate(source.fetchedAt) }}</p>
             <h3>来源摘录</h3>
@@ -77,17 +77,17 @@ watch(() => JSON.stringify(props.sources.map(source => source.id)), revealSource
 </template>
 
 <style scoped>
-.interview-sources { min-width: 0; margin-top: 32px; border-top: 1px solid var(--border-subtle); padding-top: 24px; }
+.interview-sources { min-width: 0; margin-top: 16px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
 .interview-sources-disclosure { border: 1px solid var(--border-subtle); border-radius: var(--radius-panel); background: var(--surface); }
 summary { cursor: pointer; list-style: none; }
 summary::-webkit-details-marker { display: none; }
 summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-control); }
-.interview-sources-summary { padding: 18px 20px; min-height: 64px; border-radius: var(--radius-panel); transition: background-color var(--duration-ui) var(--ease-ui); }
+.interview-sources-summary { padding: 12px 16px; min-height: 44px; border-radius: var(--radius-panel); transition: background-color var(--duration-ui) var(--ease-ui); }
 .interview-sources-summary:hover { background: var(--surface-soft); }
-.interview-sources-summary h2 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 18px; font-weight: 600; line-height: 1.6; letter-spacing: -.02em; }
+.interview-sources-summary h2 { display: flex; align-items: center; gap: 12px; margin: 0; font-size: 12px; font-weight: 600; line-height: 1.6; letter-spacing: -.02em; }
 .interview-sources-heading { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
-.interview-sources-count { color: var(--text-secondary); font-size: 14px; font-weight: 400; letter-spacing: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.interview-sources-toggle { color: var(--accent); font-size: 14px; font-weight: 500; letter-spacing: normal; white-space: nowrap; }
+.interview-sources-count { color: var(--text-secondary); font-size: 12px; font-weight: 400; letter-spacing: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.interview-sources-toggle { color: var(--accent); font-size: 12px; font-weight: 500; letter-spacing: normal; white-space: nowrap; }
 .interview-sources-caret, .interview-source-caret { width: 16px; height: 16px; flex-shrink: 0; transition: transform var(--duration-ui) var(--ease-ui); }
 .when-open, .interview-sources-disclosure[open] > summary .when-closed { display: none; }
 .interview-sources-disclosure[open] > summary .when-open { display: inline; }
@@ -95,24 +95,24 @@ summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outli
 .interview-sources-disclosure[open] > summary { border-bottom: 1px solid var(--border-subtle); border-radius: var(--radius-panel) var(--radius-panel) 0 0; }
 .interview-sources-list { padding: 0 20px; }
 .interview-agent-scope { padding-top: 20px; }
-.interview-agent-scope h3 { font-size: 16px; font-weight: 600; }
+.interview-agent-scope h3 { font-size: 13px; font-weight: 600; }
 .interview-agent-scope ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 12px 0; }
 .interview-agent-scope .form-help { line-height: 1.8; }
-.interview-sources-help { max-width: 72ch; margin: 20px 0 8px; font-size: 14px; line-height: 1.8; color: var(--text-secondary); }
-.interview-source { padding: 20px 0; scroll-margin-top: 24px; }
+.interview-sources-help { max-width: 72ch; margin: 20px 0 8px; font-size: 12px; line-height: 1.8; color: var(--text-secondary); }
+.interview-source { padding: 12px 0; scroll-margin-top: 24px; }
 .interview-source + .interview-source { border-top: 1px solid var(--border-subtle); }
 .interview-source:target { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: var(--radius-control); }
-.interview-source > summary { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; font-size: 16px; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; }
+.interview-source > summary { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; font-size: 13px; font-weight: 600; line-height: 1.8; overflow-wrap: anywhere; }
 .interview-source > summary > span { min-width: 0; }
 .interview-source-caret { margin-top: 6px; }
-.interview-source-kind { display: block; color: var(--text-secondary); font-size: 14px; font-weight: 400; line-height: 1.8; margin-top: 4px; }
+.interview-source-kind { display: block; color: var(--text-secondary); font-size: 12px; font-weight: 400; line-height: 1.8; margin-top: 4px; }
 .interview-source-content { margin-left: 28px; max-width: 72ch; min-width: 0; }
-.interview-source-meta { font-size: 14px; line-height: 1.8; color: var(--text-secondary); margin-top: 12px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.interview-source-content h3 { font-size: 16px; line-height: 1.8; font-weight: 600; margin: 24px 0 8px; }
-.interview-source-excerpt { font-size: 16px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
-.interview-source .text-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 16px; line-height: 1.8; margin-top: 16px; }
+.interview-source-meta { font-size: 12px; line-height: 1.8; color: var(--text-secondary); margin-top: 12px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.interview-source-content h3 { font-size: 13px; line-height: 1.8; font-weight: 600; margin: 24px 0 8px; }
+.interview-source-excerpt { font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+.interview-source .text-link { display: inline-flex; align-items: center; min-height: 44px; font-size: 13px; line-height: 1.8; margin-top: 16px; }
 .interview-hash { color: var(--text-secondary); margin: 16px 0 0; }
-.interview-hash > span { display: block; font-size: 14px; line-height: 1.8; margin-bottom: 6px; }
+.interview-hash > span { display: block; font-size: 12px; line-height: 1.8; margin-bottom: 6px; }
 .interview-hash code { display: block; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; white-space: normal; }
 @media (max-width: 700px) {
   .interview-sources-summary { padding: 16px; }

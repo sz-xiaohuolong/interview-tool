@@ -18,7 +18,7 @@
 | V1 背景、目标与范围 | [PROJECT_BRIEF.md](docs/vibe/releases/v1/PROJECT_BRIEF.md) | FROZEN | 用户初始冻结需求，未新增产品范围 |
 | V1 完整产品行为与验收要求 | [SPEC.md](docs/vibe/releases/v1/SPEC.md) | FROZEN | REQ01～REQ06、AC01～AC11、状态、错误和测试接缝 |
 | V1 实施计划 | [IMPLEMENTATION_PLAN.md](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md) | 已登记 | T0～T7、依赖与需求/验收映射 |
-| V1 界面重构设计记录 | [UI_DESIGN.md](docs/vibe/releases/v1/UI_DESIGN.md) | 已归档 | 本次 UI 重构的范围、参考图取舍、页面方案与文件边界；视觉令牌引用根目录规范，实际结果引用 V1 验证记录 |
+| V1 界面重构设计记录 | [UI_DESIGN.md](docs/vibe/releases/v1/UI_DESIGN.md) | 已归档 | 界面重构历史与2026-10-21全站工作台迭代；视觉令牌引用根目录规范，实际结果引用V1验证记录 |
 | V1 实际验证与证据 | [VERIFICATION.md](docs/vibe/releases/v1/VERIFICATION.md) | 已归档 | 验收结果、配置适用范围、合成样本与源文件摘要 |
 | V2 已批准目标与最小范围 | [PROJECT_BRIEF.md](docs/vibe/releases/v2/PROJECT_BRIEF.md) | FROZEN / APPROVED | 五项冻结范围、实施顺序及已采纳 D01～D08 |
 | V2 行为与验收 | [SPEC.md](docs/vibe/releases/v2/SPEC.md) | FROZEN / APPROVED | 原6组42项AC保留，追加已批准导航展示需求，共7组48项AC、状态和测试接缝 |

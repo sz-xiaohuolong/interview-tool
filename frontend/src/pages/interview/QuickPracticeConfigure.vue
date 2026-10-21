@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PhArrowRight, PhLightning } from '@phosphor-icons/vue'
+import { ArrowRight, Zap } from 'lucide-vue-next'
 import Notice from '../../components/common/Notice.vue'
 import { agentTopicLabels, createSession, getAgentPracticeOptions, getInterviewStatus, isAgentRole, requestId } from '../../api/interviews'
 import { errorMessage } from '../../api'
@@ -66,14 +66,14 @@ async function start() {
 </script>
 
 <template>
-  <div class="page quick-practice-page">
-    <header class="page-heading"><span class="badge">快速练习</span><h1>快速练习，从一道技术问题开始。</h1><p>选好岗位和题量，围绕技术原理与工程场景连续问答。</p></header>
+  <div class="page quick-practice-page configure-page">
+    <header class="page-heading"><h1>快速练习，从一道技术问题开始。</h1><p>选好岗位和题量，围绕技术原理与工程场景连续问答。</p></header>
     <Notice :message="state.error" kind="error" />
     <Notice v-if="health?.provider === 'mock'" kind="warning" message="当前为 Mock 测试模式，合成结果仅验证流程，不代表真实模型质量。" />
-    <Notice v-if="health?.configured === false" kind="warning" message="模型服务尚未配置，请先通过右上角配置服务再开始。" />
+    <Notice v-if="health?.configured === false" kind="warning" message="模型服务尚未配置，请先通过模型配置入口配置服务再开始。" />
     <div class="two-columns configure-layout">
       <form class="panel" @submit.prevent="start">
-        <div class="heading-row"><h2>本次想练什么？</h2><PhLightning :size="22" aria-hidden="true" /></div>
+        <div class="heading-row"><h2>本次想练什么？</h2><Zap :size="22" aria-hidden="true" /></div>
         <fieldset :disabled="state.busy" class="quick-fields"><legend class="sr-only">快速练习配置</legend>
           <div class="form-field"><label for="quick-role">目标岗位</label><select id="quick-role" v-model="selectedRole" required><option value="" disabled>请选择岗位方向</option><option v-for="item in roles" :key="item">{{ item }}</option><option value="CUSTOM">自定义岗位</option></select></div>
           <div v-if="selectedRole === 'CUSTOM'" class="form-field"><label for="quick-custom-role">岗位名称</label><input id="quick-custom-role" v-model="customRole" required maxlength="120" placeholder="例如：数据平台工程师" /></div>
@@ -84,7 +84,7 @@ async function start() {
           </details>
         </fieldset>
         <div v-if="reviewCheck" class="quick-review-options" data-review-options role="status" aria-live="polite"><p v-if="reviewCheck.options.message">{{ reviewCheck.options.message }}</p><p v-if="needsReviewAcknowledgement">已有 {{ reviewCheck.options.reviewAvailable }} 道复习考点，将补充 {{ reviewCheck.options.newSupplementCount }} 道新考点。请确认后开始。</p><button v-if="!reviewCheck.options.canStart" type="button" class="btn btn-secondary" data-switch-new-first :disabled="state.busy" @click="practicePreference = 'NEW_FIRST'">切换为未练优先</button></div>
-        <button type="submit" class="btn btn-primary quick-start" :disabled="!role || state.busy || state.loading || health?.configured === false"><span v-if="state.busy || state.loading" class="spinner"></span><PhArrowRight v-else :size="17" />{{ state.busy ? '正在准备练习…' : state.loading ? '正在检查模型配置…' : needsReviewAcknowledgement ? '确认补新并开始练习' : '开始快速练习' }}</button>
+        <button type="submit" class="btn btn-primary quick-start" :disabled="!role || state.busy || state.loading || health?.configured === false"><span v-if="state.busy || state.loading" class="spinner"></span><ArrowRight v-else :size="17" />{{ state.busy ? '正在准备练习…' : state.loading ? '正在检查模型配置…' : needsReviewAcknowledgement ? '确认补新并开始练习' : '开始快速练习' }}</button>
       </form>
       <aside class="configure-aside"><div class="panel"><h2>把技术思路讲清楚。</h2><ul class="reading-list"><li>无需上传资料，也无需准备自我介绍。</li><li>从岗位技术与工程场景切入，每次回答一个问题。</li><li>练习中保持面试节奏，结束后统一查看反馈与具体依据。</li><li>自动保存对话，可从统一历史继续或回看复盘。</li></ul><nav class="quick-links" aria-label="其他面试方式"><RouterLink to="/interviews" class="text-link">综合面试</RouterLink><RouterLink to="/configure/project" class="text-link">项目深挖</RouterLink><RouterLink to="/configure/resume" class="text-link">简历押题</RouterLink><RouterLink to="/history" class="text-link">全部历史</RouterLink></nav></div></aside>
     </div>
@@ -92,7 +92,6 @@ async function start() {
 </template>
 
 <style scoped>
-.quick-practice-page .page-heading .badge { margin-bottom: 12px; }
 .quick-fields { border: 0; padding: 0; min-width: 0; }
 .quick-level { margin-top: 24px; }
 .quick-level summary { cursor: pointer; min-height: 44px; font-weight: 600; }

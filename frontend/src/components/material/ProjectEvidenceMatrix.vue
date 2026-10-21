@@ -54,7 +54,7 @@ watch(() => [props.sourceKind, props.sourceId], () => { gaps.value = []; recover
       <article v-for="item in matrix.items" :key="item.checkpointId" class="panel project-evidence-item" :data-checkpoint="item.checkpointId">
         <div class="project-evidence-title"><h3>{{ item.title }}</h3><span class="badge" :class="{ 'badge-orange': item.status === 'PARTIAL', 'badge-gray': item.status === 'UNCOVERED' }">{{ labels[item.status] }}</span></div>
         <p>{{ item.reason }}</p>
-        <details v-if="item.evidence.length" class="project-evidence-quotes" open>
+        <details v-if="item.evidence.length" class="project-evidence-quotes">
           <summary>查看本场问答证据</summary>
           <div v-for="(quote, index) in item.evidence" :key="`${quote.questionMessageId}-${quote.answerMessageId}-${index}`">
             <p><strong>面试官：</strong>{{ quote.questionQuote }}</p>
@@ -83,18 +83,6 @@ watch(() => [props.sourceKind, props.sourceId], () => { gaps.value = []; recover
 </template>
 
 <style scoped>
-.project-evidence { margin: 28px 0; }
-.project-evidence-heading { margin-bottom: 18px; }
-.project-evidence-heading p { margin-top: 9px; }
-.project-evidence-grid { display: grid; gap: 16px; }
-.project-evidence-item { min-width: 0; }
-.project-evidence-title { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.project-evidence-title h3 { margin: 0; }
-.project-evidence-item p, .project-evidence-item blockquote { margin: 13px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.project-evidence-quotes { margin: 16px 0; }
-.project-evidence-quotes summary { cursor: pointer; }
-.project-evidence-quotes blockquote { padding-left: 15px; border-left: 3px solid currentColor; }
-.project-evidence-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; }
-.project-evidence-actions .btn { min-height: 44px; }
-@media (min-width: 1100px) { .project-evidence-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.project-evidence { margin:24px 0; }.project-evidence-heading { margin-bottom:12px; }.project-evidence-heading p { margin-top:6px; font-size:13px; }.project-evidence-grid { border-top:1px solid var(--border-subtle); margin-bottom:12px; }.project-evidence-item { display:grid; grid-template-columns:minmax(140px, .8fr) minmax(0,2fr) auto; column-gap:20px; padding:12px 0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; }.project-evidence-title { display:flex; gap:8px; align-items:center; flex-wrap:wrap; align-content:start; }.project-evidence-title h3 { font-size:13px; }.project-evidence-item > p { grid-column:2; font-size:13px; }.project-evidence-quotes { grid-column:2; margin-top:8px; }.project-evidence-quotes summary { color:var(--accent-ink); font-size:12px; }.project-evidence-quotes p, .project-evidence-quotes blockquote { margin:10px 0; white-space:pre-wrap; overflow-wrap:anywhere; }.project-evidence-quotes blockquote { padding-left:12px; border-left:1px solid var(--border-control); }.project-evidence-actions { grid-column:3; grid-row:1 / 4; display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; max-width:170px; }.project-evidence-actions .btn { font-size:12px; min-height:32px; }
+@media(max-width:800px) { .project-evidence-item { grid-template-columns:minmax(0,1fr); gap:8px; }.project-evidence-item > p, .project-evidence-quotes, .project-evidence-actions { grid-column:1; grid-row:auto; }.project-evidence-actions { max-width:none; }.project-evidence-actions .btn { min-height:44px; } }
 </style>

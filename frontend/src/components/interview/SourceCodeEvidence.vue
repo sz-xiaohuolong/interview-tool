@@ -10,6 +10,9 @@ function link(item: CodeEvidence) {
   if (item.path.split('/').some(part => !part || part === '.' || part === '..') || /[\\\u0000-\u001f]/.test(item.path)) return undefined
   return `https://github.com/${source.repository}/blob/${source.commitSha}/${item.path.split('/').map(encodeURIComponent).join('/')}#L${item.startLine}-L${item.endLine}`
 }
+function tokens(line: string) {
+  return line.split(/(\b(?:public|private|protected|class|interface|return|throw|new|void|if|else|try|catch|const|let|function|async|await|import|from|export|def|None|true|false|null)\b|"[^"\n]*"|'[^'\n]*')/g).map((text, index) => ({ text, highlighted: index % 2 === 1 }))
+}
 </script>
 <template>
   <section v-if="source" class="source-code panel" aria-label="本场源码依据">
@@ -22,7 +25,7 @@ function link(item: CodeEvidence) {
       <details v-for="(row, index) in rows" :key="index" class="source-question"><summary>{{ row.question }}</summary>
         <article v-for="item in row.evidence" :key="item.id" class="source-fragment">
           <a v-if="link(item)" :href="link(item)" target="_blank" rel="noopener noreferrer" class="text-link">{{ item.path }} · 第 {{ item.startLine }}～{{ item.endLine }} 行</a>
-          <pre>{{ item.snippet }}</pre>
+          <pre class="source-code-block"><code><span v-for="(line, index) in item.snippet.split('\n')" :key="index" class="code-line" :data-line="item.startLine + index"><span v-for="(token, part) in tokens(line)" :key="part" :class="{ 'code-keyword': token.highlighted }">{{ token.text }}</span>{{ index < item.snippet.split('\n').length - 1 ? '\n' : '' }}</span></code></pre>
         </article>
       </details>
       <p v-if="!rows.length" class="form-help">本场没有已展示问题的源码引用。</p>
@@ -30,10 +33,5 @@ function link(item: CodeEvidence) {
   </section>
 </template>
 <style scoped>
-.source-code { margin-block: 16px; min-width: 0; }
-.source-identity, .source-question summary, .source-fragment a { overflow-wrap: anywhere; }
-.source-question { border-top: 1px solid var(--border-subtle); margin-top: 16px; padding-top: 14px; }
-.source-question summary { cursor: pointer; line-height: 1.65; }
-.source-fragment { margin-top: 14px; min-width: 0; }
-.source-fragment pre { white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg-subtle, #f6f5f1); padding: 14px; font-size: 12px; line-height: 1.7; margin-top: 10px; }
+.source-code { margin-block:12px; min-width:0; }.source-code .heading-row { margin-bottom:8px; }.source-identity,.source-fragment a { font-family:var(--font-mono); overflow-wrap:anywhere; }.source-question { border-top:1px solid var(--border-subtle); margin-top:12px; padding-top:8px; }.source-question summary { min-height:32px; line-height:1.6; }.source-fragment { margin-top:12px; min-width:0; }.source-fragment a { font-size:12px; background:var(--surface-soft); padding:4px 8px; border-radius:6px; }.source-fragment pre { background:#f8fafc; border:1px solid var(--border-subtle); border-radius:6px; padding:12px 8px; font:12px/1.8 var(--font-mono); margin-top:8px; overflow:auto; white-space:pre-wrap; }.code-line { display:block; padding-left:42px; position:relative; min-height:1.8em; white-space:pre-wrap; overflow-wrap:anywhere; }.code-line::before { content:attr(data-line); position:absolute; left:0; width:30px; text-align:right; color:var(--text-muted); border-right:1px solid var(--border-subtle); padding-right:8px; user-select:none; }.code-keyword { color:var(--accent-ink); font-weight:600; }
 </style>

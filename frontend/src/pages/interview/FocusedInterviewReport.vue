@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { PhArrowRight, PhArrowClockwise, PhChatsCircle, PhCheckCircle } from '@phosphor-icons/vue'
+import { ArrowRight, RefreshCw, MessagesSquare, CircleCheck } from 'lucide-vue-next'
 import { request, post, errorMessage } from '../../api'
 import type { Report, Session } from '../../types'
 import { shortDate, modeNames, levelNames } from '../../format'
@@ -28,10 +28,13 @@ async function regenerate() {
   try { report.value = await post<Report>(`/sessions/${id}/report`); await load() }
   catch (e) { error.value = errorMessage(e); await load() } finally { busy.value = false }
 }
+function locateQuestion(index: number) { const node = document.getElementById(`report-question-${index}`); node?.scrollIntoView({ block: 'start' }); node?.focus({ preventScroll: true }) }
 const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key: 'incorrect', title: '明确答错的内容' }, { key: 'missing', title: '没有提到的关键点' }, { key: 'uncertain', title: '表述存疑 / 建议补充技术细节' }] as const
 </script>
 <template>
   <div class="page report-page">
+    <div v-if="report && session" class="report-metric-strip" aria-label="本场复盘指标"><div><span>已提交回答</span><strong>{{ session.messages.filter(m => m.role === 'USER').length }}</strong></div><div><span>已复盘主问题</span><strong>{{ report.questions.length }}</strong></div><div><span>评分维度</span><strong>{{ report.dimensions.length }}</strong></div><div><span>待练方向</span><strong>{{ report.weaknesses.length }}</strong></div></div>
+    <nav v-if="report?.questions.length" class="report-question-index" aria-label="复盘题目索引"><h2>本场问题</h2><button v-for="q in report.questions" :key="q.questionIndex" @click="locateQuestion(q.questionIndex)"><span class="mono">{{ String(q.questionIndex + 1).padStart(2, '0') }}</span><span>{{ q.question }}</span></button></nav>
     <div class="report-reading">
       <header class="page-heading report-heading">
         <RouterLink to="/history" class="text-link report-back">返回历史</RouterLink>
@@ -45,7 +48,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
         <div v-if="session.status !== 'COMPLETED'" class="panel report-status">
           <h2>本场面试还没有结束</h2>
           <p class="muted">结束后统一生成复盘，避免影响正式面试过程。</p>
-          <RouterLink :to="`/sessions/${id}`" class="btn btn-primary">继续面试 <PhArrowRight :size="16" /></RouterLink>
+          <RouterLink :to="`/sessions/${id}`" class="btn btn-primary">继续面试 <ArrowRight :size="16" /></RouterLink>
         </div>
         <div v-else-if="!report" class="panel report-status">
           <LoadingState v-if="session.reportStatus === 'GENERATING' || busy" label="正在分析完整问答并生成复盘…" />
@@ -53,7 +56,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
             <h2>对话已保存，报告尚未生成</h2>
             <Notice :message="session.error" kind="error" />
             <p class="muted">可以重试生成；你的原始回答会保留。</p>
-            <button class="btn btn-primary" :disabled="busy" @click="regenerate"><PhArrowClockwise :size="17" />重试生成报告</button>
+            <button class="btn btn-primary" :disabled="busy" @click="regenerate"><RefreshCw :size="17" />重试生成报告</button>
           </template>
         </div>
         <template v-if="report">
@@ -61,7 +64,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
           <ProjectEvidenceMatrix v-if="report.matrix" :matrix="report.matrix" source-kind="SESSION" :source-id="id" />
           <h2 class="report-section-heading">逐题回看，找到可改进的细节</h2>
           <p v-if="!report.questions.length" class="report-empty muted">本次报告没有可展示的逐题分析，原始对话仍可查看。</p>
-          <article v-for="q in report.questions" :key="q.questionIndex" class="panel question-analysis">
+          <article v-for="q in report.questions" :key="q.questionIndex" class="panel question-analysis" :id="`report-question-${q.questionIndex}`" tabindex="-1">
             <div class="prediction-question"><span class="question-number">{{ String(q.questionIndex + 1).padStart(2, '0') }}</span><h3>{{ q.question }}</h3></div>
             <details open>
               <summary>查看这一题的原始问答</summary>
@@ -94,11 +97,11 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
               <p v-if="!report.weaknesses.length" class="tiny muted">目前没有足够证据列出薄弱项。可以继续完整练习。</p>
               <div v-for="(weakness, i) in report.weaknesses" :key="i" class="list-row">
                 <div class="list-body"><p>{{ weakness }}</p></div>
-                <RouterLink :to="{ path: '/interviews', query: { focus: weakness, role: session.role, level: session.level } }" class="btn btn-secondary btn-sm">专项练习 <PhArrowRight :size="13" /></RouterLink>
+                <RouterLink :to="{ path: '/interviews', query: { focus: weakness, role: session.role, level: session.level } }" class="btn btn-secondary btn-sm">专项练习 <ArrowRight :size="13" /></RouterLink>
               </div>
             </section>
             <section class="panel">
-              <PhCheckCircle :size="24" weight="light" class="report-next-icon" /><h2>后续练习建议</h2>
+              <CircleCheck :size="24" class="report-next-icon" /><h2>后续练习建议</h2>
               <p v-if="!report.suggestions.length" class="report-empty muted">本次报告没有列出练习建议。</p>
               <ul class="reading-list"><li v-for="(suggestion, i) in report.suggestions" :key="i">{{ suggestion }}</li></ul>
             </section>
@@ -126,7 +129,7 @@ const categories = [{ key: 'correct', title: '回答中正确的内容' }, { key
     <slot name="report-tools" />
     <template v-if="!loading && session">
       <details class="panel section report-transcript">
-        <summary><PhChatsCircle :size="20" />查看完整原始对话（{{ session.messages.length }} 条）</summary>
+        <summary><MessagesSquare :size="20" />查看完整原始对话（{{ session.messages.length }} 条）</summary>
         <div class="report-transcript-body">
           <div v-for="m in session.messages" :key="m.id" class="report-transcript-message">
             <span class="badge" :class="m.role === 'USER' ? 'badge-orange' : ''">{{ m.role === 'USER' ? '我的回答' : '面试官' }} · 第 {{ m.questionIndex + 1 }} 题{{ m.followUp ? '追问' : '' }}</span><pre>{{ m.content }}</pre>

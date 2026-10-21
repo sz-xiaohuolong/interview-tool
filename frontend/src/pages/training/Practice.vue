@@ -257,7 +257,7 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
 
 <style scoped>
 .practice-page { max-width: 1040px; }
-.practice-question h2 { font-size: 22px; line-height: 1.7; }
+.practice-question h2 { font-size: 16px; line-height: 1.7; }
 .practice-reference { border-top: 1px solid var(--border-subtle); padding-top: var(--space-4); }
 .practice-reference > div, .practice-debug > div { margin-top: var(--space-4); }
 .practice-answer-heading, .practice-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
@@ -267,5 +267,5 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
 .practice-exits { margin-block: var(--space-6); }
 .practice-debug { color: var(--text-muted); }
 .practice-debug summary, .practice-reference summary { cursor: pointer; }
-@media (max-width: 600px) { .practice-question h2 { font-size: 20px; } .practice-actions .btn { width: 100%; } }
+@media (max-width: 600px) { .practice-question h2 { font-size: 16px; } .practice-actions .btn { width: 100%; } }
 </style>

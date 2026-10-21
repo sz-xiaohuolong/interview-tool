@@ -1,19 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  PhArrowLeft,
-  PhArrowRight,
-  PhTrash,
-  PhMagnifyingGlass,
-  PhTarget,
-  PhLightning,
-  PhCheckCircle,
-  PhClock,
-  PhBookOpen,
-  PhSparkle,
-  PhFlame,
-} from '@phosphor-icons/vue'
+import { ArrowLeft, ArrowRight, Trash2, Search, Target, Zap, CircleCheck, Clock, BookOpen, Sparkles, Flame,  } from 'lucide-vue-next'
 import { training, writeTraining } from '../../api/training'
 import type { Page, ReviewItem } from '../../models/training'
 import Notice from '../../components/common/Notice.vue'
@@ -225,19 +213,18 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="page workbench-page workbench-delight">
-    <!-- 极简、通透的工作台紧凑标头 -->
     <header class="workbench-header-bar">
       <div class="header-main">
         <div class="title-with-badge">
           <h1>错题重练</h1>
-          <span class="header-badge">真实问答攻坚</span>
+
         </div>
         <p class="header-caption">选一道题，重新作答，查看这次补齐了什么。</p>
       </div>
       <div v-if="rows.length" class="header-quick-stats">
-        <span class="stat-pill"><PhClock :size="14" class="icon-amber" /> 待攻坚 {{ stats.todo }}</span>
-        <span class="stat-pill"><PhLightning :size="14" class="icon-blue" /> 进行中 {{ stats.ongoing }}</span>
-        <span class="stat-pill"><PhCheckCircle :size="14" class="icon-emerald" /> 已完成 {{ stats.done }}</span>
+        <span class="stat-pill"><Clock :size="14" class="icon-amber" /> 待攻坚 {{ stats.todo }}</span>
+        <span class="stat-pill"><Zap :size="14" class="icon-blue" /> 进行中 {{ stats.ongoing }}</span>
+        <span class="stat-pill"><CircleCheck :size="14" class="icon-emerald" /> 已完成 {{ stats.done }}</span>
       </div>
     </header>
 
@@ -248,7 +235,6 @@ onBeforeUnmount(() => {
     </button>
 
     <div class="workbench-layout" :class="{ 'has-selection': hasSelection }">
-      <!-- 左侧题目工作列表（更宽更舒展） -->
       <aside class="workbench-index panel" data-workbench-list aria-label="重练题目列表">
         <div class="workbench-filters">
           <div class="heading-row">
@@ -260,7 +246,7 @@ onBeforeUnmount(() => {
           </div>
 
           <label class="workbench-search" for="workbench-search">
-            <PhMagnifyingGlass :size="17" aria-hidden="true" />
+            <Search :size="17" aria-hidden="true" />
             <input
               id="workbench-search"
               aria-label="搜索题目或来源"
@@ -321,7 +307,7 @@ onBeforeUnmount(() => {
                 title="删除重练记录（原面试记录不受影响）"
                 @click="remove(row)"
               >
-                <PhTrash :size="14" aria-hidden="true" />
+                <Trash2 :size="14" aria-hidden="true" />
                 <span>删除</span>
               </button>
             </div>
@@ -338,12 +324,10 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </aside>
-
-      <!-- 右侧工作台作答与复盘区 -->
       <section class="workbench-content" data-workbench-content aria-label="选中题目与作答">
         <div v-if="hasSelection" class="workbench-selection-bar">
           <button class="btn btn-secondary btn-sm workbench-back" @click="back">
-            <PhArrowLeft :size="15" />
+            <ArrowLeft :size="15" />
             <span>返回题目列表</span>
           </button>
           <span class="selection-origin-tag">{{ selected?.origin || '历史练习记录' }}</span>
@@ -354,7 +338,7 @@ onBeforeUnmount(() => {
             :disabled="!!deleting || loading"
             @click="remove(selected)"
           >
-            <PhTrash :size="15" />
+            <Trash2 :size="15" />
             <span>删除此项重练</span>
           </button>
         </div>
@@ -373,29 +357,22 @@ onBeforeUnmount(() => {
             <span class="case-state-badge">{{ stateLabels[stateOf([c])] }}</span>
           </button>
         </details>
-
-        <!-- 已选中的作答或复盘组件 -->
         <PracticeAnswer v-if="practiceId" :key="`case:${practiceId}`" embedded :case-id="practiceId" @changed="load" />
         <ReviewDetails v-else-if="reviewId" :key="`review:${reviewId}`" embedded :review-id="reviewId" @changed="load" />
-
-        <!-- 未选中的欢迎看板：彻底消灭死白空洞，呈现智能攻坚中心 -->
         <div v-else class="workbench-welcome panel welcome-delight">
           <header class="welcome-header">
             <div class="welcome-icon-bubble">
-              <PhTarget :size="28" weight="duotone" />
+              <Target :size="28" />
             </div>
             <div>
               <h2>{{ rows.length ? '选一道题，继续练习' : '从一次面试开始' }}</h2>
               <p>{{ rows.length ? '左侧选择题目，在这里查看原始问答、重新作答和比较变化。' : '完成面试后，从报告整理待练发现，或直接选择一道原题重新作答。' }}</p>
             </div>
           </header>
-
-          <!-- 场景 1：已有错题时的「智能推荐与今日速览」 -->
           <div v-if="rows.length" class="welcome-dashboard-grid">
-            <!-- 今日重点攻克卡片 -->
             <div v-if="recommendedRow" class="card-highlight">
               <div class="card-highlight-badge">
-                <PhFlame :size="15" weight="fill" />
+                <Flame :size="15" />
                 <span>智能推荐攻克</span>
               </div>
               <h3 class="highlight-question">{{ recommendedRow.question }}</h3>
@@ -406,15 +383,13 @@ onBeforeUnmount(() => {
                 <span class="origin-tag">{{ recommendedRow.origin }} · {{ recommendedRow.label }}</span>
                 <button type="button" class="btn btn-primary btn-sm quick-action-btn" @click="open(recommendedRow)">
                   <span>{{ recommendedRow.state === 'ongoing' ? '继续上次作答' : '立即重新作答' }}</span>
-                  <PhArrowRight :size="15" />
+                  <ArrowRight :size="15" />
                 </button>
               </div>
             </div>
-
-            <!-- 三步科学重练法 -->
             <div class="methodology-card">
               <h4>
-                <PhSparkle :size="16" weight="fill" class="sparkle-icon" />
+                <Sparkles :size="16" class="sparkle-icon" />
                 科学重练三步法
               </h4>
               <div class="method-steps">
@@ -442,11 +417,9 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </div>
-
-          <!-- 场景 2：题库全空态 -->
           <div v-if="!rows.length && !loading" class="empty-action-area">
             <RouterLink to="/configure/quick" class="btn btn-primary">
-              开始快速练习 <PhArrowRight :size="16" />
+              开始快速练习 <ArrowRight :size="16" />
             </RouterLink>
           </div>
 
@@ -460,739 +433,33 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.workbench-delight {
-  max-width: 1260px;
-  margin: 0 auto;
-}
-
-/* 紧凑优雅的标头 */
-.workbench-header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.title-with-badge {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.title-with-badge h1 {
-  font-size: 24px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-  letter-spacing: -0.02em;
-}
-
-.header-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.header-caption {
-  font-size: 13.5px;
-  color: #64748b;
-  margin-top: 4px;
-  margin-bottom: 0;
-}
-
-.header-quick-stats {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.stat-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: #475569;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.icon-amber { color: #d97706; }
-.icon-blue { color: #2563eb; }
-.icon-emerald { color: #059669; }
-
-/* 整体网格布局（平衡左右宽度） */
-.workbench-layout {
-  display: grid;
-  grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
-  gap: 22px;
-  align-items: start;
-}
-
-/* 左侧题目工作列表 */
-.workbench-index {
-  position: sticky;
-  top: 24px;
-  padding: 0;
-  overflow: hidden;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(32, 44, 64, 0.03);
-}
-
-.workbench-filters {
-  padding: 18px 20px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fcfdfe;
-}
-
-.title-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.title-group h2 {
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.count-badge {
-  font-size: 12px;
-  font-weight: 600;
-  background: #f1f5f9;
-  color: #475569;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-
-.workbench-filters .heading-row {
-  margin-bottom: 14px;
-}
-
-/* 搜索框 */
-.workbench-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  transition: all 0.2s ease;
-}
-
-.workbench-search:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
-}
-
-.workbench-search svg {
-  flex-shrink: 0;
-  color: #94a3b8;
-}
-
-.workbench-search input {
-  width: 100%;
-  border: 0;
-  outline: none;
-  font-size: 13.5px;
-  color: #1e293b;
-  background: transparent;
-  padding: 0;
-}
-
-.workbench-search input::placeholder {
-  color: #94a3b8;
-}
-
-/* 筛选器 */
-.filter-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.filter-label {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #64748b;
-  flex-shrink: 0;
-}
-
-.select-wrapper {
-  position: relative;
-  flex: 1;
-}
-
-.select-wrapper select {
-  width: 100%;
-  padding: 6px 28px 6px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background-color: #ffffff;
-  font-size: 13px;
-  color: #334155;
-  transition: all 0.15s ease;
-  appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 12px;
-}
-
-.select-wrapper select:focus {
-  border-color: #3b82f6;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
-}
-
-/* 题目行列表 */
-.workbench-rows {
-  max-height: calc(100dvh - 310px);
-  min-height: 240px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.workbench-row {
-  position: relative;
-  padding: 14px 18px;
-  border-bottom: 1px solid #f1f5f9;
-  transition: all 0.15s ease;
-  background: #ffffff;
-}
-
-.workbench-row:last-of-type {
-  border-bottom: 0;
-}
-
-.workbench-row:hover {
-  background: #f8fafc;
-}
-
-.workbench-row.selected {
-  background: #eff6ff;
-  border-left: 3px solid #2563eb;
-}
-
-.workbench-open {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  color: #1e293b;
-  cursor: pointer;
-}
-
-.workbench-open:focus-visible {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-.workbench-row-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.origin-tag {
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-  background: #f1f5f9;
-  color: #475569;
-}
-
-.status-tag {
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 4px;
-}
-
-.status-todo {
-  background: #fff7ed;
-  color: #c2410c;
-}
-
-.status-ongoing {
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.status-done {
-  background: #ecfdf5;
-  color: #047857;
-}
-
-.status-other {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.workbench-question {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-size: 14.5px;
-  font-weight: 600;
-  line-height: 1.55;
-  color: #0f172a;
-}
-
-.workbench-summary {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-top: 6px;
-  padding-left: 8px;
-  border-left: 2px solid #cbd5e1;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: #64748b;
-}
-
-.summary-quote {
-  font-weight: 600;
-  color: #475569;
-}
-
-.workbench-row-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-}
-
-.badge-mock-tag {
-  font-size: 11px;
-  color: #d97706;
-  background: #fef3c7;
-  padding: 1px 6px;
-  border-radius: 4px;
-}
-
-.footer-hint {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-/* 优雅的删除按钮（微交互） */
-.workbench-delete {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 28px;
-  padding: 3px 8px;
-  border: 0;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.workbench-row:hover .workbench-delete {
-  color: #ef4444;
-}
-
-.workbench-delete:hover {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
-.workbench-delete:disabled {
-  opacity: 0.45;
-  cursor: wait;
-}
-
-.workbench-empty {
-  padding: 32px 20px;
-  text-align: center;
-  line-height: 1.6;
-}
-
-.workbench-more {
-  display: block;
-  width: calc(100% - 32px);
-  margin: 16px auto;
-  padding: 8px;
-  font-size: 13px;
-}
-
-/* ================= 右侧工作台作答/复盘区 ================= */
-.workbench-content {
-  min-width: 0;
-}
-
-.workbench-selection-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 10px 16px;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 10px;
-}
-
-.workbench-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.selection-origin-tag {
-  font-size: 12.5px;
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.delete-selected-btn {
-  margin-left: auto;
-  color: #ef4444;
-}
-
-.workbench-history {
-  margin-bottom: 16px;
-  padding: 14px 18px;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 10px;
-}
-
-.workbench-history summary {
-  cursor: pointer;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: #334155;
-}
-
-.workbench-case {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  border-top: 1px solid #f1f5f9;
-  cursor: pointer;
-}
-
-.case-state-badge {
-  font-size: 12px;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 2px 8px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-/* 欢迎区 / 控制台（告别死白） */
-.welcome-delight {
-  padding: 28px 32px;
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(32, 44, 64, 0.03);
-}
-
-.welcome-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 24px;
-}
-
-.welcome-icon-bubble {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: #eff6ff;
-  color: #2563eb;
-  flex-shrink: 0;
-}
-
-.welcome-header h2 {
-  font-size: 19px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.welcome-header p {
-  font-size: 14px;
-  color: #64748b;
-  line-height: 1.6;
-  margin-top: 4px;
-  margin-bottom: 0;
-}
-
-/* 仪表盘两栏网格 */
-.welcome-dashboard-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* 今日重点推荐卡片 */
-.card-highlight {
-  padding: 20px 22px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%);
-  border: 1px solid #bfdbfe;
-  position: relative;
-}
-
-.card-highlight-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #b45309;
-  background: #fef3c7;
-  padding: 2px 8px;
-  border-radius: 999px;
-  margin-bottom: 10px;
-}
-
-.highlight-question {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.6;
-  color: #0f172a;
-  margin: 0;
-}
-
-.highlight-desc {
-  font-size: 13px;
-  line-height: 1.6;
-  color: #475569;
-  margin-top: 8px;
-  margin-bottom: 0;
-}
-
-.highlight-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px dashed #cbd5e1;
-}
-
-.quick-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-}
-
-/* 方法论卡片 */
-.methodology-card {
-  padding: 20px 22px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.methodology-card h4 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 14px 0;
-}
-
-.sparkle-icon {
-  color: #2563eb;
-}
-
-.method-steps {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.step-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.step-num {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #e2e8f0;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 700;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.step-item strong {
-  display: block;
-  font-size: 13.5px;
-  color: #1e293b;
-  margin-bottom: 4px;
-}
-
-.step-item p {
-  font-size: 12.5px;
-  line-height: 1.6;
-  color: #64748b;
-  margin: 0;
-}
-
-.workbench-scope {
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.empty-action-area {
-  margin-top: 20px;
-}
-
-/* 嵌入页面透传样式 */
-.workbench-content :deep(.page) {
-  padding: 0;
-  max-width: none;
-}
-
-.workbench-content :deep(.training-reading-layout) {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 18px !important;
-  width: 100% !important;
-}
-
-.workbench-content :deep(.training-actions) {
-  order: -1;
-  position: static;
-  width: 100% !important;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  background: linear-gradient(135deg, #ffffff 0%, #eff6ff 100%);
-  border: 1px solid #bfdbfe;
-  border-radius: 12px;
-  padding: 18px 24px;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.04);
-}
-
-.workbench-content :deep(.training-actions h2) {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0;
-}
-
-.workbench-content :deep(.training-actions > p) {
-  font-size: 13px;
-  color: #64748b;
-  margin: 0;
-}
-
-.workbench-content :deep(.training-flow.panel) {
-  background: #ffffff;
-  border: 1px solid #dce3ee;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 10px rgba(32, 44, 64, 0.02);
-}
-
-.workbench-content :deep(pre) {
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-/* 响应式断点 */
-@media (max-width: 1080px) {
-  .method-steps {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-}
-
-@media (max-width: 900px) {
-  .workbench-header-bar {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .workbench-layout {
-    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
-    gap: 16px;
-  }
-}
-
-@media (max-width: 760px) {
-  .workbench-layout {
-    display: block;
-  }
-  .workbench-index {
-    position: static;
-  }
-  .workbench-rows {
-    max-height: none;
-  }
-  .workbench-content {
-    display: none;
-  }
-  .workbench-layout.has-selection .workbench-index {
-    display: none;
-  }
-  .workbench-layout.has-selection .workbench-content {
-    display: block;
-  }
-  .welcome-delight {
-    padding: 20px;
-  }
-  .workbench-selection-bar > .selection-origin-tag {
-    display: none;
-  }
-}
+.workbench-page { max-width:none; }
+.workbench-header-bar, .title-with-badge, .header-quick-stats, .stat-pill, .title-group { display:flex; align-items:center; gap:12px; }
+.workbench-header-bar { justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; }
+.header-caption { color:var(--text-muted); margin-top:4px; }
+.header-quick-stats { gap:16px; font:12px var(--font-mono); }.stat-pill { gap:6px; }.icon-amber { color:var(--warning); }.icon-blue { color:var(--accent); }.icon-emerald { color:var(--success); }
+.workbench-layout { display:grid; grid-template-columns:minmax(290px, 38%) minmax(0,1fr); border:1px solid var(--border-subtle); border-radius:8px; min-height:580px; overflow:clip; }
+.workbench-index { padding:0; border:0; border-right:1px solid var(--border-subtle); border-radius:0; background:var(--surface-soft); position:sticky; top:0; align-self:start; }
+.workbench-filters { padding:14px; border-bottom:1px solid var(--border-subtle); }.workbench-filters .heading-row { margin-bottom:12px; }.title-group h2 { font-size:13px; }.count-badge { font:12px var(--font-mono); color:var(--text-muted); }
+.workbench-search { display:flex; align-items:center; position:relative; margin-bottom:10px; }.workbench-search svg { position:absolute; left:10px; color:var(--text-muted); }.workbench-search input { padding-left:34px; font-size:13px; }
+.filter-row { display:flex; align-items:center; gap:12px; }.filter-label { font-size:12px; font-weight:400; white-space:nowrap; margin:0; }.select-wrapper { flex:1; }.select-wrapper select { font-size:12px; }
+.workbench-rows { max-height:65dvh; overflow:auto; }.workbench-row { display:flex; align-items:center; min-height:44px; border-bottom:1px solid var(--border-subtle); background:var(--surface); }.workbench-row:hover { background:var(--surface-soft); }.workbench-row.selected { background:var(--accent-soft); }
+.workbench-open { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:4px 10px; min-width:0; flex:1; text-align:left; background:transparent; border:0; padding:10px 12px; color:var(--text-primary); }
+.workbench-row-meta { display:flex; grid-column:1 / -1; gap:8px; align-items:center; }.origin-tag { font-size:11px; color:var(--text-muted); }.status-tag { font-size:11px; color:var(--warning); }.status-done { color:var(--success); }.status-ongoing { color:var(--accent); }
+.workbench-question { display:block; grid-column:1 / -1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.workbench-summary { display:none; }
+.workbench-row-footer { padding-right:8px; }.workbench-row-footer > .tiny { display:none; }.workbench-delete { border:0; background:transparent; color:var(--text-muted); display:flex; gap:6px; align-items:center; padding:8px; min-height:32px; font-size:12px; }.workbench-delete:hover { color:var(--danger); background:var(--danger-soft); border-radius:6px; }
+.workbench-empty, .workbench-more { margin:16px; }.workbench-content { min-width:0; padding:20px; }.workbench-selection-bar { display:flex; align-items:center; gap:12px; padding-bottom:12px; border-bottom:1px solid var(--border-subtle); margin-bottom:16px; flex-wrap:wrap; }.selection-origin-tag { font-size:12px; color:var(--text-muted); }.delete-selected-btn { margin-left:auto; }.workbench-back { display:none; }
+.workbench-history { padding:12px 0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; margin-bottom:16px; }.workbench-case { display:flex; justify-content:space-between; width:100%; text-align:left; background:transparent; border:0; padding:8px 0; gap:12px; }.case-state-badge { flex-shrink:0; font-size:12px; }
+.workbench-welcome { border:0; border-radius:0; padding:0; }.welcome-header { display:flex; gap:12px; align-items:flex-start; margin:4px 0 28px; }.welcome-icon-bubble { color:var(--text-muted); }.welcome-header h2 { font-size:16px; }.welcome-header p { color:var(--text-muted); margin-top:6px; max-width:60ch; }
+.card-highlight { border-block:1px solid var(--border-subtle); padding:16px 0; }.card-highlight-badge { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); margin-bottom:10px; }.highlight-question { font-size:14px; }.highlight-desc { color:var(--text-muted); margin-top:8px; }.highlight-footer { display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; margin-top:16px; }
+.methodology-card { padding-top:20px; }.methodology-card h4 { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; margin:0 0 14px; color:var(--text-muted); }.method-steps { display:grid; gap:14px; }.step-item { display:flex; gap:12px; }.step-num { color:var(--text-muted); font:12px var(--font-mono); padding-top:3px; }.step-item strong { font-size:13px; font-weight:500; }.workbench-scope { margin-top:24px; padding-top:12px; border-top:1px solid var(--border-subtle); }.empty-action-area { margin:20px 0; }
+.workbench-content :deep(.page) { padding:0; max-width:none; }
+.workbench-content :deep(.panel) { border:0; border-radius:0; box-shadow:none; padding:12px 0; }
+.workbench-content :deep(.training-reading-layout) { display:flex; flex-direction:column; gap:16px; }
+.workbench-content :deep(.training-reading-layout > *) { width:100%; }
+.workbench-content :deep(.training-actions) { order:-1; display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; gap:10px; border-bottom:1px solid var(--border-subtle); padding:0 0 16px; }
+.workbench-content :deep(.training-actions > .tiny) { flex-basis:100%; }
+.workbench-content :deep(.training-actions h2) { font-size:13px; }
+@media(max-width:1000px) { .workbench-layout { grid-template-columns:minmax(260px,40%) minmax(0,1fr); }.workbench-content { padding:16px; } }
+@media(max-width:760px) { .workbench-layout { display:block; min-height:0; }.workbench-index { position:static; border:0; }.workbench-content { display:none; }.has-selection .workbench-index { display:none; }.has-selection .workbench-content { display:block; }.workbench-back { display:inline-flex; }.workbench-rows { max-height:65dvh; }.header-quick-stats { flex-wrap:wrap; gap:10px; }.workbench-delete { min-height:44px; }.workbench-open { min-height:60px; }.workbench-search input { font-size:16px; } }
 </style>

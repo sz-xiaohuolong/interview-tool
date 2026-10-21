@@ -59,6 +59,24 @@ describe('资料库页面（仅替换外部 HTTP）', () => {
     expect(wrapper!.text()).not.toContain('我的简历')
   })
 
+  it('在列表切换资料预览，切换分类不会展示上一分类正文', async () => {
+    const second = { ...resume, id: 'resume-2', name: '第二份简历', content: '第二份资料的独立正文', documents: [] }
+    const fetcher = vi.fn().mockImplementation(async (url, options) => {
+      if (url === '/api/materials' && !options?.method) return respond([resume, second, project])
+      throw new Error(`未知请求：${url}`)
+    })
+    vi.stubGlobal('fetch', fetcher)
+    await render()
+    expect(wrapper!.get('[aria-label="资料内容预览"]').text()).toContain('完整的项目经历')
+    await wrapper!.get('[data-material-preview="resume-2"]').trigger('click')
+    expect(wrapper!.get('[aria-label="资料内容预览"]').text()).toContain(second.content)
+    expect(wrapper!.find('[role="dialog"]').exists()).toBe(false)
+    await wrapper!.get('[data-kind="PROJECT"]').trigger('click')
+    expect(wrapper!.get('[aria-label="资料内容预览"]').text()).toContain(project.content)
+    expect(wrapper!.get('[aria-label="资料内容预览"]').text()).not.toContain(second.content)
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
   it('初始读取完成前禁用新增，避免延迟列表覆盖刚保存的资料', async () => {
     let resolveLoad!: (response: Response) => void
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(resolve => { resolveLoad = resolve })))

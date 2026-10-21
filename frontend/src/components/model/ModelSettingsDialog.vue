@@ -70,7 +70,7 @@ watch(() => [draft.baseUrl, draft.model, draft.apiKey, draft.fastModel, draft.re
 
 <template>
   <Modal :open="open" title="模型配置" description="全站共用一套连接，适用于综合面试、项目深挖与专项练习。" @update:open="emit('update:open', $event)">
-    <form class="model-settings" @submit.prevent="act('save')">
+    <form class="model-settings text-[13px]" @submit.prevent="act('save')">
       <p v-if="loading" role="status">正在读取本机配置…</p>
       <Notice :message="error" kind="error" />
       <fieldset :disabled="disabled || !original">
@@ -102,6 +102,7 @@ watch(() => [draft.baseUrl, draft.model, draft.apiKey, draft.fastModel, draft.re
 </template>
 
 <style scoped>
+#model-id, #model-url, .model-advanced input, .test-result { font-family:var(--font-mono); font-variant-numeric:tabular-nums; }
 .model-settings { display: grid; gap: 14px; }
 fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 14px; min-width: 0; }
 .model-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

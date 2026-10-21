@@ -142,3 +142,25 @@ Impeccable 的 `buildPath` 为 `comp`，表示采用参考图驱动的设计路�
 原始证据仅本地保存于 `.evidence/report-c-implementation-20261016/`：`engineering.log`、`frontend-tests-final.log`、`frontend-build-final.log`、`boundary-final.log`、`template-boundary.json`、`file-boundary-final.json`、`detector.json`、`hero-gate-final.log`、`comp-diff-final.log`。`visual/metrics.json`为最后状态与DOM顺序，旧快照保留为`metrics-initial-pass.json`，手机首屏数值见`fix-metrics.json`。截图、spec和差分在该证据目录及`.impeccable/review/`，均不包含公开提交的个人数据。
 
 本轮没有提交、推送、部署或新增模型调用，正式Release及V2人工验收状态保持。工程检查通过和人工阅读适配不等于官方Comp-led门禁通过。
+
+## 7. 全站开发者工作台重构验证（2026-10-21）
+
+范围为现有全站前端 UI，正式 Release 仍为 V1；后端与 API 契约不变。本轮按用户指定的 Stage 1 → 4 顺序执行，每阶段测试通过后才进入下一阶段。
+
+| 检查 | 实际结果与适用范围 |
+|---|---|
+| Stage 1 基础依赖 | 32文件304项 Vitest、TypeScript与Vite构建通过 |
+| Stage 2 外壳与公共组件 | 55项相关单测、构建及4项统一入口浏览器测试通过；侧栏折叠先写失败测试 |
+| Stage 3 面试与报告 | 305项前端单测、构建通过；指定6组16项浏览器流程经兼容控件名称修复后全部有通过证据 |
+| Stage 4 全站回归 | `bash scripts/test.sh`通过：后端402项中394通过、8项显式联网跳过，前端306项及类型/构建通过；完整 Playwright 55项通过 |
+| 最终受影响复验 | 首轮视觉修正后8项浏览器检查通过；独立审查修正后，快速练习桌面/手机2项及1项批量视觉流程通过，最终306项前端单测、类型与构建通过 |
+| 新增交互 | 资料列表选择预览、分类切换隔离和零额外请求的行为测试先失败后通过；原查看弹窗、上传、编辑、删除测试保持 |
+| 兼容和安全边界 | 覆盖实际API路径、旧入口、同ID来源隔离、原答定位、只读回放、源码仅复盘展示、输入草稿、手机返回滚动和模型配置 |
+| 视觉检查 | 两轮集中桌面1440px/手机390px检查，覆盖概览、两种配置、作答、资料、历史、回放、错题、故事、两种报告与模型弹窗；23张合成截图。已修正桌面输入区首屏位置、嵌入训练的重复边框/边距与禁用按钮状态 |
+| 静态检测 | Impeccable detect仅执行一次，返回2项同源警告，均指向加载骨架的10px上下条；独立审查确认不属于业务卡片的强调粗边框，不据此声称零检测告警 |
+| 独立视觉审查 | 首轮23张图审查提出2项：作答时滚动过渡仍展示旧题、两处配置标题重复标签。滚动即时断言在桌面/手机先失败（距底部133/214px）；改为即时定位并删除标签后复验通过，更新截图复判两项均resolved，disposition: ship；最终复判仅覆盖这两项 |
+| 日常重启与数据 | 日常后端已重启，8080健康与5173页面/代理均HTTP 200；20张表、31份资料文件、5个接口返回及环境配置摘要前后严格相等 |
+
+浏览器测试只连接独立临时数据目录的显式 Mock 后端。默认4173的IPv4端口被其他项目占用，因此临时配置使用IPv6回环监听及`localhost:4173`浏览器地址，仍满足原服务端Origin校验；未停止其他项目进程，未修改后端白名单。本轮没有真实模型调用，功能和视觉通过不替代真实模型质量验证。
+
+本机原始证据：`.runtime/ui-reading/`下的`stage1-*`、`stage2-*`、`stage3-*`、`stage4-*`、`final-engineering.log`、`final-ui-test.log`、`final-ui-build.log`、`visual-confirm.log`和`impeccable-detect.json`；截图位于`.impeccable/review/ui-refactor-20261021/`。这些临时文件不提交。独立审查修正证据为`reviewer-scroll-red.log`、`reviewer-fixes-final.log`、`post-review-test-final.log`及`post-review-build-final.log`；重启核对存于`.runtime/ui-refactor-20261021/daily/`。设计文档按最终源码同步；旧Comp历史门禁保持原结论，本轮不声称像素复刻通过。按持续授权提交并同步`origin/main`，实际提交以Git引用为准。

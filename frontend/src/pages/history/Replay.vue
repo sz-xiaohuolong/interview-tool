@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { PhArrowLeft, PhArrowUpRight, PhRobot, PhUser } from '@phosphor-icons/vue'
+import { ArrowLeft, ArrowUpRight, Bot, User } from 'lucide-vue-next'
 import { request, errorMessage } from '../../api'
 import type { Session } from '../../types'
 import type { InterviewSession } from '../../models/interview'
@@ -46,21 +46,22 @@ watch([() => route.params.id, () => props.source, reload], async ([id, source], 
   <div class="page replay-page">
     <div class="page-heading replay-heading">
       <div><h1>对话回放</h1><p>回看当时的提问与回答。</p></div>
-      <RouterLink to="/history" class="btn btn-secondary"><PhArrowLeft :size="17" />返回面试历史</RouterLink>
+      <RouterLink to="/history" class="btn btn-secondary"><ArrowLeft :size="17" />返回面试历史</RouterLink>
     </div>
     <LoadingState v-if="loading" label="正在加载原始对话…" />
     <Notice v-else-if="error" :message="error" kind="error"><button class="btn btn-secondary btn-sm replay-retry" @click="reload++">重新加载</button></Notice>
     <template v-else-if="session">
+      <div class="replay-workspace">
       <section class="panel replay-summary" aria-label="本场面试信息">
         <div><h2>{{ session.role }}</h2><p>{{ modeLabel }} · {{ levelLabels[session.level] || session.level }} · {{ displayDate(session.createdAt) }} · 已回答 {{ answerCount }} 次</p></div>
-        <RouterLink v-if="reportHref" :to="reportHref" class="text-link">查看复盘<PhArrowUpRight :size="16" /></RouterLink>
+        <RouterLink v-if="reportHref" :to="reportHref" class="text-link">查看复盘<ArrowUpRight :size="16" /></RouterLink>
       </section>
       <Notice v-if="session.mock" kind="warning" message="Mock 测试面试：以下为合成对话记录。" />
       <div class="chat-panel">
         <EmptyState v-if="!session.messages.length" title="暂无对话记录" description="这场面试尚未保存任何提问或回答。" />
         <ol v-else class="replay-messages" aria-label="原始面试对话">
           <li v-for="message in session.messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }">
-            <div class="avatar" aria-hidden="true"><PhUser v-if="message.role === 'USER'" :size="16" /><PhRobot v-else :size="17" /></div>
+            <div class="avatar" aria-hidden="true"><User v-if="message.role === 'USER'" :size="16" /><Bot v-else :size="17" /></div>
             <div class="replay-message-body">
               <div class="message-meta"><span>{{ message.role === 'USER' ? '我的回答' : '面试官' }}</span><time :datetime="message.createdAt">{{ displayDate(message.createdAt) }}</time></div>
               <div class="message-content">{{ message.content }}</div>
@@ -68,25 +69,12 @@ watch([() => route.params.id, () => props.source, reload], async ([id, source], 
           </li>
         </ol>
       </div>
+      </div>
     </template>
   </div>
 </template>
 
 <style scoped>
-.replay-page { max-width: 1080px; }
-.replay-heading, .replay-summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-.replay-heading .btn, .replay-summary .text-link { flex-shrink: 0; }
-.replay-summary { margin-bottom: 20px; }
-.replay-summary h2 { font-size: 20px; overflow-wrap: anywhere; }
-.replay-summary p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; }
-.replay-messages { display: flex; flex-direction: column; gap: 32px; list-style: none; margin: 0; padding: 32px 24px; }
-.replay-messages .message { max-width: 92%; }
-.replay-message-body { min-width: 0; }
-.replay-retry { display: flex; margin-top: 12px; }
-@media (max-width: 600px) {
-  .replay-heading, .replay-summary { align-items: flex-start; flex-direction: column; gap: 16px; }
-  .replay-summary .text-link { min-height: 44px; }
-  .replay-messages { padding: 24px 14px; gap: 28px; }
-  .replay-messages .message { max-width: 100%; }
-}
+.replay-page { max-width:1320px; }.replay-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; }.replay-heading .btn { flex-shrink:0; }.replay-workspace { display:grid; grid-template-columns:minmax(0,3fr) minmax(240px,2fr); border:1px solid var(--border-subtle); border-radius:8px; overflow:clip; align-items:start; }.replay-summary { grid-column:2; grid-row:1 / 3; border:0; border-radius:0; border-left:1px solid var(--border-subtle); padding:20px; background:var(--surface-soft); align-self:stretch; }.replay-summary h2 { font-size:16px; }.replay-summary p { margin:8px 0 20px; color:var(--text-muted); font-size:12px; font-variant-numeric:tabular-nums; }.replay-workspace > .chat-panel { grid-column:1; grid-row:2; border:0; border-radius:0; }.replay-workspace > .notice { grid-column:1; grid-row:1; margin:12px 16px 0; }.replay-messages { display:flex; flex-direction:column; gap:24px; list-style:none; margin:0; padding:20px 16px; }.replay-messages .message { max-width:96%; }.replay-message-body { min-width:0; }.replay-retry { display:flex; margin-top:12px; }
+@media(max-width:800px) { .replay-workspace { display:flex; flex-direction:column; }.replay-summary { border-left:0; border-bottom:1px solid var(--border-subtle); }.replay-workspace > .chat-panel { width:100%; }.replay-heading { align-items:flex-start; flex-direction:column; gap:12px; }.replay-messages .message { max-width:100%; } }
 </style>

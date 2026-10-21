@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { PhArrowRight, PhBriefcase, PhFileText, PhFolderOpen, PhLockSimple, PhPencilSimple, PhPlus, PhTrash, PhUploadSimple } from '@phosphor-icons/vue'
+import { ArrowRight, BriefcaseBusiness, FileText, FolderOpen, LockKeyhole, Pencil, Plus, Trash2, Upload } from 'lucide-vue-next'
 import { errorMessage, post, put, request } from '../../api'
 import { dateTime } from '../../format'
 import type { Document, Material, MaterialKind } from '../../types'
@@ -22,6 +22,8 @@ const requestedKind = String(route.query.kind || '')
 const kind = ref<MaterialKind>(['RESUME', 'PROJECT', 'JD'].includes(requestedKind) ? requestedKind as MaterialKind : 'RESUME')
 const currentKind = computed(() => kinds.find(item => item.value === kind.value)!)
 const visibleMaterials = computed(() => materials.value.filter(item => item.kind === kind.value))
+const previewId = ref<string | null>(null)
+const preview = computed(() => visibleMaterials.value.find(item => item.id === previewId.value) || visibleMaterials.value[0])
 const loading = ref(true)
 const loadError = ref('')
 const pageError = ref('')
@@ -196,8 +198,8 @@ onMounted(loadMaterials)
 <template>
   <main class="page materials-page">
     <div class="page-heading heading-row">
-      <div><div class="eyebrow">让准备有据可循</div><h1>我的资料库</h1><p>整理你的经历、项目与目标岗位，为每次练习提供真实背景。</p></div>
-      <button class="btn btn-dark" :disabled="busy || loading" @click="openEditor()"><PhPlus :size="17" />新增{{ currentKind.label }}</button>
+      <div><h1>我的资料库</h1><p>整理你的经历、项目与目标岗位，为每次练习提供真实背景。</p></div>
+      <button class="btn btn-dark" :disabled="busy || loading" @click="openEditor()"><Plus :size="17" />新增{{ currentKind.label }}</button>
     </div>
 
     <div class="tabs" role="group" aria-label="资料分类">
@@ -212,21 +214,36 @@ onMounted(loadMaterials)
     <template v-else>
       <p class="muted tiny material-intro">{{ currentKind.description }}</p>
       <EmptyState v-if="!visibleMaterials.length" class="panel" :title="`还没有${currentKind.label}`" :description="kind === 'RESUME' ? '点击右上方新增简历，可上传 PDF、DOCX 或 Markdown。' : kind === 'PROJECT' ? '点击右上方新增项目，保存文字后可继续添加多个附件。' : '点击右上方新增目标 JD，保存完整的岗位要求。'" />
-      <div v-else class="material-grid">
-        <article v-for="material in visibleMaterials" :key="material.id" class="material-card">
-          <div class="material-card-heading"><span class="list-icon"><PhFileText v-if="kind === 'RESUME'" :size="23" /><PhFolderOpen v-else-if="kind === 'PROJECT'" :size="23" /><PhBriefcase v-else :size="23" /></span><div class="list-body"><h3 :title="material.name">{{ material.name }}</h3><p>{{ dateTime(material.updatedAt) }} 更新</p></div></div>
-          <p class="material-preview">{{ material.content || material.documents.map(document => document.text).join('\n') || '尚未补充正文或附件，查看资料后可继续完善。' }}</p>
-          <div class="material-meta"><span class="badge badge-gray">{{ material.documents.length }} 个附件</span><span v-if="material.documents.some(document => document.truncated)" class="badge badge-orange">部分附件已截断</span></div>
-          <div class="card-actions">
-            <button class="btn btn-secondary btn-sm" :disabled="busy" @click="showDetails(material)">查看</button>
-            <button class="btn btn-ghost btn-sm" :disabled="busy" @click="openEditor(material)"><PhPencilSimple :size="15" />编辑</button>
-            <button class="btn btn-ghost btn-sm" :disabled="busy" @click="deleteMaterial(material)"><PhTrash :size="15" />删除</button>
+      <div v-else class="material-workspace">
+        <div class="material-grid" aria-label="资料列表">
+          <article v-for="material in visibleMaterials" :key="material.id" class="material-card" :class="{ selected: preview?.id === material.id }">
+            <button class="material-select" :data-material-preview="material.id" :aria-pressed="preview?.id === material.id" @click="previewId = material.id">
+              <FileText v-if="kind === 'RESUME'" :size="17" /><FolderOpen v-else-if="kind === 'PROJECT'" :size="17" /><BriefcaseBusiness v-else :size="17" />
+              <span class="list-body"><strong :title="material.name">{{ material.name }}</strong><small>{{ material.documents.length }} 个附件 · {{ dateTime(material.updatedAt) }}</small></span>
+            </button>
+            <div class="card-actions">
+              <button class="btn btn-ghost btn-sm" :disabled="busy" @click="showDetails(material)">查看</button>
+              <button class="btn btn-ghost btn-sm" :disabled="busy" @click="openEditor(material)"><Pencil :size="14" />编辑</button>
+              <button class="btn btn-ghost btn-sm" :disabled="busy" @click="deleteMaterial(material)"><Trash2 :size="14" />删除</button>
+            </div>
+          </article>
+        </div>
+        <section v-if="preview" class="material-inspector" aria-label="资料内容预览">
+          <header class="heading-row"><div><h2>{{ preview.name }}</h2><p class="tiny muted">{{ currentKind.label }} · {{ preview.documents.length }} 个附件</p></div>
+            <RouterLink v-if="preview.kind !== 'JD'" :to="interviewRoute(preview)" class="text-link material-start">{{ preview.kind === 'RESUME' ? '开始简历押题' : '开始项目面试' }}<ArrowRight :size="15" /></RouterLink>
+          </header>
+          <SourceCodeEvidence v-if="preview.kind === 'PROJECT'" :source="preview.repository" />
+          <pre v-if="preview.content" class="material-fulltext">{{ preview.content }}</pre>
+          <p v-else-if="!preview.documents.length" class="muted">尚未补充正文或附件，查看资料后可继续完善。</p>
+          <div v-for="document in preview.documents" :key="document.id" class="document-item">
+            <details :open="preview.documents.length === 1"><summary><FileText :size="16" /><span>{{ document.name }}</span><small>查看全文</small></summary>
+              <p v-if="document.truncated" class="tiny muted">部分附件已截断，以下为已保存的完整文本。</p><pre>{{ document.text }}</pre>
+            </details>
           </div>
-          <RouterLink v-if="material.kind !== 'JD'" :to="interviewRoute(material)" class="text-link material-start">{{ material.kind === 'RESUME' ? '开始简历押题' : '开始项目面试' }}<PhArrowRight :size="15" /></RouterLink>
-        </article>
+        </section>
       </div>
     </template>
-    <p class="footer-note"><PhLockSimple :size="14" />资料与附件保存在本机。开始练习时，相关资料会发送给已配置的模型服务。</p>
+    <p class="footer-note"><LockKeyhole :size="14" />资料与附件保存在本机。开始练习时，相关资料会发送给已配置的模型服务。</p>
 
     <Modal :open="editorOpen" :title="`${editingId ? '编辑' : '新增'}${editorLabel}`" :description="editingId ? '仅修改名称与手工填写的正文；附件请在资料详情中单独管理。' : '保存你的真实资料，为面试和复盘提供依据。'" @update:open="value => { if (!busy) editorOpen = value }">
       <form @submit.prevent="saveMaterial">
@@ -247,45 +264,48 @@ onMounted(loadMaterials)
       <template v-if="selected">
         <Notice :message="detailError" kind="error" /><Notice :message="detailMessage" />
         <SourceCodeEvidence v-if="selected.kind === 'PROJECT'" :source="selected.repository" /><p v-if="selected.kind === 'PROJECT' && !selected.repository" class="form-help">未关联 GitHub 仓库，可编辑资料补充。</p>
-        <section class="material-reading"><div class="heading-row"><h3>手工正文</h3><button class="text-link reading-edit" :disabled="busy" @click="openEditor(selected)"><PhPencilSimple :size="15" />编辑正文</button></div><pre v-if="selected.content">{{ selected.content }}</pre><p v-else class="muted tiny">尚未填写手工正文{{ selected.documents.length ? '，已上传的内容见下方附件。' : '，可通过编辑补充。' }}</p></section>
+        <section class="material-reading"><div class="heading-row"><h3>手工正文</h3><button class="text-link reading-edit" :disabled="busy" @click="openEditor(selected)"><Pencil :size="15" />编辑正文</button></div><pre v-if="selected.content">{{ selected.content }}</pre><p v-else class="muted tiny">尚未填写手工正文{{ selected.documents.length ? '，已上传的内容见下方附件。' : '，可通过编辑补充。' }}</p></section>
         <section class="form-section"><h3>附件 <span class="muted tiny">{{ selected.documents.length }} / 20</span></h3><p v-if="!selected.documents.length" class="muted tiny material-intro">暂无附件。</p>
           <div v-for="document in selected.documents" :key="document.id" class="document-item">
             <Notice v-if="document.truncated" message="此附件文本过长，服务端已截断至前 24,000 字符。下方展示全部已保存文本；如缺少关键内容，请拆分或精简后重新上传。" kind="warning" />
-            <details :open="selected.documents.length === 1"><summary><PhFileText :size="17" /><span>{{ document.name }}</span><small>查看全文</small></summary><pre>{{ document.text }}</pre></details>
-            <button class="btn btn-ghost btn-sm document-delete" :disabled="busy" @click="deleteDocument(document)"><PhTrash :size="14" />删除附件</button>
+            <details :open="selected.documents.length === 1"><summary><FileText :size="17" /><span>{{ document.name }}</span><small>查看全文</small></summary><pre>{{ document.text }}</pre></details>
+            <button class="btn btn-ghost btn-sm document-delete" :disabled="busy" @click="deleteDocument(document)"><Trash2 :size="14" />删除附件</button>
           </div>
-          <div v-if="selected.kind !== 'JD'" class="document-uploader"><label for="document-files">添加附件（可多选）</label><input id="document-files" type="file" :accept="selected.kind === 'RESUME' ? '.pdf,.docx,.md,.markdown' : '.pdf,.docx,.md,.markdown,.txt'" multiple :disabled="busy || selected.documents.length >= 20" @change="chooseDocuments" /><p class="form-help">{{ selected.kind === 'RESUME' ? '支持 PDF、DOCX、Markdown' : '支持 PDF、DOCX、Markdown、TXT' }}；单文件不超过 5 MiB。超长解析文本会截断并提示。</p><div v-if="pendingDocuments.length" class="pending-files"><p class="tiny muted">待上传 {{ pendingDocuments.length }} 个文件：</p><ul><li v-for="(file, index) in pendingDocuments" :key="`${file.name}-${index}`">{{ file.name }}</li></ul><button class="btn btn-secondary btn-sm" :disabled="busy" @click="uploadDocuments"><PhUploadSimple v-if="!busy" :size="16" /><span v-else class="spinner" aria-hidden="true" />{{ busy ? '正在上传…' : '上传附件' }}</button></div></div>
+          <div v-if="selected.kind !== 'JD'" class="document-uploader"><label for="document-files">添加附件（可多选）</label><input id="document-files" type="file" :accept="selected.kind === 'RESUME' ? '.pdf,.docx,.md,.markdown' : '.pdf,.docx,.md,.markdown,.txt'" multiple :disabled="busy || selected.documents.length >= 20" @change="chooseDocuments" /><p class="form-help">{{ selected.kind === 'RESUME' ? '支持 PDF、DOCX、Markdown' : '支持 PDF、DOCX、Markdown、TXT' }}；单文件不超过 5 MiB。超长解析文本会截断并提示。</p><div v-if="pendingDocuments.length" class="pending-files"><p class="tiny muted">待上传 {{ pendingDocuments.length }} 个文件：</p><ul><li v-for="(file, index) in pendingDocuments" :key="`${file.name}-${index}`">{{ file.name }}</li></ul><button class="btn btn-secondary btn-sm" :disabled="busy" @click="uploadDocuments"><Upload v-if="!busy" :size="16" /><span v-else class="spinner" aria-hidden="true" />{{ busy ? '正在上传…' : '上传附件' }}</button></div></div>
         </section>
-        <div class="dialog-actions"><button class="btn btn-secondary" :disabled="busy" @click="detailOpen = false">关闭</button><RouterLink v-if="selected.kind !== 'JD' && !busy" class="btn btn-dark" :to="interviewRoute(selected)">{{ selected.kind === 'RESUME' ? '开始简历押题' : '开始项目面试' }}<PhArrowRight :size="16" /></RouterLink></div>
+        <div class="dialog-actions"><button class="btn btn-secondary" :disabled="busy" @click="detailOpen = false">关闭</button><RouterLink v-if="selected.kind !== 'JD' && !busy" class="btn btn-dark" :to="interviewRoute(selected)">{{ selected.kind === 'RESUME' ? '开始简历押题' : '开始项目面试' }}<ArrowRight :size="16" /></RouterLink></div>
       </template>
     </Modal>
   </main>
 </template>
 
 <style scoped>
-.materials-page > .page-heading { align-items: flex-start; }
-.materials-page > .page-heading > .btn { margin-top: 18px; }
-.material-count { font-size: 11px; margin-left: 8px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.material-intro { margin-bottom: 18px; }
-.material-card-heading, .material-meta { display: flex; align-items: center; gap: 12px; }
-.material-card-heading { min-width: 0; }
-.material-card .list-body h3 { font-size: 16px; }
-.material-card .material-preview { height: 94px; }
-.material-start { margin-top: 20px; border-top: 1px solid var(--border-subtle); padding-top: 17px; width: 100%; }
-.material-start svg { margin-left: auto; }
-.card-actions, .material-meta { flex-wrap: wrap; }
-.material-reading .heading-row { margin-bottom: 13px; }
-.reading-edit { border: 0; background: transparent; padding: 4px; }
-.material-reading pre, .document-item pre { font-size: 15px; max-width: 72ch; color: var(--text-secondary); overflow-wrap: anywhere; }
-.document-item { padding: 18px 0; border-bottom: 1px solid var(--border-subtle); }
-.document-item summary { display: flex; align-items: center; gap: 8px; color: var(--accent-ink); cursor: pointer; font-size: 13px; }
-.document-item summary span { overflow-wrap: anywhere; min-width: 0; }
-.document-item summary svg { flex-shrink: 0; }
-.document-item summary small { margin-left: auto; color: var(--text-muted); white-space: nowrap; }
-.document-item details[open] summary { margin-bottom: 15px; }
-.document-delete { margin-top: 9px; }
-.document-uploader { margin-top: 22px; }
-.pending-files { margin-top: 14px; }
-.pending-files ul { padding-left: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.8; overflow-wrap: anywhere; }
-@media (max-width: 560px) { .materials-page > .page-heading { flex-direction: column; gap: 8px; } .materials-page > .page-heading > .btn { margin-top: 5px; } .tabs { gap: 22px; } }
+.materials-page > .page-heading { align-items:flex-start; }
+.material-count { font:12px var(--font-mono); margin-left:8px; color:var(--text-muted); }
+.material-intro { margin-bottom:12px; }
+.material-workspace { display:grid; grid-template-columns:minmax(250px, 32%) minmax(0,1fr); border:1px solid var(--border-subtle); border-radius:8px; overflow:clip; min-height:480px; }
+.material-grid { display:block; background:var(--surface-soft); border-right:1px solid var(--border-subtle); }
+.material-card { padding:0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; background:transparent; }
+.material-card.selected { background:var(--surface); }
+.material-select { display:flex; gap:10px; align-items:center; width:100%; min-height:44px; padding:12px; border:0; background:transparent; text-align:left; color:var(--text-secondary); }
+.material-select[aria-pressed="true"] { color:var(--accent-ink); }
+.material-select:hover { background:var(--accent-soft); }
+.material-select strong { font-size:13px; display:block; overflow-wrap:anywhere; }
+.material-select small { display:block; color:var(--text-muted); font:11px/1.7 var(--font-mono); margin-top:3px; }
+.card-actions { display:flex; gap:2px; padding:0 8px 6px; margin:0; flex-wrap:wrap; }
+.card-actions .btn { font-size:12px; padding:4px 8px; min-height:30px; }
+.material-inspector { padding:20px; min-width:0; }
+.material-inspector > .heading-row { padding-bottom:16px; border-bottom:1px solid var(--border-subtle); align-items:flex-start; flex-wrap:wrap; }
+.material-reading .heading-row { margin-bottom:12px; }
+.reading-edit { border:0; background:transparent; padding:4px; }
+.material-fulltext, .material-reading pre, .document-item pre { font-size:14px; line-height:1.85; max-width:75ch; color:var(--text-secondary); overflow-wrap:anywhere; }
+.document-item { padding:12px 0; border-bottom:1px solid var(--border-subtle); }
+.document-item summary { display:flex; align-items:center; gap:8px; color:var(--accent-ink); font-size:13px; }
+.document-item summary span { overflow-wrap:anywhere; min-width:0; }
+.document-item summary small { margin-left:auto; color:var(--text-muted); white-space:nowrap; }
+.document-item details[open] summary { margin-bottom:12px; }
+.document-delete { margin-top:8px; }.document-uploader { margin-top:16px; }.pending-files { margin-top:12px; }
+.pending-files ul { padding-left:20px; font-size:12px; color:var(--text-secondary); overflow-wrap:anywhere; }
+@media(max-width:800px) { .material-workspace { grid-template-columns:1fr; }.material-grid { border-right:0; border-bottom:1px solid var(--border-subtle); max-height:300px; overflow:auto; }.material-inspector { padding:16px; } }
+@media(max-width:560px) { .materials-page > .page-heading { flex-direction:column; gap:12px; }.card-actions .btn { min-height:44px; } }
 </style>

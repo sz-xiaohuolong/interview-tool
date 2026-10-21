@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PhArrowRight, PhArrowClockwise } from '@phosphor-icons/vue'
+import { ArrowRight, RefreshCw } from 'lucide-vue-next'
 import Notice from '../../components/common/Notice.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
 import EvidenceReturn from '../../components/training/EvidenceReturn.vue'
@@ -167,13 +167,13 @@ watch(id, () => { item.value = null; listReady.value = false; progress.value = {
   <div class="page training-page">
     <div v-if="!props.embedded" class="page-heading heading-row"><div><h1>{{ id ? '回到问题，安排下一次练习。' : '把报告，变成下一次练习。' }}</h1><p>{{ id ? '查看待练内容，或直接开始重练。' : '挑一道没掌握的题，再练一次。' }}</p></div><RouterLink v-if="id" to="/review" class="text-link">返回错题复习</RouterLink></div>
     <Notice :message="error" kind="error" /><Notice :message="message" />
-    <button v-if="error" class="btn btn-secondary" data-action="reload" :disabled="loading" @click="load()"><PhArrowClockwise :size="16" />重新读取服务端记录</button>
+    <button v-if="error" class="btn btn-secondary" data-action="reload" :disabled="loading" @click="load()"><RefreshCw :size="16" />重新读取服务端记录</button>
     <LoadingState v-if="loading" label="正在读取本机复习记录…" />
     <template v-if="!props.embedded && !id && !loading && listReady">
       <section v-if="ongoing.length" class="review-resume" aria-label="未完成的练习">
         <article v-for="entry in ongoing" :key="entry.id" class="review-resume-row">
           <div><p class="review-eyebrow">{{ progress[entry.id]?.report ? '练习已结束，复盘尚未完成' : '你有一道题尚未练完' }}</p><h2>{{ entry.question }}</h2></div>
-          <button class="btn btn-primary" data-action="practice" :disabled="busy" @click="resume(entry)">{{ progress[entry.id]?.report ? '查看复盘' : '继续作答' }} <PhArrowRight :size="16" /></button>
+          <button class="btn btn-primary" data-action="practice" :disabled="busy" @click="resume(entry)">{{ progress[entry.id]?.report ? '查看复盘' : '继续作答' }} <ArrowRight :size="16" /></button>
         </article>
       </section>
       <div class="review-tabs" role="tablist" aria-label="复习进度" @keydown="moveTab">
@@ -181,15 +181,15 @@ watch(id, () => { item.value = null; listReady.value = false; progress.value = {
         <button id="review-tab-done" role="tab" :aria-selected="tab === 'done'" aria-controls="review-items" :tabindex="tab === 'done' ? 0 : -1" @click="selectTab('done')">已完成 <span>{{ done.length }}</span></button>
       </div>
       <div id="review-items" class="review-items" role="tabpanel" :aria-labelledby="`review-tab-${tab}`">
-        <div v-if="!visible.length" class="panel training-empty"><h2>{{ !items.length ? '还没有复习项' : tab === 'done' ? '还没有完成的练习' : '暂时没有待复习的题目' }}</h2><p>{{ !items.length ? '完成一场面试后，在报告页整理错误、遗漏与未知项。' : tab === 'done' ? '提交原题回答后，就可以在这里回看结果。' : ongoing.length ? '可以先继续上方尚未完成的练习。' : '新发现会直接出现在这里；待核实内容和归档可在下方查看。' }}</p><RouterLink v-if="!items.length" to="/configure/quick" class="btn btn-primary">开始面试 <PhArrowRight :size="16" /></RouterLink></div>
+        <div v-if="!visible.length" class="panel training-empty"><h2>{{ !items.length ? '还没有复习项' : tab === 'done' ? '还没有完成的练习' : '暂时没有待复习的题目' }}</h2><p>{{ !items.length ? '完成一场面试后，在报告页整理错误、遗漏与未知项。' : tab === 'done' ? '提交原题回答后，就可以在这里回看结果。' : ongoing.length ? '可以先继续上方尚未完成的练习。' : '新发现会直接出现在这里；待核实内容和归档可在下方查看。' }}</p><RouterLink v-if="!items.length" to="/configure/quick" class="btn btn-primary">开始面试 <ArrowRight :size="16" /></RouterLink></div>
         <div v-else class="panel training-list"><article v-for="entry in visible" :key="entry.id" class="training-list-row review-card">
           <div><span v-if="entry.status === 'PENDING_CONFIRMATION' && !completed(entry)" class="badge badge-gray">新发现</span><span v-if="entry.mock" class="badge badge-orange">Mock 测试记录</span><h2><RouterLink :to="`/review/${entry.id}`">{{ entry.question }}</RouterLink></h2><p class="muted review-summary">{{ summary(entry) }}</p><p v-if="completed(entry)" class="tiny muted">练习记录：{{ localDate(progress[entry.id]?.updatedAt || entry.updatedAt) }}</p><p v-else-if="entry.nextReviewAt" class="tiny muted">复习安排：{{ localDate(entry.nextReviewAt) }}</p></div>
-          <div class="review-card-actions"><template v-if="completed(entry)"><RouterLink v-if="resultPath(entry)" :to="resultPath(entry)!" class="btn btn-secondary">查看本次结果 <PhArrowRight :size="16" /></RouterLink><RouterLink :to="`/review/${entry.id}`" class="text-link">查看练习记录</RouterLink></template><template v-else><button class="btn btn-primary" data-action="practice" :disabled="busy" @click="practice(entry)">{{ busy ? '正在准备…' : '开始重练' }} <PhArrowRight :size="16" /></button><RouterLink :to="`/review/${entry.id}`" class="text-link">异议 / 移除</RouterLink></template></div>
+          <div class="review-card-actions"><template v-if="completed(entry)"><RouterLink v-if="resultPath(entry)" :to="resultPath(entry)!" class="btn btn-secondary">查看本次结果 <ArrowRight :size="16" /></RouterLink><RouterLink :to="`/review/${entry.id}`" class="text-link">查看练习记录</RouterLink></template><template v-else><button class="btn btn-primary" data-action="practice" :disabled="busy" @click="practice(entry)">{{ busy ? '正在准备…' : '开始重练' }} <ArrowRight :size="16" /></button><RouterLink :to="`/review/${entry.id}`" class="text-link">异议 / 移除</RouterLink></template></div>
         </article></div>
         <button v-if="visible.length < (tab === 'todo' ? pending.length : done.length)" class="btn btn-secondary review-load-more" @click="visibleCount += 20">加载更多</button>
       </div>
       <p v-if="tab === 'done' && done.length" class="tiny muted review-completion-note">已完成表示回答与评估已保存，具体变化请查看本次结果。</p>
-      <details v-if="extra.length" class="review-more" :open="moreOpen"><summary>更多：待核实与归档（{{ extra.length }}）</summary><div class="panel training-list"><article v-for="entry in extra" :key="entry.id" class="training-list-row"><div><span class="badge badge-gray">{{ entry.status === 'ARCHIVED' ? '已归档' : '待核实' }}</span><h2>{{ entry.question }}</h2><p class="muted">{{ entry.status === 'ARCHIVED' ? '原文和历史仍然保留。' : actionable(entry) ? '先补充资料或核对原文，不计为错题。' : '当前没有待练内容，可核对来源或归档。' }}</p></div><RouterLink :to="`/review/${entry.id}`" class="text-link">查看内容 <PhArrowRight :size="16" /></RouterLink></article></div></details>
+      <details v-if="extra.length" class="review-more" :open="moreOpen"><summary>更多：待核实与归档（{{ extra.length }}）</summary><div class="panel training-list"><article v-for="entry in extra" :key="entry.id" class="training-list-row"><div><span class="badge badge-gray">{{ entry.status === 'ARCHIVED' ? '已归档' : '待核实' }}</span><h2>{{ entry.question }}</h2><p class="muted">{{ entry.status === 'ARCHIVED' ? '原文和历史仍然保留。' : actionable(entry) ? '先补充资料或核对原文，不计为错题。' : '当前没有待练内容，可核对来源或归档。' }}</p></div><RouterLink :to="`/review/${entry.id}`" class="text-link">查看内容 <ArrowRight :size="16" /></RouterLink></article></div></details>
     </template>
     <div v-if="item" class="training-reading-layout">
       <article class="panel training-flow"><div><span class="badge badge-gray">{{ displayStatus(item) }}</span><span v-if="item.mock" class="badge badge-orange">Mock · 仅验证流程</span><h2>{{ item.question }}</h2><p class="tiny muted">主问题 {{ item.questionIndex + 1 }} · 仅有整题依据</p><RouterLink :to="`/reports/${item.sourceSessionId}`" class="text-link">查看来源报告</RouterLink></div>
@@ -201,9 +201,9 @@ watch(id, () => { item.value = null; listReady.value = false; progress.value = {
         <details @toggle="($event.target as HTMLDetailsElement).open && loadHistory()"><summary>查看确认、补证与安排历史</summary><div v-for="h in history" :key="h.id"><button class="text-link" @click="training<any>(`/review-items/${id}/history/${h.id}`).then(r => historical = r).catch(e => error = String(e))">查看 {{ localDate(h.createdAt) }} 的原文与判词快照</button></div><button v-if="historyCursor" class="text-link" @click="loadHistory(true)">继续读取历史</button><div v-if="historical"><p>当时状态：{{ reviewLabels[historical.status] }}</p><p>当时标签：{{ skillNames(historical.skillIds) }}</p><p v-for="f in historical.findings" :key="f.id">{{ findingLabels[f.kind] }}：{{ f.text }}{{ f.disputed ? '（有异议）' : '' }}</p><p v-for="b in historical.lastEvidence?.bindings" :key="b.findingId">{{ b.reportText || b.checkId }}；用户覆盖说明：{{ b.reason }}</p></div></details>
       </article>
       <aside class="panel training-flow training-actions"><h2>{{ completed(item) ? '练习记录' : '再练一次' }}</h2><p class="muted">{{ displayStatus(item) }}</p>
-        <RouterLink v-if="completed(item) && resultPath(item)" :to="resultPath(item)!" class="btn btn-primary">查看本次结果 <PhArrowRight :size="16" /></RouterLink>
-        <button v-else-if="item.status !== 'ARCHIVED' && progress[item.id] && !progress[item.id]!.done" class="btn btn-primary" :disabled="busy" @click="resume(item)">{{ progress[item.id]?.report ? '查看复盘' : '继续作答' }} <PhArrowRight :size="16" /></button>
-        <button v-else-if="item.status !== 'ARCHIVED' && !completed(item) && actionable(item)" class="btn btn-primary" data-action="practice" :disabled="busy" @click="practice(item, findingIds)">{{ busy ? '正在准备…' : '开始重练' }} <PhArrowRight :size="16" /></button>
+        <RouterLink v-if="completed(item) && resultPath(item)" :to="resultPath(item)!" class="btn btn-primary">查看本次结果 <ArrowRight :size="16" /></RouterLink>
+        <button v-else-if="item.status !== 'ARCHIVED' && progress[item.id] && !progress[item.id]!.done" class="btn btn-primary" :disabled="busy" @click="resume(item)">{{ progress[item.id]?.report ? '查看复盘' : '继续作答' }} <ArrowRight :size="16" /></button>
+        <button v-else-if="item.status !== 'ARCHIVED' && !completed(item) && actionable(item)" class="btn btn-primary" data-action="practice" :disabled="busy" @click="practice(item, findingIds)">{{ busy ? '正在准备…' : '开始重练' }} <ArrowRight :size="16" /></button>
         <p v-if="!completed(item) && item.status !== 'ARCHIVED'" class="tiny muted">重新回答原题，提交后直接查看与原答的变化。</p>
         <details v-if="item.status === 'IN_PROGRESS' && item.lastEvidence"><summary>更多复习安排</summary><div class="training-flow"><button class="btn btn-secondary" :disabled="busy" @click="action('RESCHEDULE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId), intervalDays: 1 })">明日继续</button><button class="btn btn-secondary" :disabled="busy" @click="action('RESCHEDULE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId), intervalDays: 3 })">3 天后再练</button><button class="btn btn-secondary" :disabled="busy" @click="action('RESOLVE', { ...item.lastEvidence, findingIds: item.lastEvidence.bindings?.map((b: any) => b.findingId) })">结束本轮</button></div></details>
         <button class="btn btn-ghost" :disabled="busy" @click="action(item.status === 'ARCHIVED' ? 'RESTORE' : 'ARCHIVE')">{{ item.status === 'ARCHIVED' ? '恢复归档项' : '移出待复习' }}</button>
@@ -217,11 +217,11 @@ watch(id, () => { item.value = null; listReady.value = false; progress.value = {
 .review-tabs button { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 48px; border: 0; border-bottom: 2px solid transparent; padding: var(--space-3) 0; background: transparent; color: var(--text-muted); font: inherit; cursor: pointer; }
 .review-tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .review-tabs span { padding: 0 var(--space-2); border-radius: 5px; background: var(--surface-soft); font-size: 13px; font-variant-numeric: tabular-nums; }
-.review-resume { margin-bottom: var(--space-6); padding: 0 var(--space-5); border: 1px solid var(--border-subtle); border-left: 3px solid var(--accent); border-radius: var(--radius-control); background: var(--accent-soft); }
+.review-resume { margin-bottom: var(--space-6); padding: 0 var(--space-5); border: 1px solid var(--border-subtle);  border-radius: var(--radius-control); background: var(--accent-soft); }
 .review-resume-row { display: flex; gap: var(--space-5); align-items: center; justify-content: space-between; padding-block: var(--space-4); }
 .review-resume-row + .review-resume-row { border-top: 1px solid var(--border-subtle); }
 .review-resume-row > div { min-width: 0; }
-.review-resume-row h2 { margin-top: var(--space-1); font-size: 16px; }
+.review-resume-row h2 { margin-top: var(--space-1); font-size: 14px; }
 .review-resume-row .btn { flex-shrink: 0; }
 .review-eyebrow { font-size: 13px; color: var(--accent-ink); }
 .review-card-actions { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
