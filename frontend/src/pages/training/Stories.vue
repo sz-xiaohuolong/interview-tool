@@ -819,7 +819,7 @@ onMounted(() => load())
               <span class="badge badge-green">已就绪</span>
             </div>
             <p class="tiny muted">
-              根据你准备的经历，围绕面试官最常问的场景进行针对性模拟答辩。
+              根据你准备的经历，围绕面试官最常问的场景进行针对性模拟答辩。AI 将以此经历为底牌进行现场提问与逻辑核验。
             </p>
 
             <div class="practice-form">
@@ -844,8 +844,11 @@ onMounted(() => load())
               @click="practice(story!.currentVersionId)"
             >
               <PhPlay :size="18" weight="fill" />
-              <span>用此故事进入独立作答</span>
+              <span>🎙️ 开始模拟答辩演练</span>
             </button>
+            <p class="practice-tip tiny muted text-center mt-1">
+              进入单题考场，AI 面试官将向你发问，检验你对该经历的现场表达与前后一致性
+            </p>
           </div>
 
           <!-- 归档操作 -->
@@ -902,7 +905,7 @@ onMounted(() => load())
                 :disabled="busy"
                 @click="practice(historical.id)"
               >
-                按此已确认历史版本练习
+                🎙️ 按此版本开始模拟演练
               </button>
             </section>
           </div>
