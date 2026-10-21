@@ -173,3 +173,17 @@ it('正式问答状态不展示复盘中的具体考点提示', async () => {
   await diagnosis.get('[data-diagnosis-locate="q1"]').trigger('click')
   expect(wrapper.get('[data-answer="q1"]').text()).toContain('数据库超时后返回错误')
 })
+
+it('复盘区分场内题号与原题素材并安全打开参考链接', async () => {
+  const value: any = fixture()
+  value.report.topicCoverage = { askedCount: 2, answeredCount: 0, newCount: 2, reviewCount: 0, items: [
+    { pointId: 'p1', theme: 'AGENT_RAG', title: '检索融合', questionId: 'q1', seedQuestionId: 'jb-rag', seedQuestionTitle: '如何进行混合检索？', seedQuestionUrl: 'https://javabetter.cn/ai/video/rag-hybrid-search.html', seedQuestionDifficulty: 'MEDIUM' },
+    { pointId: 'p2', theme: 'AGENT_RAG', title: '权限', questionId: 'q3' },
+  ] }
+  await show(value)
+  const seed = wrapper.get('[data-seed-question="jb-rag"]')
+  expect(seed.text()).toContain('如何进行混合检索')
+  expect(seed.text()).toContain('中等')
+  expect(seed.get('a').attributes('href')).toBe('https://javabetter.cn/ai/video/rag-hybrid-search.html')
+  expect(wrapper.get('[data-topic-point="p2"]').text()).toContain('动态出题')
+})

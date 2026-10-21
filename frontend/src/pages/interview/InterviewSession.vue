@@ -43,7 +43,10 @@ const messages = computed(() => session.value?.messages || [])
 const sources = computed(() => session.value?.sources || [])
 const warningRecords = computed(() => {
   const records = new Map<string, number>()
-  for (const warning of session.value?.warnings || []) records.set(warning, (records.get(warning) || 0) + 1)
+  for (const warning of session.value?.warnings || []) {
+    const message = warning.replaceAll('来源未获取', '本次未获取到参考文档').replaceAll('重新获取失败，使用此前有效缓存', '已使用本地缓存')
+    records.set(message, (records.get(message) || 0) + 1)
+  }
   return [...records].map(([message, count]) => ({ message, count }))
 })
 const currentQuestion = computed(() => [...messages.value].reverse().find(message => message.role === 'ASSISTANT' && message.kind !== 'REPLY'))
@@ -318,7 +321,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
       <section v-if="session.report && session.report.version !== 2" class="interview-report" aria-labelledby="interview-report-title"><div class="heading-row"><h2 id="interview-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel interview-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel interview-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="interview-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="interview-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#interview-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
 
       <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
-      <KnowledgeSources v-if="sources.length || session.agentTopics?.length" :sources="sources" :agent-topics="session.agentTopics" :planned-question-count="session.plannedQuestionCount" />
+      <KnowledgeSources v-if="sources.length || session.agentTopics?.length || session.knowledgeRetrieval?.length" :sources="sources" :retrieval="session.knowledgeRetrieval" :agent-topics="session.agentTopics" :planned-question-count="session.plannedQuestionCount" />
       <footer class="footer-note"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }}<template v-if="session.usage?.maxCalls"> / {{ session.usage.maxCalls }}</template> 次。</span><span v-if="hasTokenUsage" data-token-usage>已统计 Token：输入 {{ tokenCount(session.usage?.promptTokens) }} · 输出 {{ tokenCount(session.usage?.completionTokens) }} · 合计 {{ tokenCount(session.usage?.totalTokens) }}<template v-if="session.usage?.usageIncomplete">；部分调用未返回用量，统计不完整。</template></span><span v-else data-token-usage>暂未取得 Token 用量。</span></footer>
     </template>
   </div>

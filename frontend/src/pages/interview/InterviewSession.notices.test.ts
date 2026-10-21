@@ -103,3 +103,13 @@ it('只展示服务端允许的恢复操作，非中断错误也不会被收进�
   expect(second.wrapper.get('[role=alert]').text()).toBe(failure)
   expect(second.wrapper.get('[role=alert]').element.closest('details')).toBeNull()
 })
+
+it('历史提示使用新文案展示且不改写原始失败记录', async () => {
+  const value = fixture({ warnings: ['来源未获取：官方资料；相关技术依据不足', '官方说明：重新获取失败，使用此前有效缓存'] })
+  const { wrapper } = await show(value)
+  const records = wrapper.get('.interview-session-notices')
+  expect(records.text()).toContain('本次未获取到参考文档：官方资料')
+  expect(records.text()).toContain('官方说明：已使用本地缓存')
+  expect(records.text()).not.toContain('来源未获取')
+  expect(value.warnings[1]).toContain('重新获取失败')
+})

@@ -118,6 +118,8 @@ public final class MockInterviewModel {
         topic = point.path("theme").asText();
         row.put("pointId", point.path("id").asText()).put("topic", topic)
             .put("question", "Mock 测试：" + point.path("scenario").asText());
+        if (point.path("seedQuestion").isObject()) row.put("seedQuestionId", point.path("seedQuestion").path("id").asText())
+            .put("question", "Mock 测试：" + point.path("seedQuestion").path("title").asText());
         sourceIds = sourceIds(input, topic);
       }
       if(!input.path("sourceCode").path("evidence").isEmpty()&&java.util.Set.of("PROJECT","TECHNICAL").contains(row.path("stage").asText()))row.putArray("codeEvidenceIds").add(input.path("sourceCode").path("evidence").get(0).path("id").asText());

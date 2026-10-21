@@ -1,6 +1,6 @@
 # 当前技术架构与接口约定
 
-2026-10-20更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3/v4/v5用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
+2026-10-21更新。应用使用一个Maven后端、一个Vue应用和一份默认Vite配置。v1/v2/v3/v4/v5用于需求与验证文档的迭代归档，不用于内部包、类、文件或运行实现分区。只有用户明确要求灰度或并行版本时才引入相应架构。产品范围见各Release的SPEC，实际结果见对应VERIFICATION。
 
 ## 1. 统一职责与目录
 
@@ -29,6 +29,7 @@
 | `InterviewOutputValidator` | 综合面试的结构、阶段、当前快照引用与证据校验；原结构校验和业务校验已合并，共用主题表 |
 | `FocusedInterviewOutputValidator` / `TrainingOutputValidator` | 项目/单题报告及训练评估各自的协议校验 |
 | `KnowledgeService` / `FixedHttpTransport` / `KnowledgeTransport` | 受控公开文档检索、正文缓存和固定域名下载；下载接口归client层，不反向依赖业务Service |
+| `SeedQuestionCatalog` | 校验独立JavaBetter原题索引；快速练习先选能力，再按职级匹配未用素材；具体契约见[V5设计第6节](releases/v5/TECH_DESIGN.md#6-独立题单与技术资料获取2026-10-21) |
 | `AgentTopicCatalog` | 加载并校验本地Agent考点目录与参考来源身份；目录用于确定考查范围，不替代官方正文依据 |
 | `SqliteStore` / `TrainingStore` / `InterviewSessionStore` | SQLite连接与共用资料、训练业务记录、综合面试原子JSON快照；存储格式不同，职责明确，不按版本选择实现 |
 | `ApiAdvice` / `ApiException` / `RecoveryException` | 同一异常响应出口，恢复字段在需要时追加；不再维护两套Advice |
@@ -56,6 +57,7 @@
 | `DATA_DIR/model-config.json` | 全站模型连接，原子保存、权限0600，不公开密钥 |
 | `prompts/focused/`、`prompts/training/`、`prompts/interview/` | 分别用于项目与单题面试、训练固定任务、综合面试与快速练习；此前目录整理保留原文，本轮面试PLAN／FOLLOWUP／REVIEW已接入具体考点与覆盖信息 |
 | `knowledge/sources.json` | 受控公开来源清单；此前路径整理未改变内容，本轮已补充Agent官方／一手来源及适用边界 |
+| `knowledge/questions/javabetter-agent.json` | 60道核对原题及稳定身份、31项能力映射和本地难度，不含网站答案；未映射29项继续动态出题 |
 | `knowledge/agent-interview-topics.json` | 六类各10项、共60个稳定身份的原创Agent考点及参考来源；不作为技术结论的直接证据 |
 | `training/skill-catalog.json` | 能力目录，内容和已保存ID保留 |
 | `db/migrations/001-training.sql` | 原训练增量结构，内容逐字保留以继续匹配已登记的SHA256校验和 |
@@ -98,7 +100,7 @@ App查询训练可用性决定导航和报告工具是否显示，不选择另�
 
 综合新场次保留四阶段、计划8/12题、不限时训练、20/30/45分钟计时实战、跳过阶段、语音待校对文本、末答保护、项目证据矩阵、原答定位和定向补练。每场最多128次模型尝试、累计400000声明输出上限，为复盘保留最后1次与6500声明输出额度；界面显示服务实际返回的输入/输出Token，缺失部分不估算。旧场次按已保存标识读取，不补算、不增加调用。
 
-知识检索仍仅以受控主题选择固定公开HTTPS来源，不传个人原文，限制DNS、响应大小、重定向和3秒获取期限；缓存48小时并可显式刷新。来源ID与正文哈希、各阶段实际片段绑定；逐字引用不等于语义正确，缺少有效官方依据时降为待核实。
+知识检索仍仅以受控主题选择固定公开HTTPS来源，不传个人原文，限制DNS、响应大小、重定向和单请求10秒/并行整组11秒获取期限；缓存48小时并可显式刷新。来源ID与正文哈希、各阶段实际片段绑定；逐字引用不等于语义正确，缺少有效官方依据时降为待核实。
 
 当前前端入口为 `/interviews`、`/interviews/:id` 和 `/history/interviews/:id/replay`。旧 `/interview-v3` 及旧综合回放地址作为同一路由的alias保留；`/configure/quick` 进入快速配置，选择岗位与3/5/8道主问题后直接准备并开考；带trainingLinkId的关联训练仍走原业务配置。项目、简历、旧报告与回放继续可用。旧来源锚点可定位当前知识条目，本机草稿键保留历史格式。
 
@@ -137,3 +139,5 @@ GitMCP 只提供本仓库路径线索；GitHub REST 在固定 SHA 下读取目�
 ANALYZE 不接收源码；PLAN、相关 FOLLOWUP 和 REVIEW 复用本场证据。综合只有项目与相关技术阶段可以引用，备用题同样受限。完全不可用时显式重试或 `POST /api/{sessions|interviews}/{id}/continue-without-source`；部分可用保留证据及警告。未关联仓库的旧行为保持。
 
 进行中只公开仓库、版本、状态和有无源码依据，复盘才展示核验片段与固定行号链接。模型题干由服务端检查已知源码/路径/目标泄漏。源码用量单独保存于 `sourceCode.modelUsage`，未并入原主流程界面合计；可通过 `SOURCE_ENABLED=false` 关闭后续探索。详细限额、文件职责和状态见[V5技术设计](releases/v5/TECH_DESIGN.md)，实际证据见[V5验证](releases/v5/VERIFICATION.md)。
+
+2026-10-21 快速练习追加可选素材身份及参考文档获取详情，接口地址不变；数据、失败状态与前端调用说明见[V5设计第6节](releases/v5/TECH_DESIGN.md#6-独立题单与技术资料获取2026-10-21)。考点与原题ID分别记录，旧数据不回填。

@@ -56,3 +56,23 @@
 源码尝试及返回用量保存在本场 `sourceCode.modelUsage`，与原面试 `usage` 独立；当前界面的主流程 Token 合计不含这部分。4 轮限制是每次准备探索的上限，用户显式重试会新增尝试，已有片段仍保留。真实验收独立记录完整账本，失败未返回用量时保留未知。后续如统一界面用量，应明确这两个账本的统计口径。
 
 本轮没有重构 InterviewService、创建版本包或重算旧报告。2026-10-20日常启用时仅补建空关联表，原表、资料文件、历史和模型配置均保持。公开源码缓存属于本机数据，不进入版本控制。
+
+
+## 6. 独立题单与技术资料获取（2026-10-21）
+
+原 `AgentTopicCatalog` 及60项资源保持。新增 `SeedQuestionCatalog` 加载 `knowledge/questions/javabetter-agent.json`，启动时校验稳定题目ID、原题URL、难度、考点引用和唯一性；素材不包含答案。60道素材覆盖31个考点，逐项及29个缺口见[素材清单](../../../../backend/src/main/resources/knowledge/questions/README.md)。
+
+快速练习由 `AgentPracticePlanner.plan` 先选择能力考点，再按职级优先参考匹配素材（实习基础、初级中等、中高级进阶，缺少相同难度时选最接近项）。本场素材不重复；读取同Agent岗位方向、同职级、非Mock、未删除历史中实际展示的素材，排除已用项；规划后尚未展示的不算历史。没有素材或已经耗尽时保留原动态出题。复习仍复习能力而不强制复用素材。历史相同题干在规划落盘前拦截，不能以此声称已自动判别全部语义重复。
+
+PLAN输入在所选 `agentPractice.points[]` 中新增可选 `seedQuestion`（ID、题名、链接、难度和映射），要求模型参考题意生成且返回相同 `seedQuestionId`；服务端拒绝伪造或缺失身份，最终元数据只从服务端所选素材复制。综合面试保持原四阶段和考点绑定，此轮只在QUICK挑选原题素材。
+
+### API输出与存储兼容
+
+继续使用 `POST /api/interviews`、`GET /api/interviews/{id}`、`POST /api/interviews/{id}/answers` 与 `/finish`，无新增请求参数。旧 `/api/v3/sessions` 映射同一控制器；失败不改调 `/api/sessions`。
+
+- 内部规划题及实际面试官消息追加可选 `seedQuestionId`、`seedQuestionTitle`、`seedQuestionUrl`、`seedQuestionDifficulty`；追问继承主问。`questionId`保持本场问答身份，`pointId`保持能力身份。答题期间公开视图移除全部内部考点及素材字段。
+- `REPORT_READY` 的 `report.topicCoverage.items[]` 同时提供原 `pointId`、本场 `questionId/rootQuestionId` 和上述可选素材字段。例：`{"pointId":"workflow-autonomy-boundary","questionId":"本场问答ID","seedQuestionId":"jb-workflow-vs-agent","seedQuestionDifficulty":"MEDIUM"}`。只统计实际展示记录；没有素材字段时前端显示动态出题或历史未关联，不强制回填旧记录。
+- 场次新增可选 `knowledgeRetrieval[]`：`sourceId/title/url/status/message/cacheUsed/stale/attemptedAt` 及可选 `httpStatus`，包括未取得正文的来源。准备与复盘在模型调用前保存当次状态，即使后续模型失败仍可回查，参考文档详情展示准确原因；`sources[].retrieval`保存该份正文对应的获取状态，只有有正文的来源才进入引用列表。
+- 获取状态为 `FETCHED`、`CACHED`、`HTTP_ERROR`、`TIMEOUT`、`NETWORK_DISABLED`、`INVALID_CONTENT`、`LIMIT_EXCEEDED`、`NETWORK_ERROR`。例：`{"sourceId":"官方来源ID","status":"HTTP_ERROR","httpStatus":503,"message":"参考文档返回HTTP 503","cacheUsed":true,"stale":false}`，对应主提示“已使用本地缓存”。无正文时不伪造成功引用，主提示“本次未获取到参考文档”。
+
+`KnowledgeService`继续受控域名、2MiB、48小时TTL和最多六篇资料；完整单请求10秒、并行整组11秒，无自动重试。有效缓存直接复用；失败时按真实有效性回退，过期状态仍阻止以旧资料直接判错。没有新增依赖、表、数据迁移或外部采集；状态保存在原JSON快照中，旧场继续读取，前端缺少新字段时保持兼容。

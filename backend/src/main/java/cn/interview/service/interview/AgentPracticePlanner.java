@@ -3,6 +3,7 @@ package cn.interview.service.interview;
 import cn.interview.exception.ApiException;
 import cn.interview.mapper.InterviewSessionStore;
 import cn.interview.service.knowledge.AgentTopicCatalog;
+import cn.interview.service.knowledge.SeedQuestionCatalog;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -25,6 +26,7 @@ public final class AgentPracticePlanner {
   private final ObjectMapper json;
   private final InterviewSessionStore store;
   private final AgentTopicCatalog catalog;
+  private final SeedQuestionCatalog seeds;
 
   public AgentPracticePlanner(ObjectMapper json, InterviewSessionStore store) {
     this(json, store, new AgentTopicCatalog(json));
@@ -34,6 +36,7 @@ public final class AgentPracticePlanner {
     this.json = json;
     this.store = store;
     this.catalog = catalog;
+    this.seeds = new SeedQuestionCatalog(json);
   }
 
   public static boolean isAgentRole(String role) {
@@ -97,9 +100,18 @@ public final class AgentPracticePlanner {
     var result = status.deepCopy();
     var points = result.putArray("points");
     int reviewCount = 0;
+    var usedSeeds = usedSeeds(session);
     for (var point : selected) {
       boolean review = history.lastSeen().containsKey(id(point));
-      points.add(point.deepCopy().put("review", review));
+      var chosen = point.deepCopy().put("review", review);
+      if (quick(session)) {
+        var seed = seeds.choose(id(point), session.path("level").asText("JUNIOR"), usedSeeds);
+        if (seed != null) {
+          chosen.set("seedQuestion", seed);
+          usedSeeds.add(seed.path("id").asText());
+        }
+      }
+      points.add(chosen);
       if (review) reviewCount++;
     }
     result.put("newCount", selected.size() - reviewCount).put("reviewCount", reviewCount);
@@ -109,6 +121,40 @@ public final class AgentPracticePlanner {
     if (options.preference().equals("NEW_FIRST") && selected.stream().anyMatch(point -> history.recent().contains(id(point))))
       warnings.add("所选范围内近期未练考点不足，已从最久未练的考点补足。");
     return result;
+  }
+
+  private boolean samePracticeHistory(JsonNode previous, JsonNode session) {
+    return !previous.hasNonNull("deletedAt") && !previous.path("mock").asBoolean()
+        && isAgentRole(previous.path("role").asText())
+        && previous.path("level").asText("JUNIOR").equals(session.path("level").asText("JUNIOR"));
+  }
+
+  private Set<String> usedSeeds(JsonNode session) {
+    var used = new HashSet<String>();
+    for (var previous : store.list()) {
+      if (!samePracticeHistory(previous, session)) continue;
+      for (var message : previous.path("messages"))
+        if (reliablePoint(message) != null && message.hasNonNull("seedQuestionId")) used.add(message.path("seedQuestionId").asText());
+    }
+    return used;
+  }
+
+  /** 仅检查已实际展示的题干，不发送历史回答，也不把待问题提前计入覆盖。 */
+  public void rejectRepeatedQuestions(JsonNode questions, JsonNode session) {
+    if (!quick(session) || !isAgentRole(session.path("role").asText())) return;
+    var used = new HashSet<String>();
+    for (var previous : store.list()) {
+      if (!samePracticeHistory(previous, session)) continue;
+      for (var message : previous.path("messages"))
+        if (message.path("role").asText().equals("ASSISTANT") && !message.path("questionKind").asText().equals("FOLLOW_UP"))
+          used.add(normalizedQuestion(message.path("content").asText()));
+    }
+    for (var q : questions) if (!used.add(normalizedQuestion(q.path("question").asText())))
+      throw new ApiException(502, "MODEL_INVALID_OUTPUT", "主问题题干与已展示问题重复，请显式重试生成");
+  }
+
+  private String normalizedQuestion(String text) {
+    return text.replaceAll("[\\p{Z}\\s\\p{P}]+", "").toLowerCase(java.util.Locale.ROOT);
   }
 
   private ObjectNode emptyPlan() {
@@ -287,6 +333,11 @@ public final class AgentPracticePlanner {
             .put("title", point.path("title").asText()).put("questionId", qid)
             .put("rootQuestionId", message.path("rootQuestionId").asText(qid))
             .put("review", message.path("pointReview").asBoolean()).put("answered", false);
+        if (message.hasNonNull("seedQuestionId")) {
+          item.put("seedQuestionId", message.path("seedQuestionId").asText());
+          for (String key : List.of("seedQuestionTitle", "seedQuestionUrl", "seedQuestionDifficulty"))
+            if (message.hasNonNull(key)) item.set(key, message.path(key).deepCopy());
+        }
         byPoint.put(id(point), item);
       }
       if (answered.contains(qid)) item.put("answered", true);

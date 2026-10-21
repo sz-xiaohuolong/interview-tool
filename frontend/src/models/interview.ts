@@ -61,6 +61,18 @@ export interface InterviewMessage {
   fallback?: boolean
 }
 
+export interface KnowledgeRetrieval {
+  sourceId: string
+  title: string
+  url: string
+  status: string
+  message: string
+  httpStatus?: number
+  cacheUsed: boolean
+  stale: boolean
+  attemptedAt?: string
+}
+
 export interface KnowledgeSource {
   id: string
   title: string
@@ -71,6 +83,9 @@ export interface KnowledgeSource {
   excerpt: string
   kind: string
   topics: string[]
+  retrieval?: KnowledgeRetrieval
+  stale?: boolean
+  warning?: string
 }
 
 export interface ReviewFinding {
@@ -117,6 +132,10 @@ export interface InterviewReport {
       title: string
       questionId: string
       rootQuestionId: string
+      seedQuestionId?: string
+      seedQuestionTitle?: string
+      seedQuestionUrl?: string
+      seedQuestionDifficulty?: string
       review: boolean
       answered: boolean
     }[]
@@ -189,6 +208,7 @@ export interface InterviewSession {
   updatedAt: string
   summary?: PreparationSummary | null
   messages: InterviewMessage[]
+  knowledgeRetrieval?: KnowledgeRetrieval[]
   sources: KnowledgeSource[]
   warnings: string[]
   error?: string | null

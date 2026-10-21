@@ -45,6 +45,13 @@ const contentLabels = { CLEAR: '已讲清', PARTIAL: '待补强', UNVERIFIED: '�
 const endLabels: Record<string, string> = { USER_FINISHED: '主动结束', TIME_LIMIT: '实战时间到达', QUESTIONS_COMPLETED: '题目流程结束', USER_SKIPPED_FINAL_STAGE: '跳过反问后结束', SYSTEM_INTERRUPTED: '系统中断后结束' }
 function sourceLabel(f: ReviewFinding) { return f.status === 'SUPPORTED' ? '技术核实：有依据支持该判断' : f.status === 'CONFLICTING' ? '技术核实：来源存在冲突' : '技术核实：依据不足，待核实' }
 function sourceIds(f: ReviewFinding) { return f.sourceIds.filter(id => props.session.sources.some(s => s.id === id)) }
+function seedUrl(value?: string) {
+  try {
+    const url = new URL(value || '')
+    return url.protocol === 'https:' && url.hostname === 'javabetter.cn' && !url.username && !url.password && !url.port && url.pathname.startsWith('/ai/video/') ? url.href : ''
+  } catch { return '' }
+}
+function seedDifficulty(value?: string) { return ({ EASY: '基础', MEDIUM: '中等', HARD: '进阶' } as Record<string, string>)[value || ''] || '难度未标明' }
 async function locate(qid: string) {
   const group = groups.value.find(item => item.entries.some(entry => entry.question.questionId === qid))
   if (!group) return
@@ -130,7 +137,7 @@ watch(() => props.session.id, () => { busy.value = ''; gaps.value = []; expanded
     <ProjectEvidenceMatrix v-if="report.matrix" class="review-matrix" :matrix="report.matrix" source-kind="V3" :source-id="session.id" />
     <section v-if="topicCoverage" class="panel topic-coverage" data-topic-coverage aria-labelledby="topic-coverage-title">
       <h2 id="topic-coverage-title">本场考点回顾</h2><p class="review-help">已问 {{ topicCoverage.askedCount }} · 已答 {{ topicCoverage.answeredCount }} · 新练 {{ topicCoverage.newCount }} · 复习 {{ topicCoverage.reviewCount }}</p>
-      <ul v-if="topicCoverage.items.length" class="topic-coverage-list"><li v-for="item in topicCoverage.items" :key="`${item.pointId}-${item.questionId}`" :data-topic-point="item.pointId"><div><span class="review-help">{{ agentTopicLabels[item.theme] || '其他主题' }}</span><h3>{{ item.title }}</h3><p class="review-help">{{ item.review ? '复习' : '新练' }} · {{ item.answered ? '已答' : '未答' }}</p></div><button class="text-link" :data-topic-locate="item.questionId" @click="locate(item.questionId)">查看原始问答</button></li></ul>
+      <ul v-if="topicCoverage.items.length" class="topic-coverage-list"><li v-for="item in topicCoverage.items" :key="`${item.pointId}-${item.questionId}`" :data-topic-point="item.pointId"><div><span class="review-help">{{ agentTopicLabels[item.theme] || '其他主题' }}</span><h3>{{ item.title }}</h3><p class="review-help">{{ item.review ? '复习' : '新练' }} · {{ item.answered ? '已答' : '未答' }}</p><p v-if="item.seedQuestionId" :data-seed-question="item.seedQuestionId" class="review-help">参考原题：<a v-if="seedUrl(item.seedQuestionUrl)" :href="seedUrl(item.seedQuestionUrl)" target="_blank" rel="noopener noreferrer" class="text-link">{{ item.seedQuestionTitle || item.seedQuestionId }} ↗</a><span v-else>{{ item.seedQuestionTitle || item.seedQuestionId }}</span> · {{ seedDifficulty(item.seedQuestionDifficulty) }}</p><p v-else class="review-help">动态出题或历史记录未关联原题素材</p></div><button class="text-link" :data-topic-locate="item.questionId" @click="locate(item.questionId)">查看原始问答</button></li></ul>
       <p v-else class="review-help">本场尚无可回顾的已问考点。</p>
     </section>
     <section class="review-groups" aria-labelledby="review-groups-title">

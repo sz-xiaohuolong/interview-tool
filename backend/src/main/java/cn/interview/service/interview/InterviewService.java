@@ -220,7 +220,7 @@ public class InterviewService implements ProjectEvidenceSource {
     if(!s.path("status").asText().equals("REPORT_READY"))out.remove("diagnostics");
     if (!s.path("status").asText().equals("REPORT_READY")) {
       for (var message : out.path("messages")) if (message instanceof ObjectNode object)
-        object.remove(List.of("pointId", "pointTheme", "pointTitle", "pointReview"));
+        object.remove(List.of("pointId", "pointTheme", "pointTitle", "pointReview", "seedQuestionId", "seedQuestionTitle", "seedQuestionUrl", "seedQuestionDifficulty"));
     }
     var usage = out.withObject("/usage");
     usage.put("maxCalls", MAX_CALLS);
@@ -607,6 +607,8 @@ public class InterviewService implements ProjectEvidenceSource {
                 : "JAVA_CORE");
       var sources = knowledge.retrieve(topics, refresh, agentReferenceIds(practicePlan));
       var retrievalWarnings = knowledge.warnings();
+      var retrievalDetails = knowledge.retrievalDetails();
+      saveKnowledgeRetrieval(id, generation, retrievalDetails);
       input.set("summary", analysis.path("summary"));
       var selected = knowledge.select(sources, analysis.path("summary").toString()
           + " " + input.path("agentPractice").path("points").toString(), 6);
@@ -624,6 +626,7 @@ public class InterviewService implements ProjectEvidenceSource {
       else if(InterviewFlowPolicy.forSession(s).autoStart() && plan.size()!=input.path("totalQuestions").asInt())
         throw InterviewOutputValidator.invalid();
       plan = validator.agentQuestions(rawPlan, plan, input);
+      agentPractice.rejectRepeatedQuestions(plan, s);
       CodeExplorationService.bindQuestions(rawPlan,plan,input.path("sourceCode"),InterviewProgress.enabled(s));
       synchronized (this) {
         s = store.get(id);
@@ -636,6 +639,7 @@ public class InterviewService implements ProjectEvidenceSource {
         if (practicePlan != null) s.set("agentPractice", practicePlan);
         s.set("summary", analysis.path("summary"));
         s.set("sources", knowledge.mergeSources(sources, selected));
+        s.set("knowledgeRetrieval", retrievalDetails);
         s.set("questions", plan);
         s.set("topics", analysis.path("topics"));
         s.put("status", "READY").put("phase", "准备完成，请核对摘要").put("error", "");
@@ -659,6 +663,15 @@ public class InterviewService implements ProjectEvidenceSource {
     } catch (Exception e) {
       fail(id, generation, message(e));
     }
+  }
+
+  /** 先保存查证状态，随后出题或复盘失败时仍可回查准确原因。 */
+  private synchronized void saveKnowledgeRetrieval(String id, int generation, ArrayNode details) {
+    var current = store.get(id);
+    if (current.path("generation").asInt() != generation || !BUSY.contains(current.path("status").asText()))
+      throw new CancellationException();
+    current.set("knowledgeRetrieval", details.deepCopy());
+    save(current);
   }
 
   private synchronized void saveSourceSnapshot(String id,int generation,ObjectNode snapshot){
@@ -943,8 +956,8 @@ public class InterviewService implements ProjectEvidenceSource {
     if (InterviewProgress.enabled(s)) m.put("stage", s.path("stage").asText());
     var rootQuestion = s.path("questions").get(s.path("questionIndex").asInt());
     if (rootQuestion.hasNonNull("pointId"))
-      for (String key : List.of("pointId", "pointTheme", "pointTitle", "pointReview"))
-        m.set(key, rootQuestion.path(key).deepCopy());
+      for (String key : List.of("pointId", "pointTheme", "pointTitle", "pointReview", "seedQuestionId", "seedQuestionTitle", "seedQuestionUrl", "seedQuestionDifficulty"))
+        if (rootQuestion.has(key)) m.set(key, rootQuestion.path(key).deepCopy());
     s.set("currentQuestion", m.deepCopy());
     progress.resume(s);
   }
@@ -1169,6 +1182,8 @@ public class InterviewService implements ProjectEvidenceSource {
       s.path("topics").forEach(t -> topics.add(t.asText()));
       var refreshed = knowledge.retrieve(topics, true, agentReferenceIds(s.path("agentPractice")));
       var retrievalWarnings = knowledge.warnings();
+      var retrievalDetails = knowledge.retrievalDetails();
+      saveKnowledgeRetrieval(id, generation, retrievalDetails);
       var sources = knowledge.mergeSources(s.path("sources"), refreshed);
       var selected =
           knowledge.select(
@@ -1222,6 +1237,7 @@ public class InterviewService implements ProjectEvidenceSource {
             || !s.path("status").asText().equals("REPORTING")) return;
         for (String warning : retrievalWarnings) appendWarning(s, warning);
         s.set("sources", sources);
+        s.set("knowledgeRetrieval", retrievalDetails);
         CodeExplorationService.attachReport(report,s);
         s.set("report", report);
         s.put("status", "REPORT_READY").put("phase", "复盘已完成").put("error", "");

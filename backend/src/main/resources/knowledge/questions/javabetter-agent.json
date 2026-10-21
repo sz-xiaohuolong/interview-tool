@@ -1,0 +1,728 @@
+{
+  "schemaVersion": 1,
+  "source": "JavaBetter",
+  "sourceIndex": "https://javabetter.cn/ai/video/",
+  "selectionScope": "Agent 应用开发岗位；仅题名和索引，不包含网站答案。难度为本项目工程判断，不是来源评级。",
+  "questions": [
+    {
+      "id": "jb-workflow-vs-agent",
+      "pointIds": [
+        "workflow-autonomy-boundary"
+      ],
+      "title": "Workflow 和 Agent 有什么区别？面试时该怎么回答？",
+      "originalTitle": "Workflow 和 Agent 有什么区别？面试时该怎么回答？",
+      "url": "https://javabetter.cn/ai/video/workflow-vs-agent.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-workflow-vs-agent-flight-booking",
+      "pointIds": [
+        "workflow-autonomy-boundary"
+      ],
+      "title": "订机票客服该用工作流还是自主 Agent？",
+      "originalTitle": "订机票客服该用工作流还是自主 Agent？",
+      "url": "https://javabetter.cn/ai/video/workflow-vs-agent-flight-booking.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-agent",
+      "pointIds": [
+        "observation-backed-task-state"
+      ],
+      "title": "什么是 AI Agent？与直接调用大模型 API 有什么区别？",
+      "originalTitle": "什么是 AI Agent？与直接调用大模型 API 有什么区别？",
+      "url": "https://javabetter.cn/ai/video/what-is-agent.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-how-agent-works",
+      "pointIds": [
+        "observation-backed-task-state"
+      ],
+      "title": "AI Agent 是如何工作的？完整执行过程拆解",
+      "originalTitle": "AI Agent 是如何工作的？完整执行过程拆解",
+      "url": "https://javabetter.cn/ai/video/how-agent-works.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-chatbot-difference",
+      "pointIds": [
+        "workflow-autonomy-boundary"
+      ],
+      "title": "Agent 和 ChatBot 有什么区别？如何让聊天机器人进化成 Agent？",
+      "originalTitle": "Agent 和 ChatBot 有什么区别？如何让聊天机器人进化成 Agent？",
+      "url": "https://javabetter.cn/ai/video/agent-chatbot-difference.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-core-components",
+      "pointIds": [
+        "framework-tool-loop-ownership"
+      ],
+      "title": "一个 AI Agent 有哪些核心组件？",
+      "originalTitle": "一个 AI Agent 有哪些核心组件？",
+      "url": "https://javabetter.cn/ai/video/agent-core-components.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-react",
+      "pointIds": [
+        "framework-tool-loop-ownership"
+      ],
+      "title": "什么是 ReAct？它和 CoT 有什么区别？",
+      "originalTitle": "什么是 ReAct？它和 CoT 有什么区别？",
+      "url": "https://javabetter.cn/ai/video/what-is-react.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-plan-and-execute",
+      "pointIds": [
+        "dynamic-decomposition-contract"
+      ],
+      "title": "什么是 Plan-and-Execute？它和 ReAct 怎么选？",
+      "originalTitle": "什么是 Plan-and-Execute？它和 ReAct 怎么选？",
+      "url": "https://javabetter.cn/ai/video/plan-and-execute.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-plan-modes",
+      "pointIds": [
+        "dynamic-decomposition-contract"
+      ],
+      "title": "Agent 的 Plan 模式有哪些实现方式？",
+      "originalTitle": "Agent 的 Plan 模式有哪些实现方式？",
+      "url": "https://javabetter.cn/ai/video/agent-plan-modes.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-is-plan-mode-dead",
+      "pointIds": [
+        "workflow-autonomy-boundary"
+      ],
+      "title": "Plan 模式已经死了吗？",
+      "originalTitle": "Plan 模式已经死了吗？",
+      "url": "https://javabetter.cn/ai/video/is-plan-mode-dead.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-react-death-loop",
+      "pointIds": [
+        "budgeted-refinement-exit"
+      ],
+      "title": "ReAct 会死循环吗？如何设计可靠的终止机制？",
+      "originalTitle": "ReAct 会死循环吗？如何设计可靠的终止机制？",
+      "url": "https://javabetter.cn/ai/video/react-death-loop.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-intent-routing",
+      "pointIds": [
+        "ambiguous-intent-routing"
+      ],
+      "title": "Agent 的意图路由怎么设计？",
+      "originalTitle": "Agent 的意图路由怎么设计？",
+      "url": "https://javabetter.cn/ai/video/agent-intent-routing.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-requirement-clarification",
+      "pointIds": [
+        "ambiguous-intent-routing"
+      ],
+      "title": "用户需求模糊时 Agent 怎么澄清？",
+      "originalTitle": "用户需求模糊时 Agent 怎么澄清？",
+      "url": "https://javabetter.cn/ai/video/agent-requirement-clarification.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-multi-agent-collaboration",
+      "pointIds": [
+        "dynamic-decomposition-contract"
+      ],
+      "title": "Multi-Agent 协作是怎么实现的？",
+      "originalTitle": "Multi-Agent 协作是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/multi-agent-collaboration.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-multi-agent-context-passing",
+      "pointIds": [
+        "delegated-context-boundary"
+      ],
+      "title": "多 Agent 之间怎么传递上下文？",
+      "originalTitle": "多 Agent 之间怎么传递上下文？",
+      "url": "https://javabetter.cn/ai/video/multi-agent-context-passing.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-multi-agent-conflict-resolution",
+      "pointIds": [
+        "graph-state-reducer-conflict"
+      ],
+      "title": "Multi-Agent 协作时意见冲突怎么办？",
+      "originalTitle": "Multi-Agent 协作时意见冲突怎么办？",
+      "url": "https://javabetter.cn/ai/video/multi-agent-conflict-resolution.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-multi-agent-file-conflict",
+      "pointIds": [
+        "graph-state-reducer-conflict"
+      ],
+      "title": "多个 Agent 同时改一个文件，怎么办？",
+      "originalTitle": "多个 Agent 同时改一个文件，怎么办？",
+      "url": "https://javabetter.cn/ai/video/multi-agent-file-conflict.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-task-cancellation",
+      "pointIds": [
+        "cancellation-result-race"
+      ],
+      "title": "用户中途取消，Agent 任务怎么停下来？",
+      "originalTitle": "用户中途取消，Agent 任务怎么停下来？",
+      "url": "https://javabetter.cn/ai/video/agent-task-cancellation.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-user-interjection",
+      "pointIds": [
+        "cancellation-result-race"
+      ],
+      "title": "Agent执行过程中，用户插话怎么处理？",
+      "originalTitle": "Agent执行过程中，用户插话怎么处理？",
+      "url": "https://javabetter.cn/ai/video/agent-user-interjection.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-tool-failure-timeout",
+      "pointIds": [
+        "recoverable-tool-error-contract"
+      ],
+      "title": "Agent 调用工具失败或者超时了怎么办？",
+      "originalTitle": "Agent 调用工具失败或者超时了怎么办？",
+      "url": "https://javabetter.cn/ai/video/agent-tool-failure-timeout.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-human-in-the-loop",
+      "pointIds": [
+        "approval-bound-operation-resume"
+      ],
+      "title": "怎么设计 Agent 的 Human-in-the-loop？",
+      "originalTitle": "怎么设计 Agent 的 Human-in-the-loop？",
+      "url": "https://javabetter.cn/ai/video/agent-human-in-the-loop.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-permission-mode",
+      "pointIds": [
+        "least-privilege-tool-execution"
+      ],
+      "title": "Agent的权限模式（Permission Mode）了解吗？",
+      "originalTitle": "Agent的权限模式（Permission Mode）了解吗？",
+      "url": "https://javabetter.cn/ai/video/what-is-permission-mode.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-agent-sandbox",
+      "pointIds": [
+        "least-privilege-tool-execution"
+      ],
+      "title": "Agent 的沙箱（Sandbox）你了解吗？",
+      "originalTitle": "Agent 的沙箱（Sandbox）你了解吗？",
+      "url": "https://javabetter.cn/ai/video/what-is-agent-sandbox.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-hnow-tool-call",
+      "pointIds": [
+        "overlapping-tool-choice-design"
+      ],
+      "title": "Agent 怎么知道该调用哪个工具？Function Calling 原理拆解",
+      "originalTitle": "Agent 怎么知道该调用哪个工具？Function Calling 原理拆解",
+      "url": "https://javabetter.cn/ai/video/agent-hnow-tool-call.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-tool-design-principles",
+      "pointIds": [
+        "tool-schema-semantic-validation"
+      ],
+      "title": "字节面试：说说 Agent 中 Tool 的设计原则？",
+      "originalTitle": "字节面试：说说 Agent 中 Tool 的设计原则？",
+      "url": "https://javabetter.cn/ai/video/tool-design-principles.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-harness-five-elements",
+      "pointIds": [
+        "framework-tool-loop-ownership"
+      ],
+      "title": "Harness 的五要素是什么？",
+      "originalTitle": "Harness 的五要素是什么？",
+      "url": "https://javabetter.cn/ai/video/harness-five-elements.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-harness-engineering",
+      "pointIds": [
+        "framework-tool-loop-ownership"
+      ],
+      "title": "什么是 Harness Engineering？为什么 Agent 需要运行时？",
+      "originalTitle": "什么是 Harness Engineering？为什么 Agent 需要运行时？",
+      "url": "https://javabetter.cn/ai/video/what-is-harness-engineering.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-loop-engineering",
+      "pointIds": [
+        "budgeted-refinement-exit"
+      ],
+      "title": "什么是 Loop Engineering？",
+      "originalTitle": "什么是 Loop Engineering？",
+      "url": "https://javabetter.cn/ai/video/what-is-loop-engineering.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-will-model-eat-harness",
+      "pointIds": [
+        "chatmodel-business-adapter"
+      ],
+      "title": "模型越来越强，Harness 会不会被模型「吃掉」？",
+      "originalTitle": "模型越来越强，Harness 会不会被模型「吃掉」？",
+      "url": "https://javabetter.cn/ai/video/will-model-eat-harness.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-why-handcraft-agent-not-framework",
+      "pointIds": [
+        "chatmodel-business-adapter"
+      ],
+      "title": "为什么选择手搓 Agent 而不用 LangChain 这种框架？",
+      "originalTitle": "为什么选择手搓 Agent 而不用 LangChain 这种框架？",
+      "url": "https://javabetter.cn/ai/video/why-handcraft-agent-not-framework.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-pi-agent-design-patterns",
+      "pointIds": [
+        "skill-progressive-disclosure"
+      ],
+      "title": "Pi Agent 里有哪些反复出现的设计模式？",
+      "originalTitle": "Pi Agent 里有哪些反复出现的设计模式？",
+      "url": "https://javabetter.cn/ai/video/pi-agent-design-patterns.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-building-effective-agents-principles",
+      "pointIds": [
+        "tool-schema-semantic-validation"
+      ],
+      "title": "如何做出来一个像 Pi 这样优秀的 Agent？",
+      "originalTitle": "如何做出来一个像 Pi 这样优秀的 Agent？",
+      "url": "https://javabetter.cn/ai/video/building-effective-agents-principles.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-agent-reflection",
+      "pointIds": [
+        "budgeted-refinement-exit"
+      ],
+      "title": "Agent 的反思机制是什么？Self-Refine 和 Reflexion 有什么区别？",
+      "originalTitle": "Agent 的反思机制是什么？Self-Refine 和 Reflexion 有什么区别？",
+      "url": "https://javabetter.cn/ai/video/what-is-agent-reflection.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-how-agent-accumulates-experience",
+      "pointIds": [
+        "episodic-memory-retrieval"
+      ],
+      "title": "Agent 如何积累经验和自我学习？",
+      "originalTitle": "Agent 如何积累经验和自我学习？",
+      "url": "https://javabetter.cn/ai/video/how-agent-accumulates-experience.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-long-term-memory",
+      "pointIds": [
+        "memory-history-separation"
+      ],
+      "title": "Agent 的长期记忆是怎么实现的？",
+      "originalTitle": "Agent 的长期记忆是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/agent-long-term-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-short-term-memory",
+      "pointIds": [
+        "memory-history-separation"
+      ],
+      "title": "Agent 的短期记忆怎么实现？",
+      "originalTitle": "Agent 的短期记忆怎么实现？",
+      "url": "https://javabetter.cn/ai/video/agent-short-term-memory.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-how-to-give-agent-memory",
+      "pointIds": [
+        "memory-history-separation"
+      ],
+      "title": "怎么让 Agent 拥有记忆？短期与长期记忆设计",
+      "originalTitle": "怎么让 Agent 拥有记忆？短期与长期记忆设计",
+      "url": "https://javabetter.cn/ai/video/how-to-give-agent-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-why-llm-has-no-memory",
+      "pointIds": [
+        "memory-history-separation"
+      ],
+      "title": "为什么说 LLM 本身没有记忆？",
+      "originalTitle": "为什么说 LLM 本身没有记忆？",
+      "url": "https://javabetter.cn/ai/video/why-llm-has-no-memory.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-context-window",
+      "pointIds": [
+        "context-budget-priority"
+      ],
+      "title": "什么是上下文窗口？它不是聊天窗口",
+      "originalTitle": "什么是上下文窗口？它不是聊天窗口",
+      "url": "https://javabetter.cn/ai/video/what-is-context-window.html",
+      "difficulty": "EASY",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-context-engineering",
+      "pointIds": [
+        "context-budget-priority"
+      ],
+      "title": "什么是上下文工程（Context Engineering）？",
+      "originalTitle": "什么是上下文工程（Context Engineering）？",
+      "url": "https://javabetter.cn/ai/video/what-is-context-engineering.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-context-window-limit",
+      "pointIds": [
+        "context-budget-priority"
+      ],
+      "title": "为什么 LLM 的上下文窗口不能无限大？",
+      "originalTitle": "为什么 LLM 的上下文窗口不能无限大？",
+      "url": "https://javabetter.cn/ai/video/context-window-limit.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-context-explosion",
+      "pointIds": [
+        "tool-turn-trimming-consistency"
+      ],
+      "title": "Agent 怎么避免上下文爆炸？四种常用方案",
+      "originalTitle": "Agent 怎么避免上下文爆炸？四种常用方案",
+      "url": "https://javabetter.cn/ai/video/agent-context-explosion.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-why-agent-gets-dumber",
+      "pointIds": [
+        "summary-fidelity-validation"
+      ],
+      "title": "为什么聊着聊着 Agent 就变笨了？",
+      "originalTitle": "为什么聊着聊着 Agent 就变笨了？",
+      "url": "https://javabetter.cn/ai/video/why-agent-gets-dumber.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-llm-context-or-tool",
+      "pointIds": [
+        "execution-trace-causal-attribution"
+      ],
+      "title": "对于Agent，LLM、Context、Tool谁更重要？",
+      "originalTitle": "对于Agent，LLM、Context、Tool谁更重要？",
+      "url": "https://javabetter.cn/ai/video/llm-context-or-tool.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-skill-hit-rate",
+      "pointIds": [
+        "skill-progressive-disclosure"
+      ],
+      "title": "Agent 挂了几十个 Skill，怎么保证命中率？",
+      "originalTitle": "Agent 挂了几十个 Skill，怎么保证命中率？",
+      "url": "https://javabetter.cn/ai/video/agent-skill-hit-rate.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-rag-pdf",
+      "pointIds": [
+        "structure-aware-document-chunking"
+      ],
+      "title": "Agent 的 RAG 遇到 PDF 怎么办？",
+      "originalTitle": "Agent 的 RAG 遇到 PDF 怎么办？",
+      "url": "https://javabetter.cn/ai/video/agent-rag-pdf.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-rag-hybrid-search",
+      "pointIds": [
+        "lexical-semantic-retrieval-fusion"
+      ],
+      "title": "RAG 怎么做向量和关键词的混合检索？",
+      "originalTitle": "RAG 怎么做向量和关键词的混合检索？",
+      "url": "https://javabetter.cn/ai/video/rag-hybrid-search.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-prompt-caching",
+      "pointIds": [
+        "prompt-cache-memory-boundary"
+      ],
+      "title": "DeepSeek 为什么能让 Prompt Caching 自动成本爆降 90%，而 Claude 还需要 cache_control 字段手动控制？",
+      "originalTitle": "DeepSeek 为什么能让 Prompt Caching 自动成本爆降 90%，而 Claude 还需要 cache_control 字段手动控制？",
+      "url": "https://javabetter.cn/ai/video/what-is-prompt-caching.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-prefix-caching",
+      "pointIds": [
+        "prompt-cache-memory-boundary"
+      ],
+      "title": "Prefix Caching（前缀缓存）到底是什么？",
+      "originalTitle": "Prefix Caching（前缀缓存）到底是什么？",
+      "url": "https://javabetter.cn/ai/video/what-is-prefix-caching.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-is-kv-cache",
+      "pointIds": [
+        "prompt-cache-memory-boundary"
+      ],
+      "title": "KV Cache 是什么？为什么只缓存 K 和 V，不缓存 Q？",
+      "originalTitle": "KV Cache 是什么？为什么只缓存 K 和 V，不缓存 Q？",
+      "url": "https://javabetter.cn/ai/video/what-is-kv-cache.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-api-cache-hit-miss",
+      "pointIds": [
+        "latency-cost-quality-frontier"
+      ],
+      "title": "大模型 API 缓存命中和未命中为什么差价巨大？",
+      "originalTitle": "大模型 API 缓存命中和未命中为什么差价巨大？",
+      "url": "https://javabetter.cn/ai/video/api-cache-hit-miss.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-what-benchmarks-test",
+      "pointIds": [
+        "representative-eval-risk-strata"
+      ],
+      "title": "SWE-bench、Terminal-Bench、GPQA Diamond 这些评测集到底在测什么？",
+      "originalTitle": "SWE-bench、Terminal-Bench、GPQA Diamond 这些评测集到底在测什么？",
+      "url": "https://javabetter.cn/ai/video/what-benchmarks-test.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-codex-long-term-memory",
+      "pointIds": [
+        "episodic-memory-retrieval"
+      ],
+      "title": "Codex 的长期记忆是怎么实现的？",
+      "originalTitle": "Codex 的长期记忆是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/codex-long-term-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-claude-code-memory-retrieval",
+      "pointIds": [
+        "episodic-memory-retrieval"
+      ],
+      "title": "Claude Code 如何检索长期记忆？",
+      "originalTitle": "Claude Code 如何检索长期记忆？",
+      "url": "https://javabetter.cn/ai/video/claude-code-memory-retrieval.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-how-to-write-claudemd",
+      "pointIds": [
+        "just-in-time-context-refresh"
+      ],
+      "title": "CLAUDE.md 怎么写才真正有用？",
+      "originalTitle": "CLAUDE.md 怎么写才真正有用？",
+      "url": "https://javabetter.cn/ai/video/how-to-write-claudemd.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-claude-code-long-term-memory",
+      "pointIds": [
+        "memory-correction-provenance"
+      ],
+      "title": "Claude Code 的长期记忆是怎么实现的？",
+      "originalTitle": "Claude Code 的长期记忆是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/claude-code-long-term-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-codex-short-term-memory",
+      "pointIds": [
+        "summary-fidelity-validation"
+      ],
+      "title": "Codex 的短期记忆是怎么实现的？",
+      "originalTitle": "Codex 的短期记忆是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/codex-short-term-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-claude-code-short-term-memory",
+      "pointIds": [
+        "tool-turn-trimming-consistency"
+      ],
+      "title": "Claude Code 的短期记忆是怎么实现的？",
+      "originalTitle": "Claude Code 的短期记忆是怎么实现的？",
+      "url": "https://javabetter.cn/ai/video/claude-code-short-term-memory.html",
+      "difficulty": "MEDIUM",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-agent-hallucination-governance",
+      "pointIds": [
+        "retrieved-evidence-claim-alignment"
+      ],
+      "title": "Agent 出现幻觉怎么治理？",
+      "originalTitle": "Agent 出现幻觉怎么治理？",
+      "url": "https://javabetter.cn/ai/video/agent-hallucination-governance.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    },
+    {
+      "id": "jb-deepseek-outage-agent-fallback",
+      "pointIds": [
+        "model-routing-semantic-fallback"
+      ],
+      "title": "DeepSeek 宕机 5 小时赔付 7 天账单，如何应对 API 的单点依赖？",
+      "originalTitle": "DeepSeek 宕机 5 小时赔付 7 天账单，如何应对 API 的单点依赖？",
+      "url": "https://javabetter.cn/ai/video/deepseek-outage-agent-fallback.html",
+      "difficulty": "HARD",
+      "source": "JavaBetter",
+      "verifiedAt": "2026-10-21"
+    }
+  ]
+}

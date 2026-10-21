@@ -81,14 +81,34 @@ class AgentPracticeIntegrationTest {
     var selected = model.planInput.path("agentPractice").path("points");
     assertThat(selected).hasSize(3);
     assertThat(selected.findValuesAsText("theme")).containsOnly("AGENT_CONTEXT_MEMORY");
-    assertThat(selected.findValuesAsText("id")).doesNotHaveDuplicates();
+    assertThat(java.util.stream.StreamSupport.stream(selected.spliterator(), false).map(point -> point.path("id").asText()).toList()).doesNotHaveDuplicates();
     var internal = store.get(s.path("id").asText());
     assertThat(internal.path("questions").findValuesAsText("pointId"))
-        .containsExactlyElementsOf(selected.findValuesAsText("id"));
+        .containsExactlyElementsOf(java.util.stream.StreamSupport.stream(selected.spliterator(), false).map(point -> point.path("id").asText()).toList());
     assertThat(internal.path("messages").get(0).path("pointId").asText()).isNotBlank();
     assertThat(s.has("agentPractice")).isFalse();
     assertThat(s.findValues("pointId")).isEmpty();
     assertThat(s.findValues("evaluationBoundary")).isEmpty();
+  }
+
+  @Test void 独立题单绑定到主问追问与复盘并且答题时隐藏() throws Exception {
+    var request = body(); request.putArray("agentTopics").add("AGENT_ARCHITECTURE");
+    var s = await(service.create(request), "IN_PROGRESS");
+    String id = s.path("id").asText();
+    var first = store.get(id).path("messages").get(0);
+    assertThat(first.path("seedQuestionId").asText()).startsWith("jb-");
+    assertThat(s.findValues("seedQuestionId")).isEmpty();
+    var answer = action(s).put("expectedQuestionId", first.path("questionId").asText())
+        .put("content", "我会先记录输入输出和失败轨迹，再用合成样例重复验证边界。");
+    s = await(service.action(id, "answers", answer), "IN_PROGRESS");
+    assertThat(store.get(id).path("messages").get(2).path("seedQuestionId")).isEqualTo(first.path("seedQuestionId"));
+    s = await(service.action(id, "finish", action(s)), "REPORT_READY");
+    var item = s.path("report").path("topicCoverage").path("items").get(0);
+    assertThat(item.path("pointId")).isEqualTo(first.path("pointId"));
+    assertThat(item.path("seedQuestionId")).isEqualTo(first.path("seedQuestionId"));
+    assertThat(item.path("seedQuestionUrl").asText()).startsWith("https://javabetter.cn/ai/video/");
+    assertThat(new InterviewSessionStore(json, DATA.toString()).get(id).path("messages").get(0).path("seedQuestionId"))
+        .isEqualTo(first.path("seedQuestionId"));
   }
 
   @Test void 没有复习历史时预检与创建都阻止调用模型() throws Exception {
@@ -141,6 +161,8 @@ class AgentPracticeIntegrationTest {
     var s = await(service.create(body()), "FAILED");
     assertThat(s.path("messages")).isEmpty();
     assertThat(s.path("error").asText()).contains("考点");
+    assertThat(s.path("knowledgeRetrieval")).isNotEmpty();
+    assertThat(s.path("knowledgeRetrieval").get(0).path("status").asText()).isEqualTo("NETWORK_DISABLED");
   }
 
   @Test void 综合保留四阶段只将技术题关联所选考点() throws Exception {

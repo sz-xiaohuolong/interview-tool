@@ -2,10 +2,11 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { PhCaretRight } from '@phosphor-icons/vue'
 import { agentTopicLabels, displayDate, publicSourceUrl } from '../../api/interviews'
-import type { KnowledgeSource } from '../../models/interview'
+import type { KnowledgeSource, KnowledgeRetrieval } from '../../models/interview'
 
-const props = defineProps<{ sources: KnowledgeSource[]; agentTopics?: string[]; plannedQuestionCount?: number }>()
+const props = defineProps<{ sources: KnowledgeSource[]; retrieval?: KnowledgeRetrieval[]; agentTopics?: string[]; plannedQuestionCount?: number }>()
 const disclosure = ref<HTMLDetailsElement | null>(null)
+const retrievalDetails = computed(() => props.retrieval || props.sources.flatMap(source => source.retrieval ? [source.retrieval] : []))
 const selectedAgentTopics = computed(() => [...new Set(props.agentTopics || [])]
   .filter(id => Object.hasOwn(agentTopicLabels, id)).map(id => ({ id, label: agentTopicLabels[id] })))
 
@@ -51,6 +52,14 @@ watch(() => JSON.stringify(props.sources.map(source => source.id)), revealSource
         </div>
         <p class="form-help interview-sources-help">下方列出本场获取的参考资料，份数不代表已选主题数或实际考点覆盖数。题库用于发现考点，技术结论结合官方资料核对。来源不足或冲突会明确标注。</p>
         <p v-if="!sources.length" class="form-help interview-sources-help">本场尚无可展示的参考资料，技术结论仍需核实。</p>
+        <details v-if="retrievalDetails.length" data-retrieval-details class="interview-source">
+          <summary>参考文档获取详情</summary>
+          <ul><li v-for="item in retrievalDetails" :key="item.sourceId" class="interview-source-meta">
+            <strong>{{ item.title }}</strong>：{{ item.message }}（{{ item.status }}<template v-if="item.httpStatus"> · HTTP {{ item.httpStatus }}</template>）
+            <span v-if="item.cacheUsed"> · 已使用本地缓存{{ item.stale ? '（已过期，技术依据需复核）' : '（有效）' }}</span>
+            <span v-else-if="item.status !== 'FETCHED'"> · 本次未获取到参考文档</span>
+          </li></ul>
+        </details>
         <details v-for="source in sources" :id="`interview-source-${source.id}`" :key="source.id" :data-source="source.id" class="interview-source">
           <summary><PhCaretRight class="interview-source-caret" aria-hidden="true" /><span>{{ source.title }}<span class="interview-source-kind">{{ source.kind === 'OFFICIAL' ? '官方文档' : '公开资料' }}</span></span></summary>
           <div class="interview-source-content">

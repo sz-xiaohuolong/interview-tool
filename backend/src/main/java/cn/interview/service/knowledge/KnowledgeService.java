@@ -56,7 +56,7 @@ public class KnowledgeService {
   static final int MAX_BYTES = 2 * 1024 * 1024;
   private static final int MAX_TEXT = 10_000;
   private static final Duration TTL = Duration.ofHours(48);
-  private static final Duration TIMEOUT = Duration.ofSeconds(3);
+  private static final Duration TIMEOUT = Duration.ofSeconds(10);
   private static final Pattern WORDS = Pattern.compile("[a-z0-9_]+|[\\p{IsHan}]+");
   private static final Set<String> STOP_WORDS =
       Set.of(
@@ -89,6 +89,9 @@ public class KnowledgeService {
   private final KnowledgeTransport transport;
   private final Clock clock;
   private final boolean enabled;
+  private final ThreadLocal<ArrayNode> retrievalDetails = ThreadLocal.withInitial(com.fasterxml.jackson.databind.node.JsonNodeFactory.instance::arrayNode);
+  private record Retrieval(ObjectNode source, ObjectNode detail) {}
+
   private final ThreadLocal<List<String>> retrievalWarnings =
       ThreadLocal.withInitial(ArrayList::new);
   private final ExecutorService executor =
@@ -135,6 +138,7 @@ public class KnowledgeService {
 
   public ArrayNode retrieve(List<String> topics, boolean refresh, List<String> preferredSourceIds) {
     retrievalWarnings.set(new ArrayList<>());
+    retrievalDetails.set(mapper.createArrayNode());
     Set<String> normalized = new LinkedHashSet<>();
     if (topics != null)
       for (String topic : topics) {
@@ -185,20 +189,22 @@ public class KnowledgeService {
       if (chosen.size() >= 6) break;
       if (!chosen.contains(source)) chosen.add(source);
     }
-    List<CompletableFuture<ObjectNode>> tasks =
+    List<CompletableFuture<Retrieval>> tasks =
         chosen.stream()
             .map(
                 source ->
                     CompletableFuture.supplyAsync(() -> load(source, refresh), executor)
-                        .completeOnTimeout(staleFallback(source), 3, TimeUnit.SECONDS)
-                        .exceptionally(error -> staleFallback(source)))
+                        .orTimeout(11, TimeUnit.SECONDS)
+                        .exceptionally(error -> failed(source, readCache(source), error, true)))
             .toList();
     ArrayNode result = mapper.createArrayNode();
     for (int index = 0; index < tasks.size(); index++) {
-      ObjectNode source = tasks.get(index).join();
+      Retrieval retrieval = tasks.get(index).join();
+      retrievalDetails.get().add(retrieval.detail());
+      ObjectNode source = retrieval.source();
       if (source != null) result.add(source);
       if (source == null)
-        retrievalWarnings.get().add("来源未获取：" + chosen.get(index).title() + "；相关技术依据不足");
+        retrievalWarnings.get().add("本次未获取到参考文档：" + chosen.get(index).title() + "；相关技术依据不足");
       else if (source.hasNonNull("warning"))
         retrievalWarnings
             .get()
@@ -221,6 +227,9 @@ public class KnowledgeService {
   public List<String> warnings() {
     return List.copyOf(new LinkedHashSet<>(retrievalWarnings.get()));
   }
+
+  /** 包含没有可用正文的失败来源，不能用空正文伪造引用。 */
+  public ArrayNode retrievalDetails() { return retrievalDetails.get().deepCopy(); }
 
   /** 同一正文版本保留每次实际使用的片段，引用新版本不覆盖旧版本。 */
   public ArrayNode mergeSources(JsonNode original, JsonNode updates) {
@@ -322,49 +331,56 @@ public class KnowledgeService {
     return result;
   }
 
-  private ObjectNode load(Source source, boolean refresh) {
+  private Retrieval load(Source source, boolean refresh) {
     ObjectNode cached = readCache(source);
     boolean stale = expired(cached);
-    if (cached != null && !refresh && !stale) return publicSource(cached, false, "");
-    if (!enabled)
-      return cached == null
-          ? null
-          : publicSource(cached, stale, stale ? "缓存已过期，联网获取已关闭，技术依据需复核" : "");
+    if (cached != null && !refresh && !stale)
+      return retrieved(source, publicSource(cached, false, ""), "CACHED", "复用48小时内有效缓存", 0, true);
+    if (!enabled) return fallback(source, cached, "NETWORK_DISABLED", "联网获取已关闭", 0);
     try {
       Payload payload = transport.fetch(URI.create(source.url()), TIMEOUT, MAX_BYTES);
-      if (payload.status() != 200 || payload.body().length > MAX_BYTES)
-        throw new IllegalStateException("来源状态或大小不符合限制");
-      String text =
-          extract(
-              new String(payload.body(), StandardCharsets.UTF_8),
-              payload.contentType(),
-              source.url());
-      if (text.isBlank()) throw new IllegalStateException("来源没有可用正文");
+      if (payload.status() != 200) return fallback(source, cached, "HTTP_ERROR", "参考文档返回HTTP " + payload.status(), payload.status());
+      if (payload.body().length > MAX_BYTES) return fallback(source, cached, "LIMIT_EXCEEDED", "参考文档超过2MiB限制", 200);
+      String text = extract(new String(payload.body(), StandardCharsets.UTF_8), payload.contentType(), source.url());
+      if (text.isBlank()) return fallback(source, cached, "INVALID_CONTENT", "参考文档没有可用正文", 200);
       text = text.substring(0, Math.min(text.length(), MAX_TEXT));
       ObjectNode node = mapper.valueToTree(source);
       node.put("fetchedAt", clock.instant().toString());
-      node.put(
-          "sha256",
-          java.util.HexFormat.of()
-              .formatHex(
-                  MessageDigest.getInstance("SHA-256")
-                      .digest(text.getBytes(StandardCharsets.UTF_8))));
-      node.put("rawText", text);
-      node.put("excerpt", text.substring(0, Math.min(text.length(), 2400)));
+      node.put("sha256", java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8))));
+      node.put("rawText", text).put("excerpt", text.substring(0, Math.min(text.length(), 2400)));
       writeCache(source, node);
-      return publicSource(node, false, "");
+      return retrieved(source, publicSource(node, false, ""), "FETCHED", "本次已获取参考文档", 200, false);
     } catch (Exception error) {
-      return cached == null
-          ? null
-          : publicSource(cached, stale, stale ? "缓存已过期，重新获取失败，技术依据需复核" : "重新获取失败，使用此前有效缓存");
+      return failed(source, cached, error, false);
     }
   }
 
-  private ObjectNode staleFallback(Source source) {
-    ObjectNode cached = readCache(source);
-    return cached == null
-        ? null
-        : publicSource(cached, expired(cached), "来源获取超时或失败，使用已有缓存；过期依据需复核");
+  private Retrieval failed(Source source, ObjectNode cached, Throwable error, boolean groupDeadline) {
+    // HttpClient 的异步失败可能由 ExecutionException、IOException 等多层包装。
+    Throwable cause = error;
+    for (int depth = 0; cause != null && depth < 8; depth++, cause = cause.getCause()) {
+      if (cause instanceof java.net.http.HttpTimeoutException || cause instanceof java.util.concurrent.TimeoutException)
+        return fallback(source, cached, "TIMEOUT", groupDeadline ? "整组获取达到11秒上限" : "参考文档请求超时（单请求上限10秒）", 0);
+      if ("公开资料超过大小限制".equals(cause.getMessage()))
+        return fallback(source, cached, "LIMIT_EXCEEDED", "参考文档超过2MiB限制", 0);
+    }
+    return fallback(source, cached, "NETWORK_ERROR", "参考文档网络读取失败", 0);
+  }
+
+  private Retrieval fallback(Source source, ObjectNode cached, String status, String message, int httpStatus) {
+    boolean stale = expired(cached);
+    var value = cached == null ? null : publicSource(cached, stale,
+        stale ? "已使用本地缓存；缓存已过期，技术依据需复核" : "已使用本地缓存");
+    return retrieved(source, value, status, message, httpStatus, cached != null);
+  }
+
+  private Retrieval retrieved(Source source, ObjectNode value, String status, String message, int httpStatus, boolean cacheUsed) {
+    var detail = mapper.createObjectNode().put("sourceId", source.id()).put("title", source.title()).put("url", source.url())
+        .put("status", status).put("message", message).put("cacheUsed", cacheUsed)
+        .put("stale", value != null && value.path("stale").asBoolean()).put("attemptedAt", clock.instant().toString());
+    if (httpStatus > 0) detail.put("httpStatus", httpStatus);
+    if (value != null) value.set("retrieval", detail.deepCopy());
+    return new Retrieval(value, detail);
   }
 
   private boolean expired(ObjectNode cached) {

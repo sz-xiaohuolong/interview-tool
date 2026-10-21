@@ -131,7 +131,7 @@ class KnowledgeServiceTest {
         status.set(503);
         var service = service(true);
         assertThat(service.retrieve(List.of("REDIS"), false)).isEmpty();
-        assertThat(service.warnings()).anyMatch(warning -> warning.contains("来源未获取"));
+        assertThat(service.warnings()).anyMatch(warning -> warning.contains("本次未获取到参考文档"));
     }
 
     @Test void mapsChineseTechnicalConceptsToEnglishOfficialPassagesWithoutSubstringFalseMatches() {
@@ -210,6 +210,52 @@ class KnowledgeServiceTest {
         assertThat(selected.get(0).has("excerpts")).isFalse();
     }
 
+
+    @Test void 有效缓存刷新失败时简短提示同时保留准确HTTP状态() {
+        var service = service(true);
+        service.retrieve(List.of("REDIS"), false);
+        status.set(503);
+        var result = service.retrieve(List.of("REDIS"), true);
+        assertThat(result.get(0).path("warning").asText()).isEqualTo("已使用本地缓存");
+        assertThat(result.get(0).path("retrieval").path("status").asText()).isEqualTo("HTTP_ERROR");
+        assertThat(result.get(0).path("retrieval").path("httpStatus").asInt()).isEqualTo(503);
+        assertThat(result.get(0).path("stale").asBoolean()).isFalse();
+    }
+
+    @Test void 技术资料允许超过旧三秒窗口且完整请求仍有上限() {
+        var source = new KnowledgeService.Source("slow", "较慢官方文档", "https://docs.example.test/cache",
+            "测试版", "OFFICIAL", List.of("REDIS"), "测试", "测试");
+        var service = new KnowledgeService(mapper, directory, List.of(source), (uri, timeout, maximum) -> {
+            assertThat(timeout).isEqualTo(java.time.Duration.ofSeconds(10));
+            Thread.sleep(3200);
+            return new cn.interview.client.transport.KnowledgeTransport.Payload(200, "text/plain", "Redis cache 可用正文".getBytes(StandardCharsets.UTF_8));
+        }, clock, true);
+        try {
+            assertThat(service.retrieve(List.of("REDIS"), true)).hasSize(1);
+        } finally { service.close(); }
+    }
+
+    @Test void 无正文HTTP失败也保留详情且每次检索重新隔离状态() {
+        var service = service(true); status.set(429);
+        assertThat(service.retrieve(List.of("REDIS"), true)).isEmpty();
+        assertThat(service.retrievalDetails().get(0).path("status").asText()).isEqualTo("HTTP_ERROR");
+        assertThat(service.retrievalDetails().get(0).path("httpStatus").asInt()).isEqualTo(429);
+        assertThat(service.retrievalDetails().get(0).path("cacheUsed").asBoolean()).isFalse();
+        service.retrieve(List.of("UNKNOWN"), false);
+        assertThat(service.retrievalDetails()).isEmpty();
+    }
+
+    @Test void 异步传输包装的真实超时不能误标为网络错误() {
+        var source = new KnowledgeService.Source("timeout", "超时来源", "https://docs.example.test/cache",
+            "测试版", "OFFICIAL", List.of("REDIS"), "测试", "测试");
+        var service = new KnowledgeService(mapper, directory, List.of(source), (uri, timeout, maximum) -> {
+            throw new java.util.concurrent.ExecutionException(new java.net.http.HttpTimeoutException("请求超时"));
+        }, clock, true);
+        try {
+            assertThat(service.retrieve(List.of("REDIS"), true)).isEmpty();
+            assertThat(service.retrievalDetails().get(0).path("status").asText()).isEqualTo("TIMEOUT");
+        } finally { service.close(); }
+    }
 
     private static final class MutableClock extends Clock {
         private Instant instant = Instant.parse("2026-10-17T00:00:00Z");

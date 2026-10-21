@@ -157,6 +157,13 @@ public class InterviewOutputValidator {
         throw invalid("考点与题目主题不一致");
       question.put("pointId", id).put("pointTheme", point.path("theme").asText())
           .put("pointTitle", point.path("title").asText()).put("pointReview", point.path("review").asBoolean());
+      var seed = point.path("seedQuestion");
+      String declaredSeed = original.path("seedQuestionId").asText();
+      if (!declaredSeed.equals(seed.path("id").asText()))
+        throw invalid("参考原题身份与服务端选定素材不一致");
+      if (seed.isObject()) question.put("seedQuestionId", seed.path("id").asText())
+          .put("seedQuestionTitle", seed.path("title").asText()).put("seedQuestionUrl", seed.path("url").asText())
+          .put("seedQuestionDifficulty", seed.path("difficulty").asText());
     }
     if (quick && used.size() != allowed.size()) throw invalid("主问题未覆盖本场选定考点");
     return clean;
