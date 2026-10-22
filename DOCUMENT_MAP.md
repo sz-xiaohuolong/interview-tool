@@ -17,6 +17,7 @@
 | 项目决策与授权 | [DECISIONS.md](docs/vibe/DECISIONS.md) | 已核验 | 技术取舍、模型配置、公开仓库与文档整理授权 |
 | 面试产品竞品与候选核心能力 | [调研汇总](docs/research/2026-10-15-interview-platforms.md) | 调研完成 | 2026-10-15 的 9 个代表产品、现有能力差距、建议顺序与 REA 静态证据；不构成新版本需求 |
 | 五款指定产品浏览器实查与后续候选 | [浏览器补充调研](docs/research/2026-10-16-five-interview-products-browser-review.md) | 登录补查完成，范围有限 | 四站已登录；快面一场合成文字模拟及报告、牛客项目改写与纠正；对照已实现 V2 更新五项候选和文档阶段提示词，不构成实施授权 |
+| V6 国内岗位搜索聚合调研 | [RESEARCH.md](docs/vibe/releases/v6/RESEARCH.md) | Thinking / 调研完成，范围待确认 | 国内技术岗，优先BOSS、猎聘、智联、前程无忧；竞品、公开读取样本、免登录与本机登录路线比较、MVP候选及接入验证门槛。用户暂不决定登录方式；未开发、未验证平台稳定接入，正式Release仍V1 |
 | V1 背景、目标与范围 | [PROJECT_BRIEF.md](docs/vibe/releases/v1/PROJECT_BRIEF.md) | FROZEN | 用户初始冻结需求，未新增产品范围 |
 | V1 完整产品行为与验收要求 | [SPEC.md](docs/vibe/releases/v1/SPEC.md) | FROZEN | REQ01～REQ06、AC01～AC11、状态、错误和测试接缝 |
 | V1 实施计划 | [IMPLEMENTATION_PLAN.md](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md) | 已登记 | T0～T7、依赖与需求/验收映射 |
