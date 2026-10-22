@@ -14,7 +14,18 @@ type RecognitionConstructor = new () => RecognitionInstance
 type Phase = 'idle' | 'starting' | 'listening' | 'waiting'
 interface ActiveRecognition { api: RecognitionInstance; committed: Set<number>; receivedFinal: boolean }
 
-const props = withDefaults(defineProps<{ modelValue: string; disabled?: boolean; contextKey?: string; maxLength?: number }>(), { disabled: false, contextKey: '', maxLength: 6000 })
+const props = withDefaults(defineProps<{
+  modelValue: string
+  disabled?: boolean
+  contextKey?: string
+  maxLength?: number
+  variant?: 'default' | 'apple'
+}>(), {
+  disabled: false,
+  contextKey: '',
+  maxLength: 6000,
+  variant: 'default',
+})
 const emit = defineEmits<{ 'update:modelValue': [value: string]; waiting: [value: boolean]; listening: [value: boolean] }>()
 const speechWindow = window as Window & { SpeechRecognition?: RecognitionConstructor; webkitSpeechRecognition?: RecognitionConstructor }
 const Recognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition
@@ -143,17 +154,192 @@ onBeforeUnmount(() => { disposed = true; cancel() })
 defineExpose({ cancel, stopAndKeepDraft })
 </script>
 <template>
-  <div class="speech-input">
-    <button class="btn btn-secondary btn-sm" type="button" :disabled="disabled || !Recognition" :aria-pressed="phase === 'listening'" @click="control">{{ label }}</button>
-    <p v-if="!Recognition" class="form-help" role="status">当前浏览器不支持语音输入，请继续打字或使用 Chrome。</p>
-    <p v-else class="form-help">浏览器可能在线处理语音；本工具不保存音频。文字可修改，请确认后手动提交。</p>
-    <p v-if="status" class="form-help" role="status" aria-live="polite">{{ status }}</p>
-    <p v-if="preview" class="form-help speech-preview" role="status">听写预览：{{ preview }}</p>
-    <p v-if="notice" class="form-help" role="alert">{{ notice }}</p>
+  <div class="speech-input" :class="[variant === 'apple' ? 'variant-apple' : 'variant-default']">
+    <template v-if="variant === 'apple'">
+      <button
+        class="apple-mic-btn"
+        type="button"
+        :class="{
+          'is-listening': phase === 'listening',
+          'is-waiting': phase === 'waiting' || phase === 'starting',
+          'is-unsupported': !Recognition
+        }"
+        :disabled="disabled || !Recognition"
+        :aria-pressed="phase === 'listening'"
+        :title="!Recognition ? '当前浏览器不支持语音输入' : phase === 'listening' ? '停止听写' : '语音输入 (Apple 风格)'"
+        @click="control"
+      >
+        <span class="sr-only">{{ label }}</span>
+        <!-- Apple Siri-style Voice Waves when Listening -->
+        <span v-if="phase === 'listening'" class="apple-mic-waves" aria-hidden="true">
+          <span class="apple-wave wave-1" />
+          <span class="apple-wave wave-2" />
+          <span class="apple-wave wave-3" />
+        </span>
+        <!-- Spinner when starting / waiting -->
+        <span v-else-if="phase === 'waiting' || phase === 'starting'" class="apple-mic-spinner" aria-hidden="true" />
+        <!-- Apple Dictation Microphone Icon -->
+        <svg v-else class="apple-mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+          <line x1="12" y1="19" x2="12" y2="22" />
+          <line x1="8" y1="22" x2="16" y2="22" />
+        </svg>
+      </button>
+
+      <!-- Accessibility text & test compatibility -->
+      <span v-if="!Recognition" class="sr-only" role="status">当前浏览器不支持语音输入，请继续打字或使用 Chrome。</span>
+      <span v-else class="sr-only">浏览器可能在线处理语音；本工具不保存音频。文字可修改，请确认后手动提交。</span>
+      <span v-if="status" class="sr-only" role="status" aria-live="polite">{{ status }}</span>
+
+      <!-- Floating notification pill for active transcription preview or errors -->
+      <div v-if="preview || notice" class="apple-status-toast" :class="{ 'is-notice': !!notice }" role="status">
+        <span v-if="preview" class="apple-toast-text">听写中：{{ preview }}</span>
+        <span v-if="notice" class="apple-toast-alert" role="alert">{{ notice }}</span>
+      </div>
+    </template>
+
+    <template v-else>
+      <button class="btn btn-secondary btn-sm" type="button" :disabled="disabled || !Recognition" :aria-pressed="phase === 'listening'" @click="control">{{ label }}</button>
+      <p v-if="!Recognition" class="form-help" role="status">当前浏览器不支持语音输入，请继续打字或使用 Chrome。</p>
+      <p v-else class="form-help">浏览器可能在线处理语音；本工具不保存音频。文字可修改，请确认后手动提交。</p>
+      <p v-if="status" class="form-help" role="status" aria-live="polite">{{ status }}</p>
+      <p v-if="preview" class="form-help speech-preview" role="status">听写预览：{{ preview }}</p>
+      <p v-if="notice" class="form-help" role="alert">{{ notice }}</p>
+    </template>
   </div>
 </template>
 <style scoped>
-.speech-input { display: grid; justify-items: start; gap: 6px; margin-top: 12px; }
-.speech-input p { margin: 0; }
+.variant-default { display: grid; justify-items: start; gap: 6px; margin-top: 12px; }
+.variant-default p { margin: 0; }
 .speech-preview { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Apple 极简语音按钮风格 */
+.variant-apple {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  margin: 0;
+  gap: 0;
+}
+
+.apple-mic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.apple-mic-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #0f172a;
+  transform: scale(1.05);
+}
+
+.apple-mic-btn:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.apple-mic-btn:disabled,
+.apple-mic-btn.is-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: transparent;
+}
+
+.apple-mic-svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* 听写中动态呼吸光晕 (Apple Siri 风格) */
+.apple-mic-btn.is-listening {
+  background: #fef2f2;
+  color: #ef4444;
+  border-color: #fecaca;
+  animation: apple-mic-pulse 1.6s infinite ease-in-out;
+}
+
+@keyframes apple-mic-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+  }
+}
+
+.apple-mic-waves {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5px;
+  height: 16px;
+}
+
+.apple-wave {
+  width: 2.5px;
+  border-radius: 9999px;
+  background: #ef4444;
+  animation: apple-wave-bounce 0.9s infinite ease-in-out;
+}
+
+.wave-1 { animation-delay: 0s; height: 8px; }
+.wave-2 { animation-delay: 0.18s; height: 16px; }
+.wave-3 { animation-delay: 0.36s; height: 10px; }
+
+@keyframes apple-wave-bounce {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+.apple-mic-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e2e8f0;
+  border-top-color: #f59e0b;
+  border-radius: 50%;
+  animation: apple-spin 0.8s linear infinite;
+}
+
+@keyframes apple-spin {
+  to { transform: rotate(360deg); }
+}
+
+.apple-status-toast {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  right: 0;
+  max-width: 360px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+  animation: toast-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.apple-status-toast.is-notice {
+  background: #dc2626;
+}
+
+@keyframes toast-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>

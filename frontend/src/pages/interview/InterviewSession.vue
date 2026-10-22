@@ -373,9 +373,9 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
             <form v-if="['IN_PROGRESS', 'ANSWERING'].includes(session.status) || state.sendingAnswer" class="composer modern-composer" @submit.prevent="submitAnswer">
               <div class="composer-pill-card">
                 <label for="interview-answer" class="sr-only">你的回答</label>
-                <textarea id="interview-answer" v-model="answer" maxlength="12000" rows="2" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy" placeholder="请输入您的回答（结合实际负责的部分，说明场景、决策、异常和边界）…" @keydown.ctrl.enter.prevent="submitAnswer" @keydown.meta.enter.prevent="submitAnswer"></textarea>
+                <textarea id="interview-answer" v-model="answer" maxlength="12000" rows="1" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy" placeholder="请输入您的回答" @keydown.ctrl.enter.prevent="submitAnswer" @keydown.meta.enter.prevent="submitAnswer"></textarea>
                 <div class="composer-action-area">
-                  <SpeechInput ref="speech" v-model="answer" :context-key="currentQuestion?.questionId" :max-length="12000" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy || expired" @waiting="speechWaiting" />
+                  <SpeechInput ref="speech" v-model="answer" variant="apple" :context-key="currentQuestion?.questionId" :max-length="12000" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy || expired" @waiting="speechWaiting" />
                   <button class="composer-send-btn" type="button" data-action="answer" :disabled="!canAnswer" :aria-label="state.sendingAnswer ? '正在提交…' : '发送回答'" :title="canAnswer ? '发送回答 (Ctrl / ⌘ + Enter)' : '请输入回答'" @click="submitAnswer">
                     <span v-if="state.sendingAnswer" class="spinner composer-spinner" />
                     <ArrowUp v-else :size="18" stroke-width="2.5" />
@@ -745,7 +745,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
   color: var(--accent-ink);
 }
 
-/* 底部现代胶囊输入栏 (复刻图2) */
+/* 底部现代胶囊输入栏 (复刻图2: 亮黄圆角胶囊与极简按键) */
 .is-live .modern-composer {
   padding: 12px 24px 18px;
   border-top: 1px solid var(--border-subtle);
@@ -754,37 +754,46 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 
 .composer-pill-card {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 12px;
-  padding: 10px 14px 10px 18px;
-  border: 1px solid var(--border-control);
-  border-radius: 24px;
+  padding: 8px 12px 8px 22px;
+  min-height: 52px;
+  border: 2px solid #ffbe1a;
+  border-radius: 9999px;
   background: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 18px -2px rgba(251, 191, 36, 0.18), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .composer-pill-card:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: #f59e0b;
+  box-shadow: 0 4px 22px -2px rgba(245, 158, 11, 0.25), 0 0 0 2px rgba(254, 240, 138, 0.4);
 }
 
-.composer-pill-card textarea {
+.interview-page .composer-pill-card textarea#interview-answer,
+.interview-page .composer-pill-card textarea#interview-answer:focus,
+.interview-page .composer-pill-card textarea#interview-answer:focus-visible {
   flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
-  padding: 6px 0;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 0;
+  margin: 0;
   font-size: 15px;
-  line-height: 1.6;
-  resize: none;
-  max-height: 160px;
+  line-height: 24px;
+  min-height: 24px;
+  height: 24px;
+  max-height: 120px;
   field-sizing: content;
+  resize: none;
+  color: #1e293b;
 }
 
-.composer-pill-card textarea::placeholder {
-  color: #94a3b8;
-  font-size: 14px;
+.composer-pill-card textarea#interview-answer::placeholder {
+  color: #a1a1aa;
+  font-size: 15px;
+  line-height: 24px;
 }
 
 .composer-action-area {
@@ -792,32 +801,33 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  margin-bottom: 2px;
+  margin: 0;
 }
 
 .composer-send-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  border: none;
-  background: #0f172a;
-  color: #ffffff;
+  border: 1px solid #f1f5f9;
+  background: #f8fafc;
+  color: #cbd5e1;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: not-allowed;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.composer-send-btn:not(:disabled) {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .composer-send-btn:hover:not(:disabled) {
-  background: #334155;
+  background: #1e293b;
   transform: scale(1.05);
-}
-
-.composer-send-btn:disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
-  cursor: not-allowed;
 }
 
 .composer-spinner {
