@@ -135,3 +135,44 @@ it('练习筛选只有三种状态，旧待核实和归档记录仍可直接进�
   expect(wrapper!.find('[data-workbench-row="review:r1"]').exists()).toBe(true)
   expect(wrapper!.text()).not.toContain('待核实')
 })
+
+it('分段筛选同步兼容选择器，显示实时数量并可清空搜索', async () => {
+  await show()
+  const filters = () => wrapper!.findAll('[data-workbench-state]')
+  expect(filters().map(b => b.text().replace(/\s+/g, ' ').trim())).toEqual(['全部 3', '待攻坚 0', '练习中 3', '已攻克 0'])
+  await wrapper!.get('[data-workbench-state="done"]').trigger('click')
+  expect((wrapper!.get('#workbench-filter').element as HTMLSelectElement).value).toBe('done')
+  expect(wrapper!.findAll('[data-workbench-row]')).toHaveLength(0)
+  await wrapper!.get('#workbench-filter').setValue('ongoing')
+  expect(wrapper!.get('[data-workbench-state="ongoing"]').attributes('aria-pressed')).toBe('true')
+  await wrapper!.get('#workbench-search').setValue('项目故事')
+  expect(wrapper!.findAll('[data-workbench-row]')).toHaveLength(1)
+  await wrapper!.get('[data-workbench-clear-search]').trigger('click')
+  expect(wrapper!.findAll('[data-workbench-row]')).toHaveLength(3)
+})
+
+it('推荐攻坚直接打开已有作答且不产生写请求，三步卡可展开提示', async () => {
+  const { router, writes } = await show()
+  expect(wrapper!.get('[data-workbench-recommendation]').text()).toContain('尚缺失败分支')
+  await wrapper!.get('[data-workbench-method="rebuild"]').trigger('click')
+  expect(wrapper!.get('[data-workbench-method="rebuild"]').attributes('aria-expanded')).toBe('true')
+  expect(wrapper!.get('#workbench-method-tip').text()).toContain('异常边界')
+  await wrapper!.get('[data-workbench-start]').trigger('click'); await flushPromises()
+  expect(router.currentRoute.value.path).toBe('/practice/c1')
+  expect(wrapper!.find('#new-answer').exists()).toBe(true)
+  expect(wrapper!.find('[data-workbench-delete-selected]').exists()).toBe(true)
+  expect(writes).toEqual([])
+})
+
+it('快捷键聚焦搜索，卸载后不继续截获快捷键', async () => {
+  await show()
+  const input = wrapper!.get('#workbench-search').element as HTMLInputElement
+  const focus = vi.spyOn(input, 'focus')
+  const key = () => new KeyboardEvent('keydown', { key: 'k', metaKey: true, cancelable: true })
+  const first = key(); window.dispatchEvent(first)
+  expect(focus).toHaveBeenCalledOnce()
+  expect(first.defaultPrevented).toBe(true)
+  wrapper!.unmount(); wrapper = undefined
+  const second = key(); window.dispatchEvent(second)
+  expect(second.defaultPrevented).toBe(false)
+})

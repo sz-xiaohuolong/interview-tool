@@ -26,7 +26,7 @@ onModelConfigurationChanged(refreshHealth)
         <a :href="href" @click="navigate" aria-label="专项训练" title="专项训练" class="nav-link" :class="{ 'router-link-active': location.primary === 'training' }" :aria-current="location.primary === 'training' ? 'page' : undefined"><ChartNoAxesColumnIncreasing :size="16" aria-hidden="true" /><span class="nav-text">专项训练</span></a>
       </RouterLink>
     </template>
-    <section v-if="props.trainingEnabled && location.training" class="training-training-navigation" aria-label="专项训练模块">
+    <section v-if="props.trainingEnabled && location.training && !route.meta.trainingWorkspace" class="training-training-navigation" aria-label="专项训练模块">
       <h2>专项训练</h2>
       <nav class="training-subnav" aria-label="持续训练">
         <RouterLink v-for="item in trainingNavigation" :key="item.to" :to="item.to" custom v-slot="{ href, navigate }">
