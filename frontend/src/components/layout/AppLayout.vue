@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MessagesSquare, LayoutDashboard, Library, History, ChevronRight, Zap } from 'lucide-vue-next'
+import { MessagesSquare, LayoutDashboard, Library, History, ChevronRight, Zap, BriefcaseBusiness } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
 import { computed, provide, ref } from 'vue'
 import ModelSettingsDialog from '../model/ModelSettingsDialog.vue'
@@ -29,6 +29,7 @@ const navigation = [
   { to: '/configure/quick', title: '快速练习', section: 'quick', icon: Zap },
   { to: '/interviews', title: '综合面试', section: 'interview', icon: MessagesSquare },
   { to: '/materials', title: '个人资料库', section: 'materials', icon: Library },
+  { to: '/job-applications', title: '求职管理', section: 'jobs', icon: BriefcaseBusiness },
   { to: '/history', title: '面试历史', section: 'history', icon: History },
 ]
 </script>

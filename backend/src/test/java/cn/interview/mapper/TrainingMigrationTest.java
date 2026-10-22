@@ -45,6 +45,21 @@ class TrainingMigrationTest {
         assertThat(legacy.jdbc.queryForObject("SELECT count(*) FROM project_repositories", Integer.class)).isZero();
     }
 
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void maintenanceAcceptsLegacyDatabaseBeforeJobTable(boolean alreadyMigrated) throws Exception {
+        Path data=root.resolve("before-jobs");var old=new SqliteStore(data.toString(),new ObjectMapper());
+        old.insertMaterial("original","PROJECT","旧项目","需要保留的原文","2026-10-20");
+        if(alreadyMigrated)assertThat(migrate(data,"initial-backup")).isZero();
+        old.jdbc.execute("DROP TABLE job_applications");
+        assertThat(migrate(data,"job-upgrade-backup")).isZero();
+        TrainingSchemaPreflight.check(data,true);
+        var reopened=new SqliteStore(data.toString(),new ObjectMapper());
+        assertThat(reopened.material("original").content()).isEqualTo("需要保留的原文");
+        assertThat(reopened.jdbc.queryForObject("SELECT count(*) FROM job_applications",Integer.class)).isZero();
+    }
+
     private int migrate(Path data, String backup) throws Exception {
         var process = new ProcessBuilder("python3", "../scripts/prepare-training.py", "--data-dir", data.toString(),
                 "--backup", root.resolve(backup).toString(), "--confirm-maintenance").redirectErrorStream(true).start();

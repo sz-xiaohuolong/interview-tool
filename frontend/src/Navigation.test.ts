@@ -16,7 +16,7 @@ afterEach(() => { wrappers.splice(0).forEach(wrapper => wrapper.unmount()) })
 
 async function open(path: string, trainingEnabled = true) {
   const placeholder = defineComponent({ setup: () => () => h('div', '合成页面') })
-  const paths = ['/', '/configure/:mode', '/sessions/:id', '/interviews', '/interviews/:id', '/interview-v3', '/interview-v3/:id', '/materials', '/history', '/reports/:id', '/history/:id/replay', '/history/interviews/:id/replay',
+  const paths = ['/', '/configure/:mode', '/sessions/:id', '/interviews', '/interviews/:id', '/interview-v3', '/interview-v3/:id', '/materials', '/job-applications', '/history', '/reports/:id', '/history/:id/replay', '/history/interviews/:id/replay',
     ...(trainingEnabled ? ['/review', '/review/:id', '/skills', '/practice', '/practice/:id', '/jd-diagnostics',
       '/jd-diagnostics/:id', '/sprints/:id', '/stories', '/stories/:id', '/design-practice', '/design-practice/:id'] : [])]
   const router = createRouter({ history: createMemoryHistory(), routes: paths.map(path => ({ path, component: placeholder })) })
@@ -41,7 +41,7 @@ it('演示入口明确标记虚构内容，日常入口保持原标记', async (
 it.each([
   ['/', '练习概览'], ['/configure/quick', '快速练习'], ['/configure/project', '综合面试'],
   ['/sessions/session-1', '综合面试'], ['/materials', '个人资料库'], ['/history', '面试历史'],
-  ['/reports/session-1', '面试历史'],
+  ['/reports/session-1', '面试历史'], ['/job-applications', '求职管理'],
   ['/history/session-1/replay', '面试历史'], ['/history/interviews/session-1/replay', '面试历史'],
   ['/interviews', '综合面试'], ['/interviews/session-1', '综合面试'],
   ['/interview-v3', '综合面试'], ['/interview-v3/session-1', '综合面试'],
@@ -95,7 +95,7 @@ it.each(['/REVIEW', '/review/'])('路由兼容路径 %s 保持列表归属与原
 
 it('专项训练 关闭时保留快速与综合两项面试入口，不暴露专项入口', async () => {
   const { wrapper } = await open('/history', false)
-  expect(wrapper.findAll('nav[aria-label="主导航"] a').map(link => link.text())).toEqual(['练习概览', '快速练习', '综合面试', '个人资料库', '面试历史'])
+  expect(wrapper.findAll('nav[aria-label="主导航"] a').map(link => link.text())).toEqual(['练习概览', '快速练习', '综合面试', '个人资料库', '求职管理', '面试历史'])
   expect(wrapper.find('nav[aria-label="持续训练"]').exists()).toBe(false)
 })
 

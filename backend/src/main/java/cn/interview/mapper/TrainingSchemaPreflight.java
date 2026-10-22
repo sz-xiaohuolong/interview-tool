@@ -57,8 +57,8 @@ public final class TrainingSchemaPreflight {
             var matcher = pattern.matcher(sql);
             if (!matcher.find()) continue;
             String name = matcher.group(1), found = actual.get(name);
-            // 旧库可缺少新增的仓库关联表，随后由 SqliteStore 建空表；已有表仍须完整校验。
-            if (found == null && (!required || name.equals("project_repositories"))) continue;
+            // 旧库可缺少已批准的独立附加表和索引，随后由 SqliteStore 补建；已有结构仍须完整校验。
+            if (found == null && (!required || java.util.Set.of("project_repositories","job_applications","idx_job_applications_list").contains(name))) continue;
             if (found == null || !normalize(found).equals(normalize(sql)))
                 throw new IllegalStateException("V2_SCHEMA_UNSUPPORTED：表或索引约束与已知结构不一致");
         }

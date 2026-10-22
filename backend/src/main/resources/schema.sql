@@ -6,3 +6,17 @@ CREATE TABLE IF NOT EXISTS predictions (id TEXT PRIMARY KEY, resume_id TEXT NOT 
 CREATE INDEX IF NOT EXISTS idx_predictions_resume ON predictions(resume_id,created_at);
 CREATE TABLE IF NOT EXISTS reports (session_id TEXT PRIMARY KEY REFERENCES sessions(id), payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS project_repositories (material_id TEXT PRIMARY KEY REFERENCES materials(id) ON DELETE CASCADE, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS job_applications (
+    id TEXT PRIMARY KEY,
+    company TEXT NOT NULL CHECK(length(company) BETWEEN 1 AND 200),
+    position TEXT NOT NULL CHECK(length(position) BETWEEN 1 AND 200),
+    location TEXT NOT NULL DEFAULT '', platform TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '', jd TEXT NOT NULL DEFAULT '',
+    job_type TEXT NOT NULL DEFAULT 'OTHER' CHECK(job_type IN ('CAMPUS','INTERNSHIP','SUMMER_INTERNSHIP','FULL_TIME','OTHER')),
+    status TEXT NOT NULL DEFAULT 'TO_APPLY' CHECK(status IN ('TO_APPLY','APPLIED','ASSESSMENT','INTERVIEW','OFFER','REJECTED','WITHDRAWN')),
+    applied_date TEXT, next_action_date TEXT, interview_at TEXT,
+    interview_note TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+    archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1)),
+    created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_job_applications_list ON job_applications(archived,status,next_action_date);

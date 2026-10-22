@@ -36,8 +36,8 @@ def verify(connection, legacy, migration, checksum):
         raise ValueError('V2_SCHEMA_UNSUPPORTED：存在未知结构对象')
     if actual:
         for name, sql in schemas.items():
-            # 仓库关联表可由新版启动补建，其他旧表和已有约束仍须完整核验。
-            if name == 'project_repositories' and name not in actual:
+            # 已批准的独立附加表和索引可由新版启动补建，其他旧表和已有约束仍须完整核验。
+            if name in {'project_repositories', 'job_applications', 'idx_job_applications_list'} and name not in actual:
                 continue
             if name not in actual or normalized(actual[name]) != normalized(sql):
                 raise ValueError('V2_SCHEMA_UNSUPPORTED：已存在结构不符合已知约束')

@@ -160,3 +160,32 @@ ANALYZE 不接收源码；PLAN、相关 FOLLOWUP 和 REVIEW 复用本场证据�
 专项日常入口收敛为错题重练、项目经历；原复习和原题列表/详情地址共用 `TrainingWorkbench.vue`，内部复用现有复习详情、作答评估和对比。原能力看板、岗位诊断、系统设计保留代码、数据与历史路由。列表关联包含来源类型、场次、题号及Mock身份，防止同ID误合并。
 
 新增复习项与案例DELETE接口，以requestId幂等、expectedVersion版本检查和运行中保护执行JSON逻辑删除；原报告与问答保留。已删除入口返回404，报告重新导入不复活旧项。完整契约见[V5设计第7节](releases/v5/TECH_DESIGN.md#7-错题重练工作台与删除2026-10-21)。
+
+
+## 12. 求职管理与 CSV 接口
+
+求职管理通过 `frontend/src/api/job-applications.ts` 访问 `/api/job-applications`，页面 `/job-applications` 在现有 router 与 AppLayout 注册。`JobApplicationController` → `JobApplicationService`／`JobApplicationCsvService` → `JobApplicationStore`，复用 SqliteStore 的连接和事务；`job_applications` 与 Material、训练、面试历史分别持久化。没有抓取、AI、跨资料同步或提醒调用。数据字段、限制及迁移依据见 [V6 技术设计第 2 节](releases/v6/TECH_DESIGN.md#2-数据与非破坏性初始化)，实现见 `backend/src/main/resources/schema.sql` 与 `entity/JobApplication.java`。
+
+### 调用约定
+
+日常后端 `http://127.0.0.1:8080`，前端同源 `/api` 代理。仅本机使用，不新增认证或跨源写入权限；演示环境继续用独立数据目录和既有来源限制。JSON 成功默认 200，删除 204；读取列表返回完整记录数组（包含 JD／备注），不是省略字段的摘要。字段名采用 entity 的 camelCase，空文本为 `""`、空日期为 `null`；所有写入在数据库完成后返回。
+
+| 方法与路径（相对 /api/job-applications） | 输入、默认值与效果 |
+|---|---|
+| GET 空路径 | `company` 字面子串搜索，最多 200 字符；`status` 七种枚举之一或空；`archived=false` 默认，亦可 true／all；`sort=updatedAt` 默认，亦可 createdAt／appliedDate／nextActionDate／interviewAt；`direction=desc` 默认或 asc。空日期排末尾，同时间按 ID 升序 |
+| POST 空路径 | 公司 company、岗位 position 必填，其余业务字段选填；服务端生成 UUID、创建／修改时间，status 默认 TO_APPLY，jobType 默认 OTHER，archived 固定 false |
+| GET /{id} | 返回完整岗位记录，不存在为 404 |
+| PUT /{id} | 全量业务字段，company／position 必填；未传选填字段按默认值处理，调用方编辑必须带齐原值。保留 ID、创建时间和归档状态，更新修改时间 |
+| PATCH /{id}/status | `{ "status": "INTERVIEW" }`，仅改状态及修改时间，无单向流转限制 |
+| PATCH /{id}/archive | `{ "archived": true }`，必须布尔值，仅改归档及修改时间 |
+| DELETE /{id} | 删除单条记录；页面先二次确认，不影响其他实体 |
+| GET /csv/template | UTF-8 BOM、完整中文表头的空模板，附件文件名 job-applications-template.csv |
+| GET /csv/export | 导出全部记录（含归档与稳定身份、时间），不受页面筛选影响，附件文件名 job-applications.csv；响应 Cache-Control: no-store |
+| POST /csv/preview | multipart file，最多 5 MiB／5000 条；返回 previewToken、total、valid／created（可新增数）、duplicates、conflicts、errors[{line,message}]、rows[{line,company,position,disposition,message}]。NEW／DUPLICATE／ERROR 表示每行结果，记录序号从表头后的第 2 条开始，可跨物理行 |
+| POST /csv/import | multipart 同一 file＋previewToken；无效行整批 400，签名过期／相关状态变化 409；成功 `{created,duplicates}`。一次事务内校验并新增，绝不覆盖原记录；重复全部跳过 |
+
+创建示例：`POST /api/job-applications`，正文 `{"company":"合成星河科技","position":"Java 后端开发","status":"TO_APPLY","jobType":"FULL_TIME","nextActionDate":"2026-10-25","interviewAt":"2026-10-24T10:30:00+08:00"}`。成功返回 JobApplication 全字段，`interviewAt` 为同一时刻 `2026-10-24T02:30:00Z`，日期字符串保持本地日期含义。前端按浏览器时区显示，保存未修改的时间时保留原精度。
+
+失败示例：状态更新 `{"status":"UNKNOWN"}` 返回 400、`{"code":"INVALID_INPUT","message":"投递状态无效"}`，原记录保持。不存在 ID 为 404／NOT_FOUND；失效预览为 409／INVALID_STATE，提示重新预览且本次无写入。文件编码、表头、整体语法、空文件及超限为 400；可解析的行错误在预览中逐行报告。所有 SQL 值绑定参数，排序由白名单决定；原链接只保存 HTTP(S)，不发起网络请求；普通错误和日志不包含 JD／备注正文。
+
+CSV 格式、可逆公式保护和重复规则见 [V6 技术设计第 4 节](releases/v6/TECH_DESIGN.md#4-csv-格式与身份)。验证覆盖真实 SQLite、浏览器和实际进程重启，范围与限制见 [V6 验证](releases/v6/VERIFICATION.md)。当前数据初始化为追加表及索引，原表无修改；启动预检查与维护脚本仅允许这两个新增结构缺失，已有结构仍严格核验；日常／演示仍使用单一工程及不同数据库目录。

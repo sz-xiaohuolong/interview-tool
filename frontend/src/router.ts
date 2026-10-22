@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/', component: () => import('./pages/home/Dashboard.vue'), meta: { title: '练习概览' } },
     { path: '/configure/:mode(quick|resume|project)', component: () => import('./pages/interview/FocusedInterviewConfigure.vue'), meta: { title: '准备面试' } },
     { path: '/materials', component: () => import('./pages/material/Materials.vue'), meta: { title: '个人资料库' } },
+    { path: '/job-applications', component: () => import('./pages/jobs/JobApplications.vue'), meta: { title: '求职管理' } },
     { path: '/history', component: () => import('./pages/history/History.vue'), meta: { title: '面试历史' } },
     { path: '/history/:id/replay', component: () => import('./pages/history/Replay.vue'), meta: { title: '对话回放' } },
     { path: '/sessions/:id', component: () => import('./pages/interview/FocusedInterviewSession.vue'), meta: { title: '面试工作台' } },

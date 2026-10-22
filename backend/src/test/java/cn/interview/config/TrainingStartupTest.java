@@ -96,6 +96,49 @@ class TrainingStartupTest {
         assertThat(Files.readAllBytes(root.resolve("interview.db"))).isEqualTo(before);
     }
 
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void legacyDatabaseStartsBeforeJobApplicationsWereAdded(boolean trainingEnabled) throws Exception {
+        var mapper=new com.fasterxml.jackson.databind.ObjectMapper();
+        var legacy=new cn.interview.mapper.SqliteStore(root.toString(),mapper);
+        legacy.insertMaterial("kept-material","JD","旧岗位描述","中文原文与备注","2026-10-20");
+        try(var c=DriverManager.getConnection("jdbc:sqlite:"+root.resolve("interview.db"));var statement=c.createStatement()) {
+            statement.execute("INSERT INTO sessions VALUES('kept','{\"id\":\"kept\",\"status\":\"COMPLETED\"}','2026-10-20')");
+            statement.execute("DROP TABLE job_applications");
+            if(trainingEnabled) {
+                String migration=new org.springframework.core.io.ClassPathResource("db/migrations/001-training.sql").getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+                for(String sql:migration.split(";"))if(!sql.isBlank())statement.execute(sql);
+                try(var insert=c.prepareStatement("INSERT INTO v2_schema_migrations VALUES(1,?,'2026-10-20')")) {
+                    insert.setString(1,cn.interview.common.ContentHash.sha(migration));insert.executeUpdate();
+                }
+            }
+        }
+        byte[] before=Files.readAllBytes(root.resolve("interview.db"));
+        cn.interview.mapper.TrainingSchemaPreflight.check(root,trainingEnabled);
+        assertThat(Files.readAllBytes(root.resolve("interview.db"))).isEqualTo(before);
+        cn.interview.entity.JobApplication created;
+        try(var app=start(root,trainingEnabled)) {
+            created=app.getBean(cn.interview.service.job.JobApplicationService.class).create(mapper.createObjectNode().put("company","新公司").put("position","新岗位"));
+            var reopened=app.getBean(cn.interview.mapper.SqliteStore.class);
+            assertThat(reopened.material("kept-material").content()).isEqualTo("中文原文与备注");
+            assertThat(reopened.session("kept").path("status").asText()).isEqualTo("COMPLETED");
+        }
+        try(var app=start(root,trainingEnabled)) {
+            assertThat(app.getBean(cn.interview.service.job.JobApplicationService.class).get(created.id())).isEqualTo(created);
+        }
+    }
+
+    @Test void malformedJobTableIsRejectedBeforeStartupWrites() throws Exception {
+        new cn.interview.mapper.SqliteStore(root.toString(),new com.fasterxml.jackson.databind.ObjectMapper());
+        try(var c=DriverManager.getConnection("jdbc:sqlite:"+root.resolve("interview.db"));var statement=c.createStatement()) {
+            statement.execute("DROP TABLE job_applications");statement.execute("CREATE TABLE job_applications(id TEXT)");
+        }
+        byte[] before=Files.readAllBytes(root.resolve("interview.db"));
+        assertThatThrownBy(()->start(root,false)).hasStackTraceContaining("V2_SCHEMA_UNSUPPORTED");
+        assertThat(Files.readAllBytes(root.resolve("interview.db"))).isEqualTo(before);
+    }
+
     private org.springframework.context.ConfigurableApplicationContext start(Path data, boolean enabled) {
         return new SpringApplicationBuilder(Application.class).web(org.springframework.boot.WebApplicationType.NONE)
                 .run("--app.data-dir=" + data, "--app.llm.provider=mock", "--app.training.enabled=" + enabled,

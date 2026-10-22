@@ -17,7 +17,8 @@
 | 项目决策与授权 | [DECISIONS.md](docs/vibe/DECISIONS.md) | 已核验 | 技术取舍、模型配置、公开仓库与文档整理授权 |
 | 面试产品竞品与候选核心能力 | [调研汇总](docs/research/2026-10-15-interview-platforms.md) | 调研完成 | 2026-10-15 的 9 个代表产品、现有能力差距、建议顺序与 REA 静态证据；不构成新版本需求 |
 | 五款指定产品浏览器实查与后续候选 | [浏览器补充调研](docs/research/2026-10-16-five-interview-products-browser-review.md) | 登录补查完成，范围有限 | 四站已登录；快面一场合成文字模拟及报告、牛客项目改写与纠正；对照已实现 V2 更新五项候选和文档阶段提示词，不构成实施授权 |
-| V6 国内岗位搜索聚合 | [SPEC.md](docs/vibe/releases/v6/SPEC.md) · [RESEARCH.md](docs/vibe/releases/v6/RESEARCH.md) | 需求已冻结 / 接入待验证 / 未开发 | 国内技术岗；首版目标为 BOSS、猎聘、智联。单组关键词＋单城市、后端搜索、分批结果、四项筛选、明确同岗折叠、收藏与 JD 保存；开发者维护访问配置，用户无感。三站真实搜索、翻页和详情通过后才能进入完整开发；正式 Release 仍 V1 |
+| V6 投递管理 MVP | [需求](docs/vibe/releases/v6/SPEC.md) · [方案](docs/vibe/releases/v6/TECH_DESIGN.md) · [计划](docs/vibe/releases/v6/IMPLEMENTATION_PLAN.md) · [验证](docs/vibe/releases/v6/VERIFICATION.md) | 已日常本机启用 / 软件闭环 VERIFIED | 六组冻结功能与十二项验收通过；420后端／8跳过、339前端及构建、8投递浏览器及16原业务回归；真实重启与原数据摘要一致。不含岗位搜索或 AI 联动 |
+| V6 国内岗位搜索聚合（长期路线） | [SPEC.md](docs/vibe/releases/v6/SPEC.md) · [RESEARCH.md](docs/vibe/releases/v6/RESEARCH.md) | 长期需求保留 / 接入待验证 / 未开发 | 国内技术岗；首版目标为 BOSS、猎聘、智联。单组关键词＋单城市、后端搜索、分批结果、四项筛选、明确同岗折叠、收藏与 JD 保存；开发者维护访问配置，用户无感。三站真实搜索、翻页和详情通过后才能进入完整开发；正式 Release 仍 V1 |
 | V1 背景、目标与范围 | [PROJECT_BRIEF.md](docs/vibe/releases/v1/PROJECT_BRIEF.md) | FROZEN | 用户初始冻结需求，未新增产品范围 |
 | V1 完整产品行为与验收要求 | [SPEC.md](docs/vibe/releases/v1/SPEC.md) | FROZEN | REQ01～REQ06、AC01～AC11、状态、错误和测试接缝 |
 | V1 实施计划 | [IMPLEMENTATION_PLAN.md](docs/vibe/releases/v1/IMPLEMENTATION_PLAN.md) | 已登记 | T0～T7、依赖与需求/验收映射 |
