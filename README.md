@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](./LICENSE)
 [![Local-First](https://img.shields.io/badge/Storage-SQLite%20Local-yellow.svg?style=flat-square)](https://www.sqlite.org/)
 
-[快速开始](#-3-分钟快速上手) • [核心特性](#-核心特性矩阵) • [功能全景](#-业务全景流程) • [参数配置](#️-模型与环境配置) • [路线图](#️-版本路线图-roadmap)
+[快速开始](#-3-分钟快速上手) • [核心特性](#-核心特性矩阵) • [功能全景](#-业务全景流程) • [参数配置](#️-模型与环境配置) • [版本特性](#️-版本特性-release-features)
 
 </div>
 
@@ -170,7 +170,7 @@ interview-tool/
 
 ---
 
-## 🗺️ 版本路线图 (Roadmap)
+## 🗺️ 版本特性 (Release Features)
 
 - [x] **v1.0.0 (Current)**
   - [x] 完整综合面试实战与动态深挖机制
@@ -179,10 +179,6 @@ interview-tool/
   - [x] 一体化错题与原题重练工作台（支持切片重练与同题对比）
   - [x] 资料库卡片化与详情抽屉重构
   - [x] 本地优先 SQLite 数据持久化与隐私隔离
-- [ ] **v2.0.0 (Planning)**
-  - [ ] 高频经典题单考点深度映射（JavaBetter 等精选 60~100 题）
-  - [ ] 实时双向全语音对话对练（WebRTC / 本地 TTS）
-  - [ ] 面试数据包一键 Zip 导入与跨机迁移
 
 ---
 
