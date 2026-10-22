@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { ArrowUp, Square } from 'lucide-vue-next'
 import { ApiError, errorMessage, request } from '../../api'
 import { interviewNavigationKey } from '../../navigation'
 import type { Material } from '../../types'
@@ -11,6 +12,10 @@ import ConfigurationFields from '../../components/interview/InterviewConfigurati
 import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import ReportReview from '../../components/interview/InterviewReport.vue'
 import KnowledgeSources from '../../components/interview/KnowledgeSources.vue'
+import InterviewerAvatar from '../../components/interview/InterviewerAvatar.vue'
+import CandidateAvatar from '../../components/interview/CandidateAvatar.vue'
+import AiInterviewerVideoTile from '../../components/interview/AiInterviewerVideoTile.vue'
+import CandidateVideoTile from '../../components/interview/CandidateVideoTile.vue'
 import { displayDate, getSession, levelLabels, mutateSession, requestId, statusLabels } from '../../api/interviews'
 import type { InterviewConfig, InterviewSession, MutationBody, ReviewFinding, SessionAction } from '../../models/interview'
 
@@ -304,33 +309,107 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 
       <ReportReview v-if="session.report?.version === 2" :session="session" />
       <div class="interview-workspace" :class="{ 'is-live': hasStarted && !session.report }">
-      <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel interview-dialogue" aria-labelledby="interview-dialogue-title">
-        <header class="chat-header"><h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : quick ? '围绕技术，讲清思路' : '围绕经历，逐层深入' }}</h2><span class="tiny muted">每道主问题最多追问两次</span></header>
-        <div ref="messagesPanel" class="chat-messages interview-messages" role="log" aria-label="面试对话" aria-live="polite">
-          <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER' }"><span class="avatar" aria-hidden="true">{{ message.role === 'USER' ? '你' : message.kind === 'REPLY' ? '答' : '问' }}</span><div><p class="message-meta">{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}<span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span></p><p class="message-content">{{ message.content }}</p><p v-if="message.hasCodeEvidence" class="tiny muted">本题有源码依据 · 复盘中查看</p></div></article>
+        <!-- macOS 风格沉浸式模拟面试窗口栏 (复刻图2) -->
+        <div v-if="hasStarted && !session.report" class="immersive-window-bar">
+          <div class="window-left">
+            <div class="window-dots" aria-hidden="true">
+              <span class="window-dot dot-red" />
+              <span class="window-dot dot-yellow" />
+              <span class="window-dot dot-green" />
+            </div>
+            <h2 class="window-title">沉浸式模拟面试 - {{ session.role }}</h2>
+          </div>
+          <div class="window-right">
+            <span v-if="session.timing?.enabled" class="interview-clock window-clock" data-interview-clock :class="{ urgent: remainingMs < 180000 }">
+              剩余 {{ clockLabel }}
+            </span>
+            <span v-else class="window-mode-badge">不限时训练</span>
+            <div v-if="canFinish" class="interview-actions interview-finish header-finish">
+              <button class="btn btn-secondary btn-sm finish-btn" :disabled="!!state.busy" data-action="finish" @click="mutate('finish')">
+                {{ state.busy === 'finish' ? '正在创建复盘任务…' : session.status === 'COMPLETED' ? '生成查证复盘' : '结束面试，查证复盘' }}
+              </button>
+            </div>
+          </div>
         </div>
-        <div v-if="thinking" class="interview-thinking" data-thinking role="status" aria-live="polite"><span class="spinner" aria-hidden="true"></span><div><strong>面试官思考中</strong><p class="tiny">{{ state.sendingAnswer ? '正在保存并处理本次回答，请勿重复提交。' : '回答已保存，正在针对你的表述组织追问。' }}<span v-if="waitingSeconds"> 已等待 {{ waitingSeconds }} 秒。</span></p><template v-if="waitingSeconds >= 8 && !state.sendingAnswer"><p class="tiny">仍在生成追问，回答已保存。页面会自动更新，也可刷新查看最新状态。</p><button class="btn btn-secondary" :disabled="!!state.busy" @click="load">刷新已保存状态</button></template></div></div>
-        <form v-if="['IN_PROGRESS', 'ANSWERING'].includes(session.status) || state.sendingAnswer" class="composer" @submit.prevent="submitAnswer">
-          <label for="interview-answer">你的回答</label><textarea id="interview-answer" v-model="answer" maxlength="12000" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy" placeholder="结合你实际负责的部分，说明场景、决策、异常和边界。" @keydown.ctrl.enter.prevent="submitAnswer" @keydown.meta.enter.prevent="submitAnswer"></textarea>
-          <SpeechInput ref="speech" v-model="answer" :context-key="currentQuestion?.questionId" :max-length="12000" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy || expired" @waiting="speechWaiting" />
-          <div class="composer-footer"><span class="tiny muted">Ctrl / ⌘ + Enter 提交 · 已提交记录自动保存</span><button class="btn btn-primary" type="button" data-action="answer" :disabled="!canAnswer" @click="submitAnswer">{{ state.sendingAnswer ? '正在提交…' : '提交回答' }}</button></div>
-        </form>
-      </section>
 
-      <div v-if="canFinish" class="interview-actions interview-finish"><button class="btn btn-secondary" :disabled="!!state.busy" data-action="finish" @click="mutate('finish')">{{ state.busy === 'finish' ? '正在创建复盘任务…' : session.status === 'COMPLETED' ? '生成查证复盘' : '结束面试，查证复盘' }}</button><span class="tiny muted">只评价实际问过且已回答的内容。</span></div>
-      <p v-if="session.status === 'CANCELLED'" class="panel">本场已取消，已保存的输入与问答仍可在这里查看。</p>
+        <div class="workspace-columns">
+          <section v-if="hasStarted && session.report?.version !== 2" class="panel chat-panel interview-dialogue" aria-labelledby="interview-dialogue-title">
+            <header class="chat-header">
+              <h2 id="interview-dialogue-title">{{ session.report ? '本场原始问答' : quick ? '围绕技术，讲清思路' : '围绕经历，逐层深入' }}</h2>
+              <span class="tiny muted">每道主问题最多追问两次</span>
+            </header>
+            <div ref="messagesPanel" class="chat-messages interview-messages" role="log" aria-label="面试对话" aria-live="polite">
+              <article v-for="message in messages" :key="message.id" class="message" :class="{ user: message.role === 'USER', assistant: message.role === 'ASSISTANT' }">
+                <span class="avatar" aria-hidden="true">
+                  <CandidateAvatar v-if="message.role === 'USER'" />
+                  <InterviewerAvatar v-else />
+                </span>
+                <div class="message-body">
+                  <p class="message-meta">
+                    <span>{{ message.role === 'USER' ? '你的回答' : message.kind === 'REPLY' ? '面试官回应' : '面试官' }}</span>
+                    <span v-if="message.fallback" class="badge badge-orange">切换为已准备的相关备用问题</span>
+                  </p>
+                  <div class="message-content">{{ message.content }}</div>
+                  <p v-if="message.hasCodeEvidence" class="tiny muted">本题有源码依据 · 复盘中查看</p>
+                </div>
+              </article>
+              <div v-if="thinking" class="interview-thinking" data-thinking role="status" aria-live="polite">
+                <span class="avatar thinking-avatar" aria-hidden="true">
+                  <InterviewerAvatar />
+                </span>
+                <div class="thinking-body">
+                  <div class="thinking-header">
+                    <span class="spinner" aria-hidden="true"></span>
+                    <strong>面试官思考中</strong>
+                  </div>
+                  <p class="tiny">{{ state.sendingAnswer ? '正在保存并处理本次回答，请勿重复提交。' : '回答已保存，正在针对你的表述组织追问。' }}<span v-if="waitingSeconds"> 已等待 {{ waitingSeconds }} 秒。</span></p>
+                  <template v-if="waitingSeconds >= 8 && !state.sendingAnswer">
+                    <p class="tiny">仍在生成追问，回答已保存。页面会自动更新，也可刷新查看最新状态。</p>
+                    <button class="btn btn-secondary btn-sm" :disabled="!!state.busy" data-action="reload" @click="load">刷新已保存状态</button>
+                  </template>
+                </div>
+              </div>
+            </div>
+            <form v-if="['IN_PROGRESS', 'ANSWERING'].includes(session.status) || state.sendingAnswer" class="composer modern-composer" @submit.prevent="submitAnswer">
+              <div class="composer-pill-card">
+                <label for="interview-answer" class="sr-only">你的回答</label>
+                <textarea id="interview-answer" v-model="answer" maxlength="12000" rows="2" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy" placeholder="请输入您的回答（结合实际负责的部分，说明场景、决策、异常和边界）…" @keydown.ctrl.enter.prevent="submitAnswer" @keydown.meta.enter.prevent="submitAnswer"></textarea>
+                <div class="composer-action-area">
+                  <SpeechInput ref="speech" v-model="answer" :context-key="currentQuestion?.questionId" :max-length="12000" :disabled="session.status !== 'IN_PROGRESS' || !!state.busy || expired" @waiting="speechWaiting" />
+                  <button class="composer-send-btn" type="button" data-action="answer" :disabled="!canAnswer" :aria-label="state.sendingAnswer ? '正在提交…' : '发送回答'" :title="canAnswer ? '发送回答 (Ctrl / ⌘ + Enter)' : '请输入回答'" @click="submitAnswer">
+                    <span v-if="state.sendingAnswer" class="spinner composer-spinner" />
+                    <ArrowUp v-else :size="18" stroke-width="2.5" />
+                  </button>
+                </div>
+              </div>
+              <div class="composer-footer"><span class="tiny muted">Ctrl / ⌘ + Enter 提交 · Shift + Enter 换行 · 已提交记录自动保存</span></div>
+            </form>
+          </section>
 
-      <section v-if="session.report && session.report.version !== 2" class="interview-report" aria-labelledby="interview-report-title"><div class="heading-row"><h2 id="interview-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel interview-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel interview-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="interview-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="interview-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#interview-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
+          <div v-if="canFinish && (!hasStarted || session.report)" class="interview-actions interview-finish"><button class="btn btn-secondary" :disabled="!!state.busy" data-action="finish" @click="mutate('finish')">{{ state.busy === 'finish' ? '正在创建复盘任务…' : session.status === 'COMPLETED' ? '生成查证复盘' : '结束面试，查证复盘' }}</button><span class="tiny muted">只评价实际问过且已回答的内容。</span></div>
+          <p v-if="session.status === 'CANCELLED'" class="panel">本场已取消，已保存的输入与问答仍可在这里查看。</p>
 
-      <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
-      <aside class="interview-inspector" aria-label="面试上下文与依据">
-        <template v-if="hasStarted && !session.report">
-          <div class="inspector-heading"><h2>本场上下文</h2><span class="tiny muted">只读</span></div>
-          <section class="inspector-context"><h3>{{ session.role }}</h3><p class="form-help">{{ levelLabels[session.level] || session.level }} · {{ quick ? '快速练习' : '综合面试' }}</p><dl class="context-data"><div><dt>已提交回答</dt><dd>{{ messages.filter(m => m.role === 'USER').length }}</dd></div><div v-if="session.plannedQuestionCount"><dt>计划主问题</dt><dd>{{ session.plannedQuestionCount }}</dd></div></dl><template v-if="session.mainProject"><h3>{{ session.mainProject.name }}</h3><p>{{ session.mainProject.brief }}</p></template><p class="form-help">正式作答时不展示参考答案。完成复盘后，可回查回答与技术依据。</p></section>
-          <SourceCodeEvidence :source="session.sourceCode" />
-        </template>
-      <KnowledgeSources v-if="sources.length || session.agentTopics?.length || session.knowledgeRetrieval?.length" :sources="sources" :retrieval="session.knowledgeRetrieval" :agent-topics="session.agentTopics" :planned-question-count="session.plannedQuestionCount" />
-      </aside>
+          <section v-if="session.report && session.report.version !== 2" class="interview-report" aria-labelledby="interview-report-title"><div class="heading-row"><h2 id="interview-report-title">有依据的逐题复盘</h2><span class="badge">保留不同合理方案</span></div><p class="panel interview-report-summary">{{ session.report.summary }}</p><article v-for="(finding, index) in session.report.findings || []" :key="`${finding.questionId}-${index}`" class="panel interview-finding"><h3>{{ messages.find(message => message.role === 'ASSISTANT' && message.questionId === finding.questionId)?.content || `已答问题 ${index + 1}` }}</h3><span class="badge" data-finding-status>{{ findingStatus(finding) }}</span><p>{{ finding.assessment }}</p><p v-if="finding.sourceQuote && sourceIds(finding).length" class="interview-source-quote" data-source-quote><strong>核对原文：</strong>{{ finding.sourceQuote }}</p><p v-if="finding.suggestion"><strong>改进建议：</strong>{{ finding.suggestion }}</p><div v-if="sourceIds(finding).length" class="interview-actions"><span class="tiny muted">具体依据：</span><a v-for="sourceId in sourceIds(finding)" :key="sourceId" :href="`#interview-source-${sourceId}`" class="text-link">{{ sources.find(source => source.id === sourceId)?.title }}</a></div><p v-else class="tiny muted">没有可回查的技术来源时，不作为已核实的技术判错。</p></article><p v-if="!session.report.findings?.length" class="muted">样本不足，未生成逐题能力判断。</p></section>
+
+          <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
+          
+          <aside class="interview-inspector" aria-label="面试上下文与依据">
+            <!-- 右侧双人视频席位 (复刻图2) -->
+            <div v-if="hasStarted && !session.report" class="video-participants-grid">
+              <AiInterviewerVideoTile :thinking="thinking" />
+              <CandidateVideoTile />
+            </div>
+
+            <template v-if="hasStarted && !session.report">
+              <div class="inspector-card">
+                <div class="inspector-heading"><h2>本场上下文</h2><span class="tiny muted">只读</span></div>
+                <section class="inspector-context"><h3>{{ session.role }}</h3><p class="form-help">{{ levelLabels[session.level] || session.level }} · {{ quick ? '快速练习' : '综合面试' }}</p><dl class="context-data"><div><dt>已提交回答</dt><dd>{{ messages.filter(m => m.role === 'USER').length }}</dd></div><div v-if="session.plannedQuestionCount"><dt>计划主问题</dt><dd>{{ session.plannedQuestionCount }}</dd></div></dl><template v-if="session.mainProject"><h3>{{ session.mainProject.name }}</h3><p>{{ session.mainProject.brief }}</p></template><p class="form-help">正式作答时不展示参考答案。完成复盘后，可回查回答与技术依据。</p></section>
+                <SourceCodeEvidence :source="session.sourceCode" />
+              </div>
+            </template>
+            <KnowledgeSources v-if="sources.length || session.agentTopics?.length || session.knowledgeRetrieval?.length" :sources="sources" :retrieval="session.knowledgeRetrieval" :agent-topics="session.agentTopics" :planned-question-count="session.plannedQuestionCount" />
+          </aside>
+        </div>
       </div>
       <footer class="footer-note mono"><span v-if="callCount !== undefined">本场模型尝试 {{ callCount }}<template v-if="session.usage?.maxCalls"> / {{ session.usage.maxCalls }}</template> 次。</span><span v-if="hasTokenUsage" data-token-usage>已统计 Token：输入 {{ tokenCount(session.usage?.promptTokens) }} · 输出 {{ tokenCount(session.usage?.completionTokens) }} · 合计 {{ tokenCount(session.usage?.totalTokens) }}<template v-if="session.usage?.usageIncomplete">；部分调用未返回用量，统计不完整。</template></span><span v-else data-token-usage>暂未取得 Token 用量。</span></footer>
     </template>
@@ -421,19 +500,442 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
 .interview-round-progress .heading-row { margin:0; }.interview-round-progress h2 { font-size:12px; }
 .interview-rounds { margin:8px 0; gap:8px; }.interview-rounds li { flex-direction:row; justify-content:space-between; padding:8px; }.interview-rounds strong, .interview-rounds span { font-size:12px; }
 .interview-round-progress .interview-actions { margin:0; }.interview-clock { font:600 14px var(--font-mono); }
-.interview-workspace.is-live { display:grid; grid-template-columns:minmax(0,3fr) minmax(0,2fr); grid-template-rows:auto auto; border:1px solid var(--border-subtle); border-radius:8px; overflow:clip; }
-.is-live .interview-dialogue { grid-column:1; grid-row:1; margin:0; border:0; border-radius:0; display:flex; flex-direction:column; }
-.is-live .interview-messages { min-height:160px; height:clamp(160px,calc(100dvh - 760px),420px); max-height:none; }
-.interview-dialogue .chat-header { padding:12px 16px; min-height:44px; }.interview-dialogue .chat-header > .tiny { font-size:12px; }
-.interview-dialogue .message-content { font-size:14px; line-height:1.75; }.interview-dialogue .message-meta { font-size:12px; }
-.interview-page .composer { padding:12px 16px; }.interview-page .composer label { font-size:12px; }.interview-page .composer textarea { font-size:14px; field-sizing:content; max-height:220px; }.interview-page .composer textarea::placeholder { font-size:13px; }
-.interview-page .composer-footer .tiny { font-size:11px; }.interview-page .composer-footer { padding-top:8px; }
-.is-live .interview-finish { grid-column:1; grid-row:2; padding:8px 16px; margin:0; border-top:1px solid var(--border-subtle); }
-.interview-inspector { min-width:0; }.is-live .interview-inspector { grid-column:2; grid-row:1/3; border-left:1px solid var(--border-subtle); background:#f8fafc80; max-height:calc(100dvh - 180px); overflow:auto; }
-.inspector-heading { display:flex; justify-content:space-between; align-items:center; min-height:44px; padding:8px 16px; border-bottom:1px solid var(--border-subtle); }.inspector-heading h2 { font-size:13px; }
-.inspector-context { padding:16px; }.inspector-context p { font-size:13px; }.context-data { display:flex; gap:32px; margin:16px 0; padding-block:12px; border-block:1px solid var(--border-subtle); }.context-data dt { font-size:12px; color:var(--text-muted); }.context-data dd { margin:4px 0 0; font:500 20px var(--font-mono); }
-.interview-inspector :deep(.source-code) { margin:0; border:0; border-top:1px solid var(--border-subtle); border-radius:0; background:transparent; }
-.interview-inspector :deep(.interview-sources) { margin:0; padding:0; border:0; }.interview-inspector :deep(.interview-sources-disclosure) { border:0; border-top:1px solid var(--border-subtle); border-radius:0; background:transparent; }
-@media(max-width:1000px) { .interview-workspace.is-live { grid-template-columns:minmax(0,1fr); }.is-live .interview-inspector { grid-column:1; grid-row:3; border-left:0; border-top:1px solid var(--border-subtle); max-height:none; }.interview-session-page .page-heading { display:block; }.interview-session-page .page-heading h1 { margin:8px 0 4px; } }
+
+/* 沉浸式模拟面试工作台 (复刻图2布局与大字号) */
+.interview-workspace.is-live {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  overflow: clip;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  margin-top: 8px;
+}
+
+/* macOS 风格窗口顶部条 */
+.immersive-window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.window-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.window-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.window-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-red { background: #ff5f56; }
+.dot-yellow { background: #ffbd2e; }
+.dot-green { background: #27c93f; }
+
+.window-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: #0f172a;
+  letter-spacing: -0.015em;
+}
+
+.window-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.window-clock {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--text-primary);
+}
+
+.window-clock.urgent {
+  color: #ef4444;
+  background: #fef2f2;
+}
+
+.window-mode-badge {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-soft);
+}
+
+.header-finish {
+  margin: 0;
+}
+
+.finish-btn {
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+/* 7:3 核心布局比例划分 */
+.is-live .workspace-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  min-height: calc(100dvh - 220px);
+  background: #ffffff;
+}
+
+@media (min-width: 1280px) {
+  .is-live .workspace-columns {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+/* 左侧对话流栏 */
+.is-live .interview-dialogue {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  min-width: 0;
+}
+
+.interview-dialogue .chat-header {
+  padding: 12px 24px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.interview-dialogue h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.is-live .interview-messages {
+  flex: 1 1 auto;
+  min-height: 420px;
+  height: clamp(420px, calc(100dvh - 360px), 720px);
+  max-height: none;
+  overflow-y: auto;
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* 消息项与大字号样式 */
+.is-live .message {
+  display: flex;
+  gap: 14px;
+  max-width: 88%;
+  min-width: 0;
+  align-items: flex-start;
+}
+
+.is-live .message.assistant {
+  align-self: flex-start;
+}
+
+.is-live .message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.is-live .message .avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.is-live .message-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.is-live .message.user .message-body {
+  align-items: flex-end;
+}
+
+.is-live .message-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.is-live .message-content {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #0f172a;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* 候选人作答气泡卡片 (复刻图2气泡质感) */
+.is-live .message.user .message-content {
+  background: #f1f5f9;
+  border-radius: 18px 4px 18px 18px;
+  padding: 16px 20px;
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* 思考中状态 */
+.is-live .interview-thinking {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border-radius: 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  max-width: 75%;
+}
+
+.is-live .thinking-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.is-live .thinking-content {
+  min-width: 0;
+}
+
+.is-live .thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--accent-ink);
+}
+
+/* 底部现代胶囊输入栏 (复刻图2) */
+.is-live .modern-composer {
+  padding: 12px 24px 18px;
+  border-top: 1px solid var(--border-subtle);
+  background: #ffffff;
+}
+
+.composer-pill-card {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 14px 10px 18px;
+  border: 1px solid var(--border-control);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.composer-pill-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer-pill-card textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 6px 0;
+  font-size: 15px;
+  line-height: 1.6;
+  resize: none;
+  max-height: 160px;
+  field-sizing: content;
+}
+
+.composer-pill-card textarea::placeholder {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.composer-action-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.composer-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.composer-send-btn:hover:not(:disabled) {
+  background: #334155;
+  transform: scale(1.05);
+}
+
+.composer-send-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.composer-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+}
+
+.is-live .composer-footer {
+  margin-top: 8px;
+  padding: 0 10px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* 右侧视频与面板栏 (~28%) */
+.is-live .interview-inspector {
+  border-left: 1px solid var(--border-subtle);
+  background: #f8fafc;
+  padding: 16px;
+  max-height: calc(100dvh - 220px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.video-participants-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inspector-card {
+  background: #ffffff;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.inspector-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.inspector-heading h2 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inspector-context {
+  padding: 14px;
+}
+
+.inspector-context p {
+  font-size: 13px;
+}
+
+.context-data {
+  display: flex;
+  gap: 24px;
+  margin: 12px 0;
+  padding-block: 10px;
+  border-block: 1px solid var(--border-subtle);
+}
+
+.context-data dt {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.context-data dd {
+  margin: 4px 0 0;
+  font: 600 18px var(--font-mono, monospace);
+}
+
+.interview-inspector :deep(.source-code) {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+.interview-inspector :deep(.interview-sources) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.interview-inspector :deep(.interview-sources-disclosure) {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+@media (max-width: 1000px) {
+  .is-live .workspace-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .is-live .interview-inspector {
+    border-left: 0;
+    border-top: 1px solid var(--border-subtle);
+    max-height: none;
+  }
+  .interview-session-page .page-heading {
+    display: block;
+  }
+  .interview-session-page .page-heading h1 {
+    margin: 8px 0 4px;
+  }
+}
 @media(max-width:600px) { .interview-session-page { padding:0 12px 20px; }.interview-page .btn,.interview-actions .text-link { min-height:44px; }.interview-rounds { grid-template-columns:repeat(2,minmax(0,1fr)); }.interview-dialogue .chat-header { flex-wrap:wrap; }.interview-page .composer textarea { font-size:16px; }.interview-rounds li { flex-wrap:wrap; } }
 </style>
