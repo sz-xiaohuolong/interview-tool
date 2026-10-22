@@ -20,7 +20,7 @@ onMounted(refreshHealth)
 onModelConfigurationChanged(refreshHealth)
 </script>
 <template>
-  <AppLayout :provider-label="label" :mock="health?.provider === 'mock'" :configured="health?.configured || false">
+  <AppLayout :provider-label="label" :mock="health?.provider === 'mock'" :configured="health?.configured || false" :demo="health?.demo || false">
     <template v-if="props.trainingEnabled" #training-navigation>
       <RouterLink to="/review" custom v-slot="{ href, navigate }">
         <a :href="href" @click="navigate" aria-label="专项训练" title="专项训练" class="nav-link" :class="{ 'router-link-active': location.primary === 'training' }" :aria-current="location.primary === 'training' ? 'page' : undefined"><ChartNoAxesColumnIncreasing :size="16" aria-hidden="true" /><span class="nav-text">专项训练</span></a>

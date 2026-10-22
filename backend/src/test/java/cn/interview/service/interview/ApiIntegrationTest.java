@@ -107,6 +107,13 @@ class ApiIntegrationTest {
         mvc.perform(post("/api/materials").header("Origin","https://evil.example").contentType("application/json").content("{\"kind\":\"JD\",\"name\":\"岗位\",\"content\":\"Java\"}")).andExpect(status().isForbidden());
         mvc.perform(get("/api/health")).andExpect(status().isOk()).andExpect(jsonPath("$.provider").value("mock")).andExpect(jsonPath("$.apiKey").doesNotExist());
     }
+    @Test void dailyPageKeepsExistingOriginsAndRejectsDemoPageWrites() throws Exception {
+        String body="{\"kind\":\"JD\",\"name\":\"来源隔离测试\",\"content\":\"Java\"}";
+        for(String origin : new String[]{"http://127.0.0.1:5173", "http://localhost:4173"})
+            mvc.perform(post("/api/materials").header("Origin",origin).contentType("application/json").content(body)).andExpect(status().isOk());
+        mvc.perform(post("/api/materials").header("Origin","http://127.0.0.1:5174").contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/health")).andExpect(jsonPath("$.demo").value(false));
+    }
     @Test void pdfDocxAndProjectDocumentsAreRealFilesAndCanBeRemoved() throws Exception {
         byte[] pdf;
         try(var document=new org.apache.pdfbox.pdmodel.PDDocument();var bytes=new java.io.ByteArrayOutputStream()) {

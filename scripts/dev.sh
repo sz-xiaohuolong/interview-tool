@@ -17,7 +17,7 @@ fi
 export DATA_DIR="${DATA_DIR:-$APP_ROOT/data}"
 export PORT="${PORT:-8080}"
 export API_PROXY_TARGET="${API_PROXY_TARGET:-http://127.0.0.1:$PORT}"
-WEB_PORT="${WEB_PORT:-5173}"
+export WEB_PORT="${WEB_PORT:-5173}"
 mkdir -p "$DATA_DIR" .runtime
 if [[ ! -d frontend/node_modules ]]; then
   npm --prefix frontend ci

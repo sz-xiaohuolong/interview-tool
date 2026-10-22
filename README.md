@@ -87,6 +87,7 @@ flowchart TD
 - **Java**: `21+` (推荐 Eclipse Temurin 或 Amazon Corretto)
 - **Node.js**: `22+` (推荐 LTS)
 - **Maven**: `3.9+` (后端已提供标准构建支持)
+- **Python**: `3.9+`（演示数据初始化和脚本检查，仅使用标准库）
 
 ### 第 1 步：克隆代码与配置环境变量
 ```bash
@@ -99,13 +100,12 @@ touch .env.local
 
 在 `.env.local` 中填入你的大模型 API 配置（以 **DeepSeek** 为例）：
 ```bash
-INTERVIEW_MODEL_BASE_URL="https://api.deepseek.com/v1"
-INTERVIEW_MODEL_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxxxxx"
-INTERVIEW_MODEL_NAME="deepseek-chat"
+LLM_BASE_URL="https://api.deepseek.com/v1"
+LLM_API_KEY="填写你的密钥"
+LLM_MODEL="deepseek-chat"
 ```
 
-> 💡 **零成本体验？**  
-> 如果未提供任何 Key，系统会自动启用安全的**本地 Mock 模式**，让你在不消耗 Token 的情况下完整体验全套交互流程。
+也可以启动后在页面左下角的“模型配置”中填写。未配置密钥时会明确提示，系统不会自动切换为 Mock。仅查看已有资料与记录不调用模型。
 
 ### 第 2 步：一键运行前后端服务
 ```bash
@@ -117,6 +117,20 @@ INTERVIEW_MODEL_NAME="deepseek-chat"
 - ⚙️ **后端 API 服务**：[http://127.0.0.1:8080](http://127.0.0.1:8080)
 - 🩺 **系统状态检查**：[http://127.0.0.1:8080/api/training/status](http://127.0.0.1:8080/api/training/status)
 
+### 截图与演示专用入口
+
+```bash
+./scripts/demo.sh
+```
+
+打开 [演示工作空间](http://127.0.0.1:5174)，后端固定使用 `8081`。可与日常 `5173/8080` 同时运行，仍使用同一套应用代码。页面会标明演示环境，浏览器草稿也按不同端口隔离。
+
+首次启动自动准备 5 份虚构资料、2 份附件、3 场带问答和复盘的示例面试、2 份项目经历及 2 道重练题。预置报告与评分是人工编写的界面样例，未经真实模型评估；查看这些内容无需密钥，也不调用模型。
+
+新建面试、生成评估仍使用真实模型，请在**演示页面**单独配置。演示启动不读取 `.env.local`，也不继承日常模型或 Spring 配置；数据库、上传文件、历史和模型设置都保存在 `.runtime/demo/data/`，不会复制日常 `data/` 中的内容。
+
+按 `Ctrl+C` 停止演示，数据保留；下次启动保留修改与删除结果。端口被占用时直接退出，不自动切换端口。首次数据初始化拒绝覆盖非空、未登记的目录及符号链接。日志位于 `.runtime/demo/`，该目录不会提交到 Git。若需重新准备初始样例，先停止演示，将 `.runtime/demo/data/` 改名备份，再执行启动命令；原演示记录与模型配置保留在备份目录中。
+
 ---
 
 ## ⚙️ 模型与环境配置
@@ -125,12 +139,15 @@ INTERVIEW_MODEL_NAME="deepseek-chat"
 
 | 环境变量 | 默认值 | 详细说明 |
 | :--- | :--- | :--- |
-| `INTERVIEW_MODEL_BASE_URL` | `https://api.openai.com/v1` | 模型 API 端点地址 |
-| `INTERVIEW_MODEL_API_KEY` | *(空)* | 模型服务商 API 密钥 |
-| `INTERVIEW_MODEL_NAME` | `gpt-4o` | 所调用的主模型代号（如 `deepseek-chat`, `gpt-4o`） |
-| `INTERVIEW_MODEL_REASONING_EFFORT` | `low` | 推理强度设置（针对 o1/o3/r1 等推理模型：`low` / `medium` / `high`） |
-| `INTERVIEW_MODEL_CONNECT_TIMEOUT_SECONDS` | `10` | API 建立连接超时时长（秒） |
-| `INTERVIEW_MODEL_READ_TIMEOUT_SECONDS` | `120` | 完整生成等待超时（长思考模型建议调整至 180~240） |
+| `LLM_BASE_URL` | `https://api.openai.com/v1` | 模型 API 端点地址 |
+| `LLM_API_KEY` | *(空)* | 模型服务商 API 密钥；缺少时明确提示 |
+| `LLM_MODEL` | `gpt-4o-mini` | 主模型名称 |
+| `LLM_REASONING_EFFORT` | *(空)* | 可选推理强度，由模型服务决定支持范围 |
+| `LLM_TIMEOUT_SECONDS` | `60` | 共用模型请求超时（秒） |
+| `DATA_DIR` | 仓库下 `data/` | 日常数据目录 |
+| `PORT` / `WEB_PORT` | `8080` / `5173` | 日常后端与前端端口；演示脚本固定为 `8081` / `5174` |
+
+环境变量作为启动配置；页面已保存的模型设置优先。演示脚本使用独立配置，不使用上述日常环境变量覆盖端口和目录。
 
 ---
 

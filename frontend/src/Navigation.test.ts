@@ -28,6 +28,16 @@ async function open(path: string, trainingEnabled = true) {
   return { wrapper, router }
 }
 
+it('演示入口明确标记虚构内容，日常入口保持原标记', async () => {
+  vi.mocked(request).mockResolvedValueOnce({ status: 'ok', provider: 'openai', configured: false, model: '演示模型', demo: true } as any)
+  const demo = await open('/materials')
+  expect(demo.wrapper.get('[data-demo-notice]').text()).toContain('预置内容为虚构样例')
+  expect(demo.wrapper.get('.topbar-meta').text()).toContain('演示工作空间')
+  const daily = await open('/materials')
+  expect(daily.wrapper.find('[data-demo-notice]').exists()).toBe(false)
+  expect(daily.wrapper.get('.topbar-meta').text()).toContain('本地工作空间')
+})
+
 it.each([
   ['/', '练习概览'], ['/configure/quick', '快速练习'], ['/configure/project', '综合面试'],
   ['/sessions/session-1', '综合面试'], ['/materials', '个人资料库'], ['/history', '面试历史'],

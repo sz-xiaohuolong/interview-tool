@@ -3,7 +3,7 @@ import type { ProjectEvidenceMatrix } from './project-evidence'
 export type MaterialKind = 'RESUME' | 'PROJECT' | 'JD'
 export interface Document { id: string; name: string; text: string; truncated: boolean; createdAt: string }
 export interface Material { id: string; kind: MaterialKind; name: string; content: string; createdAt: string; updatedAt: string; documents: Document[]; repository?: SourceCodeSnapshot | null }
-export interface Health { status: string; provider: string; configured: boolean; model: string }
+export interface Health { status: string; provider: string; configured: boolean; model: string; demo?: boolean }
 export type InterviewMode = 'QUICK' | 'RESUME' | 'PROJECT'
 export interface Message { id: string; role: 'ASSISTANT' | 'USER'; content: string; questionIndex: number; hasCodeEvidence?: boolean; followUp: boolean; createdAt: string }
 export interface Session { sourceCode?: SourceCodeSnapshot; id: string; status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'INTERRUPTED' | 'FAILED'; mode: InterviewMode; role: string; level: string; durationMinutes: number; style: string; createdAt: string; updatedAt: string; endedAt: string | null; questionIndex: number; followUpCount: number; totalQuestions: number; currentTopic: string; messages: Message[]; mock: boolean; error: string; pendingAction: string; reportStatus: string; contextTruncated: boolean }

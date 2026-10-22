@@ -7,6 +7,7 @@
 |---|---|---|---|
 | Agent 长期规则 | [AGENTS.md](AGENTS.md) | 已核验 | 中文输出、授权、验证及恢复入口 |
 | 运行与使用 | [README.md](README.md) | 已核验 | 前后端依赖、启动、模型配置、测试命令 |
+| 截图与演示入口 | [使用说明](README.md#截图与演示专用入口) · [数据隔离设计](docs/vibe/TECH_DESIGN.md#本机演示空间2026-10-22) · [验证与进度](docs/vibe/PROGRESS.md#演示专用入口2026-10-22已完成) | 已本机启用 | 5174/8081 与独立虚构数据，模型配置单独保存，复用单一工程 |
 | 当前项目定位 | [PROJECT.md](docs/vibe/PROJECT.md) | 已登记 | 当前 Release、质量标准与范围入口 |
 | 当前真实架构 | [TECH_DESIGN.md](docs/vibe/TECH_DESIGN.md) | 已核验 | Java/Vue 入口、数据库、HTTP 契约与模型客户端 |
 | 当前界面视觉规范 | [DESIGN.md](DESIGN.md) | 已核验 | 当前生效的全局 Tokens、表面模式、公共组件与响应式规则；组件扩展由 `.impeccable/design.json` 承载，版本任务记录进入对应 Release |

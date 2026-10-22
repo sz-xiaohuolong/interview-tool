@@ -12,14 +12,20 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 public class WebConfig extends OncePerRequestFilter {
     private final ObjectMapper json;
+    private final int frontendPort;
+    private final boolean demo;
 
-    public WebConfig(ObjectMapper json) {
+    public WebConfig(ObjectMapper json, @Value("${app.web.frontend-port:5173}") int frontendPort,
+                     @Value("${app.demo:false}") boolean demo) {
         this.json = json;
+        this.frontendPort = frontendPort;
+        this.demo = demo;
     }
 
     @Override
@@ -43,7 +49,8 @@ public class WebConfig extends OncePerRequestFilter {
         try {
             URI u = URI.create(origin);
             int port = u.getPort() == -1 ? 80 : u.getPort();
-            return "http".equals(u.getScheme()) && Set.of("localhost", "127.0.0.1").contains(u.getHost()) && (Set.of(5173, 4173, 8080).contains(port) || port == request.getServerPort());
+            return "http".equals(u.getScheme()) && Set.of("localhost", "127.0.0.1").contains(u.getHost())
+                    && (port == frontendPort || port == request.getServerPort() || !demo && Set.of(4173, 8080).contains(port));
         } catch (Exception e) {
             return false;
         }

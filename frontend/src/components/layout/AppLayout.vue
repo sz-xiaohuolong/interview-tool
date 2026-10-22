@@ -8,7 +8,7 @@ import { interviewNavigationKey, navigationFor, type InterviewNavigationContext 
 import { PanelLeftClose, PanelLeftOpen, Settings2 } from 'lucide-vue-next'
 import { cn } from '../../utils/classes'
 import DailyQuote from './DailyQuote.vue'
-const props = defineProps<{ providerLabel: string; mock: boolean; configured: boolean }>()
+const props = defineProps<{ providerLabel: string; mock: boolean; configured: boolean; demo?: boolean }>()
 const emit = defineEmits<{ 'configuration-changed': [] }>()
 const collapsed = ref(false)
 const settingsOpen = ref(false), savedSettings = ref<ModelConfiguration | null>(null)
@@ -61,11 +61,14 @@ const navigation = [
             <span v-else aria-current="page">{{ step.title }}</span>
           </li>
         </ol></nav>
-        <div class="topbar-meta"><span class="local-status"><span class="connection-dot" aria-hidden="true" />本地工作空间</span><span class="topbar-date">个人版</span></div>
+        <div class="topbar-meta"><span class="local-status"><span class="connection-dot" aria-hidden="true" />{{ demo ? '演示工作空间' : '本地工作空间' }}</span><span class="topbar-date">{{ demo ? '演示版' : '个人版' }}</span></div>
       </header>
-      <main id="main-content"><slot /></main>
+      <main id="main-content"><p v-if="demo" data-demo-notice class="demo-notice" role="note">演示工作空间 · 预置内容为虚构样例；新建练习使用单独配置的真实模型。</p><slot /></main>
       <DailyQuote />
     </div>
     <ModelSettingsDialog v-model:open="settingsOpen" @saved="settingsSaved" />
   </div>
 </template>
+<style scoped>
+.demo-notice { margin: 0 0 20px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+</style>

@@ -15,6 +15,7 @@
         <java.version>21</java.version>
         <spring-ai.version>1.1.8</spring-ai.version>
         <jsoup.version>1.23.2</jsoup.version>
+        <interview.build-directory>${project.basedir}/target</interview.build-directory>
     </properties>
     <dependencies>
         <dependency>
@@ -62,6 +63,7 @@
         </dependency>
     </dependencies>
     <build>
+        <directory>${interview.build-directory}</directory>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

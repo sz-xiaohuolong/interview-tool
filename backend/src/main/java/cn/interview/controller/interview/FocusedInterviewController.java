@@ -12,8 +12,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController @RequestMapping("/api")
 public class FocusedInterviewController {
     final FocusedInterviewService service;
+    @org.springframework.beans.factory.annotation.Value("${app.demo:false}")
+    private boolean demo;
     public FocusedInterviewController(FocusedInterviewService service){this.service=service;}
-    @GetMapping("/health") public Map<String,Object> health(){return service.health();}
+    @GetMapping("/health") public Map<String,Object> health(){var health=new java.util.HashMap<>(service.health());health.put("demo",demo);return health;}
     @GetMapping("/sessions") public List<ObjectNode> list(){return service.list();}
     @PostMapping("/sessions") public ObjectNode create(@RequestBody JsonNode body){return service.create(body);}
     @GetMapping("/sessions/{id}") public ObjectNode session(@PathVariable String id){return service.get(id);}
