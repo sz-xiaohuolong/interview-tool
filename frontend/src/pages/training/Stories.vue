@@ -95,7 +95,7 @@ const storyStatusLabels: Record<string, string> = {
 
 const originLabels: Record<string, string> = {
   MATERIAL_QUOTE: '材料引用',
-  USER_ASSERTION: '本人声明',
+  USER_ASSERTION: '用户填写',
   MODEL_DRAFT: 'AI草稿·待核对',
   MISSING: '待补充',
 }
@@ -114,12 +114,46 @@ function fail(e: unknown) {
   recovery.value = e instanceof ApiError ? e : null
 }
 
-function resetFields() {
-  fields.value = Object.fromEntries((templates[kind.value] || []).map(k => [k, { text: '', originType: 'MISSING' }]))
-  confirmations.value = {}
-  expression.value = ''
+interface NewStoryDraft { fields: Row; expression: string; materialIds: string[] }
+const newDrafts: Record<string, NewStoryDraft> = {}
+const newDraftKey = (template: string) => `story:new:${template}`
+try {
+  const selected = sessionStorage.getItem('story:new:kind')
+  if (!id.value && (selected === 'STAR' || selected === 'INTRO')) kind.value = selected
+} catch { /* 存储不可用时仍可在当前页面编辑。 */ }
+
+function rememberNewDraft() {
+  const draft = JSON.parse(JSON.stringify({ fields: fields.value, expression: expression.value, materialIds: materialIds.value })) as NewStoryDraft
+  newDrafts[kind.value] = draft
+  try {
+    sessionStorage.setItem(newDraftKey(kind.value), JSON.stringify(draft))
+    sessionStorage.setItem('story:new:kind', kind.value)
+  } catch { /* 切换模板仍可从当前页面内存恢复。 */ }
 }
-resetFields()
+function restoreNewDraft() {
+  let saved = newDrafts[kind.value]
+  if (!saved) {
+    try { saved = JSON.parse(sessionStorage.getItem(newDraftKey(kind.value)) || 'null') } catch { /* 无有效缓存时使用空白草稿。 */ }
+  }
+  fields.value = Object.fromEntries(templates[kind.value]!.map(k => {
+    const text = typeof saved?.fields?.[k]?.text === 'string' ? saved.fields[k].text : ''
+    return [k, { text, originType: text.trim() ? 'USER_ASSERTION' : 'MISSING' }]
+  }))
+  expression.value = typeof saved?.expression === 'string' ? saved.expression : ''
+  materialIds.value = Array.isArray(saved?.materialIds) ? saved.materialIds.filter(id => typeof id === 'string') : []
+  confirmations.value = {}
+}
+function switchKind(next: string) {
+  if (next === kind.value) return
+  rememberNewDraft()
+  kind.value = next
+  restoreNewDraft()
+}
+function clearNewDraft() {
+  delete newDrafts[kind.value]
+  try { sessionStorage.removeItem(newDraftKey(kind.value)) } catch { /* 服务端已保存，无需阻止跳转。 */ }
+}
+restoreNewDraft()
 
 function setCurrent(s: Row, keepLocal = false) {
   story.value = s
@@ -147,9 +181,10 @@ function setCurrent(s: Row, keepLocal = false) {
 }
 
 watch(
-  [fields, expression],
+  [fields, expression, materialIds],
   () => {
-    if (id.value && story.value?.status !== 'ARCHIVED') {
+    if (!id.value) rememberNewDraft()
+    else if (story.value?.status !== 'ARCHIVED') {
       try {
         sessionStorage.setItem(`v2:story:${id.value}`, JSON.stringify({ fields: fields.value, expression: expression.value }))
       } catch {
@@ -177,20 +212,14 @@ async function load(more = false) {
   }
 }
 
+function fieldOrigin(key: string) {
+  const field = fields.value[key]
+  if (!field?.text?.trim()) return 'MISSING'
+  if (field.originType === 'MISSING' || (field.originType === 'MATERIAL_QUOTE' && field.text !== story.value?.fields[key]?.text)) return 'USER_ASSERTION'
+  return field.originType || 'USER_ASSERTION'
+}
 function payloadFields() {
-  return Object.fromEntries(
-    fieldIds.value.map(k => [
-      k,
-      {
-        text: fields.value[k]?.text || '',
-        originType: fields.value[k]?.text?.trim()
-          ? fields.value[k]?.originType === 'MISSING'
-            ? 'USER_ASSERTION'
-            : fields.value[k]?.originType || 'USER_ASSERTION'
-          : 'MISSING',
-      },
-    ]),
-  )
+  return Object.fromEntries(fieldIds.value.map(k => [k, { text: fields.value[k]?.text || '', originType: fieldOrigin(k) }]))
 }
 
 const dirty = computed(() => {
@@ -218,6 +247,7 @@ async function save() {
     )
     message.value = '已保存故事版本，旧版及确认保留。'
     if (!id.value) {
+      clearNewDraft()
       await router.push(`/stories/${s.id}`)
     } else {
       sessionStorage.removeItem(`v2:story:${id.value}`)
@@ -296,6 +326,7 @@ async function aiDraftFromMaterials() {
     manifest.value = null
 
     if (!id.value) {
+      if (generated.generationState === 'READY') clearNewDraft()
       await router.push(`/stories/${targetId}`)
     } else {
       setCurrent(generated)
@@ -533,7 +564,7 @@ onMounted(() => load())
             class="kind-btn"
             :class="{ active: kind === 'STAR' }"
             :disabled="busy"
-            @click="kind = 'STAR'; resetFields()"
+            @click="switchKind('STAR')"
           >
             STAR 项目故事
           </button>
@@ -542,7 +573,7 @@ onMounted(() => load())
             class="kind-btn"
             :class="{ active: kind === 'INTRO' }"
             :disabled="busy"
-            @click="kind = 'INTRO'; resetFields()"
+            @click="switchKind('INTRO')"
           >
             自我介绍
           </button>
@@ -616,10 +647,10 @@ onMounted(() => load())
               <div class="star-card-status">
                 <span
                   class="origin-tag"
-                  :class="`origin-${fields[k].originType?.toLowerCase() || 'missing'}`"
-                  :title="`当前来源：${originLabels[fields[k].originType] || '本人声明'}`"
+                  :class="`origin-${fieldOrigin(k).toLowerCase()}`"
+                  :title="`当前来源：${originLabels[fieldOrigin(k)]}`"
                 >
-                  {{ originLabels[fields[k].originType] || '本人声明' }}
+                  {{ originLabels[fieldOrigin(k)] }}
                 </span>
                 <span class="char-count">{{ fields[k].text?.length || 0 }}/6000</span>
               </div>
@@ -640,7 +671,7 @@ onMounted(() => load())
             <!-- 轻量来源细节展示 -->
             <footer v-if="story?.fields[k]?.sourceRefs?.length" class="star-card-footer">
               <details class="source-refs-details">
-                <summary class="tiny muted">查看 {{ story.fields[k].sourceRefs.length }} 条材料引用来源</summary>
+                <summary class="tiny muted">{{ story.fields[k].originType === 'MATERIAL_QUOTE' ? (fieldOrigin(k) === 'MATERIAL_QUOTE' ? '查看材料引用来源' : '查看修改前的材料引用') : '查看来源引用' }}（{{ story.fields[k].sourceRefs.length }}）</summary>
                 <div class="source-refs-list">
                   <p v-for="(r, i) in story.fields[k].sourceRefs" :key="i" class="tiny">
                     “{{ r.quote }}” · 来源快照 {{ r.snapshotId }}
@@ -880,6 +911,10 @@ onMounted(() => load())
               <div v-for="k in fieldIds" :key="k" class="historical-field">
                 <strong>{{ labels[k] }}</strong>
                 <pre class="tiny">{{ historical.fields[k]?.text || '待补充' }}</pre>
+                <details v-if="historical.fields[k]?.sourceRefs?.length" class="source-refs-details">
+                  <summary class="tiny muted">{{ historical.fields[k].originType === 'MATERIAL_QUOTE' ? '查看当时的原材料引用' : '查看当时的来源引用' }}</summary>
+                  <p v-for="(ref, i) in historical.fields[k].sourceRefs" :key="i" class="tiny">“{{ ref.quote }}” · 来源快照 {{ ref.snapshotId }}</p>
+                </details>
               </div>
               <pre v-if="historical.expressionDraft" class="tiny expression-preview">{{ historical.expressionDraft }}</pre>
               <button

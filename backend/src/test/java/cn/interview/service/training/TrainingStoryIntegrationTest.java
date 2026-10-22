@@ -141,4 +141,46 @@ class TrainingStoryIntegrationTest {
         assertThat(next.path("items")).noneMatch(row->deletedIds.contains(row.path("id").asText())||firstIds.contains(row.path("id").asText()));
     }
 
+    @ParameterizedTest
+    @CsvSource({"STAR,action,task,MATERIAL_QUOTE", "INTRO,contribution,background,MATERIAL_QUOTE", "STAR,action,task,USER_ASSERTION"})
+    void editedMaterialQuoteSavesAsUserTextAndPreservesOriginalVersion(String kind,String editedKey,String unchangedKey,String submittedOrigin)throws Exception {
+        var raw=json.createObjectNode();
+        for(String key:StoryService.FIELDS.get(kind))raw.putObject(key).put("text","合成事实："+key).put("originType","USER_ASSERTION");
+        var created=call("/api/training/stories",Map.of("requestId",UUID.randomUUID().toString(),"templateKind",kind,"fields",raw));
+        String id=created.path("id").asText();
+        var story=db.get("v2_stories",id);var version=db.get("v2_story_versions",story.path("currentVersionId").asText());
+        // 模拟已通过生成校验并保存的材料引用，只在隔离测试库准备快照。
+        var snapshots=version.putArray("sourceSnapshots");
+        for(String key:List.of(editedKey,unchangedKey)) {
+            var field=(com.fasterxml.jackson.databind.node.ObjectNode)version.path("fields").path(key);
+            field.put("originType","MATERIAL_QUOTE");
+            field.putArray("sourceRefs").addObject().put("kind","QUOTE").put("snapshotId","material:"+key).put("quote",field.path("text").asText());
+            snapshots.addObject().put("id","material:"+key).put("purpose","MATERIAL").put("text",field.path("text").asText());
+        }
+        db.updatePayload("v2_story_versions",version);story.set("fields",version.path("fields").deepCopy());
+        db.save("v2_stories",story,story.path("revision").asInt());
+        var confirms=new HashMap<String,Object>();StoryService.FIELDS.get(kind).forEach(k->confirms.put(k,Map.of("confirmed",true)));
+        var confirmed=call("/api/training/stories/"+id+"/confirm",Map.of("requestId",UUID.randomUUID().toString(),"expectedVersion",story.path("revision").asInt(),"storyVersion",1,"confirmations",confirms));
+        var original=db.get("v2_story_versions",confirmed.path("currentVersionId").asText()).deepCopy();
+        var fields=raw.deepCopy();
+        for(String key:List.of(editedKey,unchangedKey))((com.fasterxml.jackson.databind.node.ObjectNode)fields.path(key)).put("originType","MATERIAL_QUOTE");
+        ((com.fasterxml.jackson.databind.node.ObjectNode)fields.path(editedKey)).put("text","用户补充的边界与方案").put("originType",submittedOrigin);
+        var saved=call("/api/training/stories/"+id+"/versions",Map.of("requestId",UUID.randomUUID().toString(),"expectedVersion",confirmed.path("revision").asInt(),"fields",fields));
+        assertThat(saved.path("status").asText()).isEqualTo("DRAFT");
+        assertThat(saved.path("fields").path(editedKey).path("originType").asText()).isEqualTo("USER_ASSERTION");
+        assertThat(saved.path("fields").path(editedKey).path("sourceRefs")).isEmpty();
+        assertThat(saved.path("fields").path(editedKey).path("confirmation").path("confirmed").asBoolean()).isFalse();
+        assertThat(saved.path("fields").path(unchangedKey).path("sourceRefs")).isEqualTo(original.path("fields").path(unchangedKey).path("sourceRefs"));
+        assertThat(db.get("v2_story_versions",saved.path("currentVersionId").asText()).path("sourceSnapshots")).isEqualTo(original.path("sourceSnapshots"));
+        assertThat(db.get("v2_story_versions",confirmed.path("currentVersionId").asText())).isEqualTo(original);
+    }
+    @Test void forgedMaterialQuoteStillRejected()throws Exception {
+        var forged=new LinkedHashMap<>(fields());forged.put("action",Map.of("text","没有引用依据的文字","originType","MATERIAL_QUOTE"));
+        mvc.perform(post("/api/training/stories").contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId",UUID.randomUUID().toString(),"templateKind","STAR","fields",forged))))
+                .andExpect(status().isBadRequest());
+        var story=call("/api/training/stories",Map.of("requestId",UUID.randomUUID().toString(),"templateKind","STAR","fields",fields()));
+        mvc.perform(post("/api/training/stories/"+story.path("id").asText()+"/versions").contentType("application/json").content(json.writeValueAsBytes(Map.of("requestId",UUID.randomUUID().toString(),"expectedVersion",0,"fields",forged))))
+                .andExpect(status().isBadRequest());
+    }
+
 }
