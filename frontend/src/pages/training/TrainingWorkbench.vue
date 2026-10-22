@@ -11,7 +11,7 @@ import PracticeAnswer from './Practice.vue'
 
 interface AttemptSummary { id: string; ordinal: number; status: string; updatedAt?: string }
 interface PracticeSummary { id: string; revision: number; question: string; sourceKind: string; sourceId: string; sourceSessionKind?: string; questionIndex?: number; mock: boolean; contextOrigin?: string; latestAttempt?: AttemptSummary }
-type State = 'todo' | 'ongoing' | 'done' | 'other'
+type State = 'todo' | 'ongoing' | 'done'
 interface Row { key: string; kind: 'review' | 'case'; id: string; revision: number; question: string; origin: string; state: State; label: string; cases: PracticeSummary[]; review?: ReviewItem }
 
 const route = useRoute(), router = useRouter()
@@ -23,7 +23,7 @@ let generation = 0, rememberedScroll = 0, rememberedPageScroll = 0
 try {
   const saved = JSON.parse(sessionStorage.getItem(viewKey) || 'null')
   if (saved) {
-    filter.value = saved.filter || 'all'
+    filter.value = ['all', 'todo', 'ongoing', 'done'].includes(saved.filter) ? saved.filter : 'all'
     search.value = saved.search || ''
     rememberedScroll = saved.scroll || 0
     rememberedPageScroll = saved.pageScroll || 0
@@ -43,7 +43,7 @@ function stateOf(group: PracticeSummary[]): State {
   return group.some(c => c.latestAttempt?.status === 'READY') ? 'done' : 'todo'
 }
 
-const stateLabels: Record<State, string> = { todo: '待练习', ongoing: '练习中', done: '已完成', other: '待核实 / 归档' }
+const stateLabels: Record<State, string> = { todo: '待练习', ongoing: '练习中', done: '已完成' }
 
 const rows = computed<Row[]>(() => {
   const attached = new Set<string>()
@@ -51,9 +51,7 @@ const rows = computed<Row[]>(() => {
     const group = cases.value.filter(c => related(c, r))
     group.forEach(c => attached.add(c.id))
     const progress = stateOf(group)
-    const state = r.status === 'ARCHIVED' ? 'other' : progress !== 'todo' ? progress : r.status === 'RESOLVED' ? 'done' : 'todo'
-    const uncertain = !r.findings.some(f => !f.disputed && f.kind !== 'uncertain')
-    const effective = state === 'todo' && (r.status === 'WAITING_EVIDENCE' || uncertain) ? 'other' : state
+    const state = progress !== 'todo' ? progress : r.status === 'RESOLVED' ? 'done' : 'todo'
     return {
       key: `review:${r.id}`,
       kind: 'review',
@@ -61,8 +59,8 @@ const rows = computed<Row[]>(() => {
       revision: r.revision,
       question: r.question,
       origin: '面试复习',
-      state: effective,
-      label: r.status === 'ARCHIVED' ? '已归档' : effective === 'other' ? '待核实' : stateLabels[effective],
+      state,
+      label: stateLabels[state],
       cases: group,
       review: r,
     }
@@ -222,8 +220,8 @@ onBeforeUnmount(() => {
         <p class="header-caption">选一道题，重新作答，查看这次补齐了什么。</p>
       </div>
       <div v-if="rows.length" class="header-quick-stats">
-        <span class="stat-pill"><Clock :size="14" class="icon-amber" /> 待攻坚 {{ stats.todo }}</span>
-        <span class="stat-pill"><Zap :size="14" class="icon-blue" /> 进行中 {{ stats.ongoing }}</span>
+        <span class="stat-pill"><Clock :size="14" class="icon-amber" /> 待练习 {{ stats.todo }}</span>
+        <span class="stat-pill"><Zap :size="14" class="icon-blue" /> 练习中 {{ stats.ongoing }}</span>
         <span class="stat-pill"><CircleCheck :size="14" class="icon-emerald" /> 已完成 {{ stats.done }}</span>
       </div>
     </header>
@@ -264,7 +262,6 @@ onBeforeUnmount(() => {
                 <option value="todo">待练习（{{ stats.todo }}）</option>
                 <option value="ongoing">练习中（{{ stats.ongoing }}）</option>
                 <option value="done">已完成（{{ stats.done }}）</option>
-                <option value="other">待核实 / 归档</option>
               </select>
             </div>
           </div>
@@ -298,7 +295,7 @@ onBeforeUnmount(() => {
 
             <div class="workbench-row-footer">
               <span v-if="row.review?.mock || row.cases[0]?.mock" class="tiny badge-mock-tag">Mock 演练</span>
-              <span v-else class="tiny footer-hint">{{ row.cases.length ? '已有作答草稿' : '查看薄弱发现' }}</span>
+              <span v-else class="tiny footer-hint">{{ row.state === 'ongoing' ? '继续上次作答' : row.state === 'done' ? '查看本次结果' : '重新作答' }}</span>
               <button
                 class="workbench-delete"
                 :data-workbench-delete="row.key"
@@ -311,6 +308,12 @@ onBeforeUnmount(() => {
                 <span>删除</span>
               </button>
             </div>
+            <details v-if="row.kind === 'review' && row.cases.length" class="workbench-history">
+              <summary>同题作答记录（{{ row.cases.length }}）</summary>
+              <button v-for="c in row.cases" :key="c.id" class="workbench-case text-link" :data-workbench-case="c.id" :aria-current="practiceId === c.id ? 'true' : undefined" @click="openCase(c)">
+                <span>{{ c.question }}</span><span class="case-state-badge">{{ stateLabels[stateOf([c])] }}</span>
+              </button>
+            </details>
           </article>
 
           <div v-if="!loading && !visible.length" class="workbench-empty">
@@ -343,22 +346,8 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <details v-if="selected?.kind === 'review' && selected.cases.length" class="workbench-history panel">
-          <summary>同题作答记录（{{ selected.cases.length }}）</summary>
-          <button
-            v-for="c in selected.cases"
-            :key="c.id"
-            class="workbench-case text-link"
-            :data-workbench-case="c.id"
-            :aria-current="practiceId === c.id ? 'true' : undefined"
-            @click="openCase(c)"
-          >
-            <span>{{ c.question }}</span>
-            <span class="case-state-badge">{{ stateLabels[stateOf([c])] }}</span>
-          </button>
-        </details>
         <PracticeAnswer v-if="practiceId" :key="`case:${practiceId}`" embedded :case-id="practiceId" @changed="load" />
-        <ReviewDetails v-else-if="reviewId" :key="`review:${reviewId}`" embedded :review-id="reviewId" @changed="load" />
+        <ReviewDetails v-else-if="reviewId" :key="`review:${reviewId}`" embedded :review-id="reviewId" />
         <div v-else class="workbench-welcome panel welcome-delight">
           <header class="welcome-header">
             <div class="welcome-icon-bubble">
@@ -424,7 +413,7 @@ onBeforeUnmount(() => {
           </div>
 
           <p class="tiny muted workbench-scope">
-            已完成表示本次作答和评估已保存，不代表已经掌握。待核实内容单独保留。
+            已完成表示本次作答和评估已保存，不代表已经掌握。
           </p>
         </div>
       </section>
@@ -449,7 +438,7 @@ onBeforeUnmount(() => {
 .workbench-question { display:block; grid-column:1 / -1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.workbench-summary { display:none; }
 .workbench-row-footer { padding-right:8px; }.workbench-row-footer > .tiny { display:none; }.workbench-delete { border:0; background:transparent; color:var(--text-muted); display:flex; gap:6px; align-items:center; padding:8px; min-height:32px; font-size:12px; }.workbench-delete:hover { color:var(--danger); background:var(--danger-soft); border-radius:6px; }
 .workbench-empty, .workbench-more { margin:16px; }.workbench-content { min-width:0; padding:20px; }.workbench-selection-bar { display:flex; align-items:center; gap:12px; padding-bottom:12px; border-bottom:1px solid var(--border-subtle); margin-bottom:16px; flex-wrap:wrap; }.selection-origin-tag { font-size:12px; color:var(--text-muted); }.delete-selected-btn { margin-left:auto; }.workbench-back { display:none; }
-.workbench-history { padding:12px 0; border:0; border-bottom:1px solid var(--border-subtle); border-radius:0; margin-bottom:16px; }.workbench-case { display:flex; justify-content:space-between; width:100%; text-align:left; background:transparent; border:0; padding:8px 0; gap:12px; }.case-state-badge { flex-shrink:0; font-size:12px; }
+.workbench-history { padding:0 16px 12px; font-size:12px; color:var(--text-muted); }.workbench-history summary { cursor:pointer; }.workbench-case { display:flex; justify-content:space-between; width:100%; text-align:left; background:transparent; border:0; padding:8px 0; gap:12px; }.case-state-badge { flex-shrink:0; font-size:12px; }
 .workbench-welcome { border:0; border-radius:0; padding:0; }.welcome-header { display:flex; gap:12px; align-items:flex-start; margin:4px 0 28px; }.welcome-icon-bubble { color:var(--text-muted); }.welcome-header h2 { font-size:16px; }.welcome-header p { color:var(--text-muted); margin-top:6px; max-width:60ch; }
 .card-highlight { border-block:1px solid var(--border-subtle); padding:16px 0; }.card-highlight-badge { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); margin-bottom:10px; }.highlight-question { font-size:14px; }.highlight-desc { color:var(--text-muted); margin-top:8px; }.highlight-footer { display:flex; align-items:center; gap:12px; justify-content:space-between; flex-wrap:wrap; margin-top:16px; }
 .methodology-card { padding-top:20px; }.methodology-card h4 { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:500; margin:0 0 14px; color:var(--text-muted); }.method-steps { display:grid; gap:14px; }.step-item { display:flex; gap:12px; }.step-num { color:var(--text-muted); font:12px var(--font-mono); padding-top:3px; }.step-item strong { font-size:13px; font-weight:500; }.workbench-scope { margin-top:24px; padding-top:12px; border-top:1px solid var(--border-subtle); }.empty-action-area { margin:20px 0; }

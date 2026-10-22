@@ -22,6 +22,7 @@ function mockPractice(initial = [original], handle: (url: string, init?: Request
     const custom = await handle(url, init)
     if (custom instanceof Response) return custom
     if (custom !== undefined) return new Response(JSON.stringify(custom))
+    if (method === 'GET' && url.endsWith('/review-items/r1')) return new Response(JSON.stringify({ findings: [] }))
     if (method === 'POST' && url.endsWith('/attempts')) { attempts = [...attempts, draft]; return new Response(JSON.stringify(draft)) }
     if (method === 'POST' && url.endsWith('/submit')) { attempts = attempts.map(a => a.id === 'd1' ? ready : a); return new Response(JSON.stringify(ready)) }
     if (method === 'POST' && url.endsWith('/practice-comparisons')) return new Response(JSON.stringify(result))
@@ -43,9 +44,11 @@ it('进入即准备空白新草稿，原答与诊断默认折叠，不要求选�
   expect(writes).toHaveLength(1)
   expect(writes[0]!.body.exposureDeclaration).toBe('UNKNOWN')
   expect(wrapper.find('select').exists()).toBe(false)
-  const reference = wrapper.findAll('details').find(d => d.get('summary').text() === '查看上一次回答及原报告诊断')!
+  const reference = wrapper.findAll('details').find(d => d.get('summary').text() === '查看上轮原答')!
   expect(reference.attributes('open')).toBeUndefined()
   expect(reference.text()).toContain('原始回答不能覆盖')
+  await wrapper.get('textarea').setValue('正在编辑的新回答')
+  expect(wrapper.text()).not.toContain('服务端版本')
   wrapper.unmount()
 })
 it('跨页恢复已存在草稿，刷新不重复新建', async () => {
@@ -177,5 +180,60 @@ it('综合面试项目缺口补练首答正常评估，不查询旧复习来源�
   await wrapper.get('[data-action="submit"]').trigger('click'); await flushPromises()
   expect(wrapper.text()).toContain('单次评估建议')
   expect(writes.some(w => w.url.endsWith('/practice-comparisons'))).toBe(false)
+  wrapper.unmount()
+})
+
+it('作答页只保留三个核心区块，薄弱点默认可见，建议最多两条', async () => {
+  mockPractice([original, draft], url => url.endsWith('/review-items/r1') ? { findings: [
+    { kind: 'missing', text: '上次缺少超时降级', disputed: false },
+    { kind: 'incorrect', text: '上次混淆事务边界', disputed: false },
+    { kind: 'missing', text: '不应堆叠第三条提示', disputed: false },
+    { kind: 'missing', text: '已提出异议的旧判断', disputed: true },
+  ] } : undefined)
+  const wrapper = await show()
+  expect(wrapper.get('[aria-label="本次题目"]').text()).toContain('上次缺少超时降级')
+  expect(wrapper.text()).not.toContain('不应堆叠第三条提示')
+  for (const text of ['异议说明', '技能标签', '核对练习结果与原发现', '历史记录与评估详情']) expect(wrapper.text()).not.toContain(text)
+  expect(wrapper.get('[data-action="submit"]').text()).toBe('提交并对比')
+  expect(wrapper.get('[data-action="save-draft"]').text()).toBe('暂存草稿')
+  wrapper.unmount()
+})
+it('只有未知结论时允许作答，并说明依据不足而非断言答错', async () => {
+  mockPractice([original, draft], url => url.endsWith('/review-items/r1') ? { findings: [{ kind: 'uncertain', text: '无法确认外部依赖', disputed: false }] } : undefined)
+  const wrapper = await show()
+  expect(wrapper.get('[aria-label="本次题目"]').text()).toContain('原报告依据不足')
+  expect(wrapper.get('textarea').attributes('readonly')).toBeUndefined()
+  expect(wrapper.text()).not.toContain('待核实')
+  wrapper.unmount()
+})
+it('第三次练习对比上次成功回答，并用上次评估提示薄弱点', async () => {
+  const previous = { ...ready, id: 'a1', ordinal: 1, evaluation: { id: 'g1', status: 'READY', result: { checks: [{ checkId: 'EDGE', status: 'GAP', explanation: '上轮仍缺超时边界', evidenceRefs: [] }], suggestions: [] } } }
+  const next = { ...draft, id: 'd1', ordinal: 2 }
+  const writes = mockPractice([original, previous, next], (url, init) => init?.method === 'POST' && url.endsWith('/submit') ? { ...ready, ordinal: 2 } : undefined)
+  const wrapper = await show()
+  expect(wrapper.get('[aria-label="本次题目"]').text()).toContain('上轮仍缺超时边界')
+  await wrapper.get('textarea').setValue('本次完整回答')
+  await wrapper.get('[data-action="submit"]').trigger('click'); await flushPromises()
+  expect(writes.find(w => w.url.endsWith('/practice-comparisons'))!.body.leftAttemptId).toBe('a1')
+  wrapper.unmount()
+})
+
+it('未导入复习项的独立原题仍从来源报告取得提示，不创建复习项', async () => {
+  const writes = mockPractice([original, draft], url => url.includes('/review-item-for-source?') ? { id: null } : url === '/api/sessions/s1/report' ? { questions: [{ questionIndex: 0, missing: ['独立原题遗漏重试上限'], incorrect: [], uncertain: [] }] } : undefined)
+  const wrapper = await show()
+  expect(wrapper.get('[aria-label="本次题目"]').text()).toContain('独立原题遗漏重试上限')
+  expect(writes).toEqual([])
+  wrapper.unmount()
+})
+
+it('复盘补练直接显示冻结缺口提示，不查询旧会话', async () => {
+  const reads: string[] = []
+  mockPractice([], url => {
+    reads.push(url)
+    if (url.endsWith('/practice-cases/c1')) return { ...caseRow, sourceSessionKind: 'V3', contextOrigin: 'REVIEW_GAP', context: JSON.stringify({ finding: { headline: '补充工具重试的幂等边界', observation: '上轮只说明重试' } }) }
+  })
+  const wrapper = await show()
+  expect(wrapper.get('[aria-label="本次题目"]').text()).toContain('补充工具重试的幂等边界')
+  expect(reads.some(url => url.includes('/api/sessions/') || url.includes('review-item-for-source'))).toBe(false)
   wrapper.unmount()
 })

@@ -6,13 +6,13 @@ import LoadingState from '../../components/common/LoadingState.vue'
 import ModelRecovery from '../../components/training/ModelRecovery.vue'
 import ComparisonResult from '../../components/training/ComparisonResult.vue'
 import { training, writeTraining, ApiError } from '../../api/training'
-import { localDate } from '../../models/training'
-import type { Page } from '../../models/training'
+import { CircleCheck, Lightbulb, TriangleAlert } from 'lucide-vue-next'
+import type { Finding, Page } from '../../models/training'
 
 interface Check { checkId: string; status: string; explanation: string; evidenceRefs: { kind: string; quote?: string; checkId?: string; start: number; end: number }[] }
 interface Evaluation { id: string; status: string; operationId?: string; protocol?: { requestedModel: string; returnedModel?: string; mock: boolean; parameters: { reasoning_effort?: string } }; result?: { checks?: Check[]; suggestions?: string[] } }
 interface Attempt { id: string; ordinal: number; revision: number; status: string; answerText: string; effectiveExposure: string; submittedAt?: string; evaluation?: Evaluation }
-interface Case { id: string; sourceKind?: string; sourceId?: string; sourceSessionKind?: 'SESSION' | 'V3'; questionIndex?: number; revision: number; question: string; caseVersion: number; mock: boolean; context?: string; contextOrigin: string; contextTruncated?: boolean; priorDialogue: { id: string; role: string; content: string }[]; analysisExposure: string }
+interface Case { id: string; sourceKind?: string; sourceId?: string; sourceSessionKind?: 'SESSION' | 'V3'; questionIndex?: number; revision: number; question: string; caseVersion: number; mock: boolean; context?: string; contextOrigin: string; contextTruncated?: boolean; checkpointSnapshot?: { reason: string }; priorDialogue: { id: string; role: string; content: string }[]; analysisExposure: string }
 interface Comparison { id: string; leftAttemptId: string; rightAttemptId: string; status: string; comparability: string; scopeNotice?: string; leftAnswer?: string; rightAnswer?: string; operationId?: string; result?: Record<string, any> }
 
 const props = withDefaults(defineProps<{ embedded?: boolean; caseId?: string }>(), { embedded: false })
@@ -20,20 +20,49 @@ const emit = defineEmits<{ changed: [] }>()
 const route = useRoute(), router = useRouter(), id = computed(() => String(props.caseId || route.params.id || ''))
 const source = ref<Case | null>(null), cases = ref<Case[]>([]), attempts = ref<Attempt[]>([]), active = ref<Attempt | null>(null)
 const answer = ref(''), serverText = ref<string | null>(null), error = ref(''), notice = ref(''), recovery = ref<ApiError | null>(null)
-const busy = ref(false), loading = ref(true), comparison = ref<Comparison | null>(null), comparisonFailed = ref(false)
-const casesCursor = ref<string | null>(null), reviewId = ref(''), reveal = ref<Record<string, any> | null>(null), referenceLoading = ref(false)
-const groups = ref<Evaluation[]>([]), groupCursor = ref<string | null>(null), comparisonHistory = ref<Comparison[]>([]), comparisonCursor = ref<string | null>(null), displayedGroup = ref<Evaluation | null>(null)
+const busy = ref(false), loading = ref(true), comparison = ref<Comparison | null>(null), comparisonFailed = ref(false), showServerVersion = ref(false)
+const casesCursor = ref<string | null>(null), findings = ref<Pick<Finding, 'kind' | 'text' | 'disputed'>[]>([]), hintUnavailable = ref(false)
 const labels: Record<string, string> = { DRAFT: '草稿', IMPORTED: '原始回答', EVALUATING: '评估中', READY: '评估完成', FAILED: '评估失败', INTERRUPTED: '评估中断', SUBMITTED: '已提交' }
-const exposure: Record<string, string> = { PROVIDED: '解析已提供 · 辅助准备', SEEN: '用户声明看过解析', NOT_SEEN: '用户声明未看解析', UNKNOWN: '解析接触情况未知' }
-const baseline = computed(() => attempts.value.find(a => a.ordinal === 0) || attempts.value.filter(a => a.status === 'READY' && a.ordinal < (active.value?.ordinal ?? Infinity)).at(-1))
+const baseline = computed(() => attempts.value.filter(a => a.status === 'READY' && a.ordinal < (active.value?.ordinal ?? Infinity)).at(-1) || attempts.value.find(a => a.ordinal === 0))
 const canCompare = computed(() => active.value?.status === 'READY' && baseline.value && baseline.value.id !== active.value.id)
 const reviewGap = computed(() => source.value?.contextOrigin === 'REVIEW_GAP')
 const projectGap = computed(() => ['PROJECT_GAP', 'REVIEW_GAP'].includes(source.value?.contextOrigin || ''))
 const projectReportPath = computed(() => `${source.value?.sourceSessionKind === 'V3' ? '/interviews' : '/reports'}/${encodeURIComponent(source.value?.sourceId || '')}`)
-const contextText = computed(() => {
-  if (source.value?.contextOrigin !== 'CONFIRMED_STORY') return source.value?.context || ''
-  try { return Object.values(JSON.parse(source.value.context || '{}')).map((f: any) => f.confirmation?.notApplicable ? `不适用：${f.confirmation.reason}` : f.text).join('\n\n') } catch { return '故事上下文无法读取，请查看来源版本。' }
+const brief = (text: string) => text.match(/^.*?[。！？](?:[”」])?/)?.[0] || text
+const hint = computed(() => {
+  const checks = baseline.value?.evaluation?.result?.checks || []
+  if (baseline.value?.ordinal && checks.length) {
+    const gaps = checks.filter(c => c.status === 'GAP').slice(0, 2)
+    return { uncertain: !gaps.length, text: gaps.length ? gaps.map(c => brief(c.explanation)).join('；') : '上轮没有明确的遗漏记录，可以继续完善思路与异常边界。' }
+  }
+  if (reviewGap.value) {
+    try {
+      const finding = JSON.parse(source.value?.context || '{}').finding
+      const text = finding?.headline || finding?.observation
+      if (typeof text === 'string' && text.trim()) return { uncertain: false, text: brief(text) }
+    } catch { /* 缺少可读的来源快照时，使用通用作答提示。 */ }
+  }
+  if (projectGap.value && source.value?.checkpointSnapshot?.reason) return { uncertain: true, text: brief(source.value.checkpointSnapshot.reason) }
+  const gaps = findings.value.filter(f => !f.disputed && ['missing', 'incorrect'].includes(f.kind)).slice(0, 2)
+  return { uncertain: !gaps.length, text: gaps.length ? gaps.map(f => brief(f.text)).join('；') : findings.value.some(f => !f.disputed && f.kind === 'uncertain') ? '原报告依据不足，尚不能判断这部分是否答对。可以重新作答，补充具体思路与边界。' : hintUnavailable.value ? '上轮提示暂时无法读取，可以先重新作答。' : '暂无明确的薄弱点记录，可以从思路、核心方案和异常边界重新梳理。' }
 })
+const evaluationTips = computed(() => {
+  const result = active.value?.evaluation?.result
+  return [...new Set([...(result?.checks?.filter(c => c.status !== 'MET').map(c => c.explanation) || []), ...(result?.suggestions || [])])].slice(0, 2)
+})
+const strengths = computed(() => active.value?.evaluation?.result?.checks?.filter(c => c.status === 'MET').map(c => c.explanation).slice(0, 2) || [])
+async function readHint() {
+  if (!source.value || source.value.sourceKind !== 'SESSION' || projectGap.value || source.value.sourceSessionKind === 'V3') return
+  try {
+    const review = await training<{ id: string | null }>(`/review-item-for-source?sessionId=${encodeURIComponent(source.value.sourceId || '')}&questionIndex=${source.value.questionIndex}`)
+    if (review.id) findings.value = (await training<{ findings: Finding[] }>(`/review-items/${encodeURIComponent(review.id)}`)).findings
+    else if (source.value.analysisExposure === 'PROVIDED') {
+      const report = await training<{ questions: { questionIndex: number; missing: string[]; incorrect: string[]; uncertain: string[] }[] }>(`/api/sessions/${encodeURIComponent(source.value.sourceId || '')}/report`)
+      const question = report.questions.find(q => q.questionIndex === source.value!.questionIndex)
+      if (question) findings.value = (['missing', 'incorrect', 'uncertain'] as const).flatMap(kind => (question[kind] || []).map(text => ({ kind, text, disputed: false })))
+    }
+  } catch { hintUnavailable.value = true }
+}
 watch(answer, value => {
   if (active.value?.status === 'DRAFT') try { sessionStorage.setItem(`v2:answer:${active.value.id}`, value) } catch { /* 服务端保存仍可用。 */ }
 })
@@ -105,10 +134,7 @@ async function load(cursor = '') {
       else if (props.embedded && !draft && latest?.status === 'READY') { await select(latest); await compare(false) }
       else await prepareDraft()
     }
-    if (source.value.sourceKind === 'SESSION' && !projectGap.value) {
-      const review = await training<{ id: string | null }>(`/review-item-for-source?sessionId=${encodeURIComponent(source.value.sourceId || '')}&questionIndex=${source.value.questionIndex}`)
-      reviewId.value = review.id || ''
-    }
+    await readHint()
   } catch (e) { failed(e) } finally { loading.value = false; if (props.embedded) emit('changed') }
 }
 async function keepResultRoute() {
@@ -120,7 +146,7 @@ async function keepResultRoute() {
 async function save(submit: boolean) {
   if (!active.value || busy.value || active.value.status !== 'DRAFT') return
   const origin = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
-  busy.value = true; error.value = ''; notice.value = ''; recovery.value = null; comparisonFailed.value = false
+  busy.value = true; error.value = ''; notice.value = ''; recovery.value = null; comparisonFailed.value = false; showServerVersion.value = false
   try {
     if (submit) try { sessionStorage.setItem(`v2:practice-submission:${id.value}`, active.value.id) } catch { /* 不影响服务端提交。 */ }
     const saved = await writeTraining<Attempt>(`/practice-attempts/${active.value.id}/${submit ? 'submit' : 'draft'}`, { answer: answer.value, expectedVersion: active.value.revision }, submit ? 'POST' : 'PUT')
@@ -135,7 +161,7 @@ async function save(submit: boolean) {
       if (!comparisonFailed.value) await keepResultRoute()
     } else notice.value = '草稿已明确保存到本机服务。'
   } catch (e) {
-    failed(e)
+    failed(e); showServerVersion.value = true
     try {
       const saved = await training<Attempt>(`/practice-attempts/${active.value.id}`)
       serverText.value = saved.answerText
@@ -173,36 +199,10 @@ async function again() {
     emit('changed'); await nextTick(); document.querySelector<HTMLTextAreaElement>('#new-answer')?.focus()
   } catch (e) { failed(e) } finally { busy.value = false }
 }
-async function revealAnalysis(event: Event) {
-  if (!(event.target as HTMLDetailsElement).open || reveal.value || referenceLoading.value || !source.value) return
-  referenceLoading.value = true
-  try {
-    const fresh = await training<Case>(`/practice-cases/${id.value}`)
-    const saved = await writeTraining<{ content?: Record<string, any> }>(`/practice-cases/${id.value}/reveal`, { revealKind: 'SOURCE_ANALYSIS', expectedVersion: fresh.revision })
-    reveal.value = saved.content || {}; source.value.analysisExposure = 'PROVIDED'; emit('changed')
-  } catch (e) { failed(e) } finally { referenceLoading.value = false }
-}
-async function histories(more = false) {
-  try {
-    const page = await training<Page<Comparison>>(`/practice-comparisons?caseId=${encodeURIComponent(id.value)}&limit=20&cursor=${encodeURIComponent(more ? comparisonCursor.value || '' : '')}`)
-    comparisonHistory.value = more ? [...comparisonHistory.value, ...page.items] : page.items; comparisonCursor.value = page.nextCursor
-  } catch (e) { failed(e) }
-}
-async function loadGroups(more = false) {
-  try {
-    const page = await training<Page<Evaluation>>(`/practice-cases/${id.value}/evaluation-groups?limit=20&cursor=${encodeURIComponent(more ? groupCursor.value || '' : '')}`)
-    groups.value = more ? [...groups.value, ...page.items] : page.items; groupCursor.value = page.nextCursor
-  } catch (e) { failed(e) }
-}
-async function newGroup() {
-  if (!active.value || busy.value) return
-  busy.value = true
-  try { await writeTraining(`/practice-cases/${id.value}/evaluation-groups`, { attemptId: active.value.id }); await loadGroups() } catch (e) { failed(e) } finally { busy.value = false }
-}
 watch(() => route.query.attemptId, value => {
   if (props.embedded && String(route.params.id || '') === id.value && !loading.value && !busy.value && value && value !== active.value?.id) void load()
 })
-watch(id, () => { source.value = null; active.value = null; comparison.value = null; reveal.value = null; reviewId.value = ''; answer.value = ''; attempts.value = []; void load() }, { immediate: true })
+watch(id, () => { source.value = null; active.value = null; comparison.value = null; findings.value = []; hintUnavailable.value = false; answer.value = ''; attempts.value = []; void load() }, { immediate: true })
 </script>
 
 <template>
@@ -221,51 +221,68 @@ watch(id, () => { source.value = null; active.value = null; comparison.value = n
       <section class="panel training-flow practice-question" aria-label="本次题目">
         <span v-if="source.mock" class="badge badge-orange">Mock · 仅验证流程</span>
         <h2>{{ source.question }}</h2>
-        <details v-if="source.priorDialogue.length"><summary>查看这道追问的前文</summary><div v-for="m in source.priorDialogue" :key="m.id" class="training-quote"><strong>{{ m.role === 'USER' ? '先前回答' : '先前问题' }}</strong><pre>{{ m.content }}</pre></div></details>
-        <details class="practice-reference" @toggle="revealAnalysis">
-          <summary>查看上一次回答及原报告诊断</summary>
-          <div class="training-flow"><section v-if="baseline"><h3>{{ baseline.ordinal === 0 ? '原始回答' : '上一次回答' }}</h3><pre>{{ baseline.answerText }}</pre></section><p v-else class="muted">这是本题第一次作答，还没有历史回答。</p>
-            <LoadingState v-if="referenceLoading" label="正在读取原报告诊断…" />
-            <template v-if="reveal"><section v-for="(label, key) in { correct: '原报告正确点', incorrect: '原报告错误', missing: '原报告遗漏', uncertain: '原报告未知', suggestions: '原建议' }" :key="key"><template v-if="reveal[key]?.length"><h3>{{ label }}</h3><p v-for="(text, index) in reveal[key]" :key="index">{{ text }}</p></template></section><p v-if="!Object.keys(reveal).length" class="muted">本题没有来源报告诊断。</p></template>
-          </div>
+        <div class="practice-hint" :class="{ 'hint-neutral': hint.uncertain }">
+          <TriangleAlert :size="18" aria-hidden="true" />
+          <p><strong>{{ hint.uncertain ? '作答提示' : '上轮回答待补强' }}</strong>{{ hint.text }}</p>
+        </div>
+        <details class="practice-reference">
+          <summary>查看上轮原答</summary>
+          <pre v-if="baseline">{{ baseline.answerText }}</pre>
+          <p v-else class="muted">这是本题第一次作答，还没有历史回答。</p>
+          <div v-for="m in source.priorDialogue" :key="m.id" class="training-quote"><strong>{{ m.role === 'USER' ? '先前回答' : '先前问题' }}</strong><pre>{{ m.content }}</pre></div>
         </details>
       </section>
-      <section v-if="active" class="panel training-flow training-section" aria-label="本次作答">
-        <div class="practice-answer-heading"><h2>{{ active.status === 'DRAFT' ? '写下你的新回答' : '本次回答' }}</h2><span class="tiny muted">{{ labels[active.status] }}</span></div>
-        <label for="new-answer">我的新回答</label><textarea id="new-answer" v-model="answer" maxlength="6000" rows="12" :readonly="active.status !== 'DRAFT'" :disabled="busy" placeholder="从思路、关键步骤和异常边界开始。" />
-        <p v-if="active.status === 'DRAFT'" class="tiny muted">{{ answer.length }} / 6000 字符。本页输入暂存；保存草稿后可从服务端找回。</p>
-        <details v-if="serverText !== null && serverText !== answer"><summary>服务端版本（本页文本保留）</summary><pre>{{ serverText }}</pre></details>
-        <div v-if="active.status === 'DRAFT'" class="practice-actions"><button class="btn btn-primary" data-action="submit" :disabled="busy || !answer.trim()" @click="save(true)">{{ busy ? '正在评估并对比…' : '提交回答并对比' }}</button><button class="btn btn-secondary" data-action="save-draft" :disabled="busy" @click="save(false)">保存草稿到本机服务</button></div>
-        <template v-else-if="active.status === 'READY' && !comparison?.result"><div v-for="check in active.evaluation?.result?.checks" :key="check.checkId" class="training-finding"><strong>{{ { MET: '满足', GAP: '有缺口', UNCERTAIN: '无法判断' }[check.status] }}</strong><p>{{ check.explanation }}</p></div><p v-for="tip in active.evaluation?.result?.suggestions" :key="tip">{{ tip }}</p></template>
+      <section v-if="active" class="panel training-flow training-section practice-canvas" aria-label="本次作答">
+        <div class="practice-answer-heading"><h2>{{ active.status === 'DRAFT' ? '重新回答一次' : '本次回答' }}</h2><span class="tiny muted" role="status">{{ labels[active.status] }}</span></div>
+        <label for="new-answer" class="sr-only">我的新回答</label>
+        <textarea id="new-answer" v-model="answer" maxlength="6000" :rows="active.status === 'DRAFT' ? 14 : 5" :readonly="active.status !== 'DRAFT'" :disabled="busy" placeholder="先说你的思路，再展开核心方案，最后补充异常情况与处理边界。" aria-describedby="answer-count" />
+        <div class="practice-answer-footer">
+          <span id="answer-count" class="tiny muted">{{ answer.length }} / 6000 字符</span>
+          <div v-if="active.status === 'DRAFT'" class="practice-actions"><button class="btn btn-secondary" data-action="save-draft" :disabled="busy" @click="save(false)">暂存草稿</button><button class="btn btn-primary" data-action="submit" :disabled="busy || !answer.trim()" @click="save(true)">{{ busy ? '正在评估并对比…' : '提交并对比' }}</button></div>
+        </div>
+        <details v-if="showServerVersion && serverText !== null && serverText !== answer"><summary>服务端版本（本页文本保留）</summary><pre>{{ serverText }}</pre></details>
       </section>
-      <section v-if="comparison?.result" class="panel training-flow training-section practice-result" aria-label="本次对比结果" aria-live="polite"><h2>这次回答，有哪些变化？</h2><ComparisonResult :result="comparison.result" /><p v-if="comparison.scopeNotice" class="tiny muted">{{ comparison.scopeNotice }}</p></section>
-      <button v-if="canCompare && !comparison?.result && !recovery?.operationId" class="btn btn-secondary training-section" data-action="retry-comparison" :disabled="busy" @click="retryComparison">{{ comparisonFailed ? '重试对比' : '生成本次对比' }}</button>
-      <div v-if="active && active.status !== 'DRAFT'" class="practice-actions practice-exits"><button class="btn btn-primary" data-action="again" :disabled="busy" @click="again">再练一次</button><RouterLink :to="projectGap ? projectReportPath : '/review'" class="btn btn-secondary">{{ reviewGap ? '返回原面试复盘' : projectGap ? '返回原面试证据矩阵' : '返回错题重练' }}</RouterLink></div>
-      <details class="practice-debug training-section"><summary>历史记录与评估详情</summary><div class="training-flow">
-        <p class="tiny muted">案例版本 {{ source.caseVersion }} · {{ exposure[source.analysisExposure] }}。历史原答的评分协议保留未知，配对重评另存结果。</p>
-        <p v-if="source.contextTruncated" class="tiny muted">原资料已截断，不能据此断言内容缺失。</p>
-        <details><summary>查看冻结的资料上下文</summary><pre>{{ contextText || '没有补充资料上下文' }}</pre></details>
-        <details><summary>查看历次回答（{{ attempts.length }}）</summary><section v-for="a in attempts" :key="a.id" class="training-quote"><h3>{{ a.ordinal === 0 ? '原始回答' : `第 ${a.ordinal} 次新作答` }} · {{ labels[a.status] }}</h3><pre>{{ a.answerText || '草稿尚未填写' }}</pre><p class="tiny muted">{{ exposure[a.effectiveExposure] }} · {{ localDate(a.submittedAt) }}</p></section></details>
-        <details v-if="active?.evaluation"><summary>查看本次评估协议与依据</summary><p v-if="active.evaluation.protocol" class="tiny muted">请求模型：{{ active.evaluation.protocol.requestedModel }}；返回模型：{{ active.evaluation.protocol.returnedModel || '服务未提供' }}；思考强度：{{ active.evaluation.protocol.parameters.reasoning_effort || '服务默认' }}</p><div v-for="check in active.evaluation.result?.checks" :key="check.checkId"><p>{{ check.explanation }}</p><p v-for="(evidence, index) in check.evidenceRefs" :key="index" class="tiny muted">{{ evidence.kind === 'QUOTE' ? `回答原文：${evidence.quote}` : `全文检查：${evidence.checkId}，范围 ${evidence.start}–${evidence.end}` }}</p></div></details>
-        <RouterLink v-if="reviewId && active?.status === 'READY'" :to="{ path: `/review/${reviewId}`, query: { attemptId: active.id } }" class="text-link">返回复习项，逐条确认本次观察</RouterLink>
-        <details @toggle="($event.target as HTMLDetailsElement).open && histories()"><summary>查看已保存对比历史</summary><button v-for="h in comparisonHistory" :key="h.id" class="text-link" :disabled="busy" @click="reopenComparison(h.id).catch(failed)">查看对比 · {{ h.status === 'READY' ? '已完成' : h.comparability === 'TEXT_ONLY' ? '仅原文' : '待完成' }}</button><button v-if="comparisonCursor" class="text-link" @click="histories(true)">加载更多对比</button></details>
-        <details @toggle="($event.target as HTMLDetailsElement).open && loadGroups()"><summary>查看评估组历史与协议</summary><div v-for="g in groups" :key="g.id"><button class="text-link" @click="training<Evaluation>(`/practice-evaluation-groups/${g.id}`).then(saved => displayedGroup = saved).catch(failed)">查看评估组 · {{ labels[g.status] || g.status }}</button></div><button v-if="groupCursor" class="text-link" @click="loadGroups(true)">加载更多评估组</button><div v-if="displayedGroup"><p>请求模型：{{ displayedGroup.protocol?.requestedModel }} · 返回模型：{{ displayedGroup.protocol?.returnedModel || '服务未提供' }}</p><pre>{{ displayedGroup.result }}</pre></div><button v-if="active && ['READY', 'FAILED', 'INTERRUPTED'].includes(active.status)" class="text-link" :disabled="busy" @click="newGroup">按当前协议另存评估（调用模型）</button></details>
-      </div></details>
+      <section v-if="active && active.status !== 'DRAFT'" class="panel training-flow training-section practice-result" aria-label="本次对比结果" aria-live="polite">
+        <h2>这次回答，有哪些变化？</h2>
+        <template v-if="active.status === 'READY'">
+          <ComparisonResult v-if="comparison?.result" :result="comparison.result" :before="baseline?.answerText" :after="active.answerText" />
+          <template v-else>
+            <p v-if="!baseline" class="tiny muted">这是首次作答，先看看本次反馈；下次可与这次回答对比。</p>
+            <section><h3 class="feedback-heading"><CircleCheck :size="18" aria-hidden="true" />本次答得好的地方</h3><p v-for="text in strengths" :key="text">{{ text }}</p><p v-if="!strengths.length" class="muted">本次评估没有明确列出已满足的关键点。</p></section>
+            <section v-if="evaluationTips.length"><h3 class="feedback-heading"><Lightbulb :size="18" aria-hidden="true" />仍可精进</h3><p v-for="tip in evaluationTips" :key="tip">{{ tip }}</p></section>
+          </template>
+          <button v-if="canCompare && !comparison?.result && !recovery?.operationId" class="btn btn-secondary" data-action="retry-comparison" :disabled="busy" @click="retryComparison">{{ comparisonFailed ? '重试对比' : '生成本次对比' }}</button>
+          <p v-if="comparison?.status === 'READY'" class="tiny muted">仅比较两次回答中的变化，练习完成不代表已经掌握。</p>
+          <div class="practice-actions practice-exits"><RouterLink to="/review" class="btn btn-primary">再练一题</RouterLink><button class="btn btn-secondary" data-action="again" :disabled="busy" @click="again">本题再答一次</button></div>
+        </template>
+        <p v-else class="muted">回答已保存，评估尚未完成。可通过上方操作查询或恢复结果。</p>
+      </section>
     </template>
   </div>
 </template>
 
 <style scoped>
 .practice-page { max-width: 1040px; }
-.practice-question h2 { font-size: 16px; line-height: 1.7; }
-.practice-reference { border-top: 1px solid var(--border-subtle); padding-top: var(--space-4); }
-.practice-reference > div, .practice-debug > div { margin-top: var(--space-4); }
-.practice-answer-heading, .practice-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.practice-answer-heading { justify-content: space-between; }
-.practice-page textarea { line-height: 1.85; }
-.practice-result { border-top: 3px solid var(--accent); }
-.practice-exits { margin-block: var(--space-6); }
-.practice-debug { color: var(--text-muted); }
-.practice-debug summary, .practice-reference summary { cursor: pointer; }
-@media (max-width: 600px) { .practice-question h2 { font-size: 16px; } .practice-actions .btn { width: 100%; } }
+.practice-question h2 { font-size: 22px; line-height: 1.6; text-wrap: pretty; }
+.practice-hint { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4); background: var(--warning-soft); color: var(--warning); border-radius: var(--radius-control); }
+.practice-hint svg { flex-shrink: 0; margin-top: 3px; }
+.practice-hint p { margin: 0; line-height: 1.8; }
+.practice-hint strong { display: block; margin-bottom: var(--space-1); font-size: 13px; }
+.hint-neutral { color: var(--text-secondary); background: var(--surface-soft); }
+.practice-reference summary { cursor: pointer; color: var(--text-muted); font-size: 13px; }
+.practice-reference pre { margin-top: var(--space-3); }
+.practice-answer-heading, .practice-actions, .practice-answer-footer { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.practice-answer-heading, .practice-answer-footer { justify-content: space-between; }
+.practice-canvas textarea { min-height: 360px; line-height: 1.85; padding: var(--space-4); resize: vertical; caret-color: var(--accent); }
+.practice-canvas textarea[readonly] { min-height: 180px; background: var(--surface-soft); }
+.practice-result { border-top: 1px solid var(--border-subtle); }
+.feedback-heading { display: flex; align-items: center; gap: var(--space-2); }
+.practice-exits { margin-top: var(--space-4); }
+@media (max-width: 600px) {
+  .practice-question h2 { font-size: 19px; }
+  .practice-canvas textarea { min-height: 340px; font-size: 16px; }
+  .practice-answer-footer { align-items: stretch; }
+  .practice-answer-footer .practice-actions { width: 100%; }
+  .practice-actions .btn { flex: 1; }
+}
 </style>

@@ -127,3 +127,11 @@ it('整题合并后仍可打开原有追问和作答，不重复创建案例或�
   expect(wrapper!.find('#new-answer').exists()).toBe(true)
   expect(writes).toEqual([])
 })
+
+it('练习筛选只有三种状态，旧待核实和归档记录仍可直接进入练习', async () => {
+  sessionStorage.setItem('training:workbench:view', JSON.stringify({ filter: 'other' }))
+  await show('/review', undefined, 'WAITING_EVIDENCE')
+  expect(wrapper!.get('#workbench-filter').findAll('option').map(o => o.attributes('value'))).toEqual(['all', 'todo', 'ongoing', 'done'])
+  expect(wrapper!.find('[data-workbench-row="review:r1"]').exists()).toBe(true)
+  expect(wrapper!.text()).not.toContain('待核实')
+})

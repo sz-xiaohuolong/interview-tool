@@ -36,7 +36,7 @@ test('专项训练 自动准备作答后键盘 Enter 换行和 Space 保存可�
   const answer = page.getByLabel('我的新回答', { exact: true })
   await tabTo(page, answer); await page.keyboard.insertText('合成第一段：事务保证本地原子性。'); await page.keyboard.press('Enter'); await page.keyboard.insertText('合成第二段：外部支付仍需幂等。')
   expect(writes.filter(w => /\/(draft|submit)$/.test(w.path))).toHaveLength(0)
-  const save = page.getByRole('button', { name: '保存草稿到本机服务', exact: true })
+  const save = page.getByRole('button', { name: '暂存草稿', exact: true })
   await tabTo(page, save); await page.keyboard.press('Space')
   await expect(page.getByText('草稿已明确保存到本机服务。', { exact: true })).toBeVisible()
   expect(writes.filter(w => w.path.endsWith('/attempts'))).toHaveLength(1)

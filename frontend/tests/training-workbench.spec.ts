@@ -19,13 +19,11 @@ test('合并工作台：选题保留草稿、取消及确认删除、旧链接�
   const a = await fixture(request), b = await fixture(request)
   await page.goto(`/review/${a.review.id}`)
   await expect(page.locator('nav[aria-label="持续训练"] a')).toHaveText(['错题重练', '项目经历'])
-  await page.getByRole('button', { name: '开始重练', exact: true }).click()
   await expect(page.getByLabel('我的新回答', { exact: true })).toBeEditable()
   const casePath = new URL(page.url()).pathname
   await page.getByLabel('我的新回答', { exact: true }).fill('切题后应保留的合成草稿：先检查幂等键。')
   await page.locator(`[data-workbench-open="review:${b.review.id}"]`).click()
   await page.locator(`[data-workbench-open="review:${a.review.id}"]`).click()
-  await page.getByRole('button', { name: '继续作答', exact: true }).click()
   await expect(page.getByLabel('我的新回答', { exact: true })).toHaveValue(/切题后应保留/)
   const out = resolve('../.runtime/training-workbench-20261021'); await mkdir(out, { recursive: true })
   for (const width of [1440, 390, 320]) {
@@ -87,7 +85,7 @@ test('整题合并后可继续原有追问，保留原尝试且不重复创建',
   const writes: string[] = []
   page.on('request', req => { if (['POST', 'PUT', 'DELETE'].includes(req.method())) writes.push(new URL(req.url()).pathname) })
   await page.goto(`/review/${review.id}`)
-  await page.getByText('同题作答记录（1）', { exact: true }).click()
+  await page.locator(`[data-workbench-row="review:${review.id}"]`).getByText('同题作答记录（1）', { exact: true }).click()
   await page.locator(`[data-workbench-case="${c.id}"]`).click()
   await expect(page).toHaveURL(new RegExp(`/practice/${c.id}\\?attemptId=${attempt.id}`))
   await expect(page.getByLabel('我的新回答', { exact: true })).toHaveValue('原追问草稿：核对最终结果。')
@@ -107,7 +105,7 @@ test('项目经历保留：STAR和自我介绍确认版均进入同一重练工�
     await expect(page.getByLabel('我的新回答', { exact: true })).toBeEditable()
     await expect(page.locator('[data-workbench-list]')).toBeVisible()
     await page.getByLabel('我的新回答', { exact: true }).fill('合成练习：我负责订单幂等校验，用唯一约束和事务保证一致性；结果缺少量化数据，后续补证。')
-    await page.getByRole('button', { name: '提交回答并对比', exact: true }).click()
+    await page.getByRole('button', { name: '提交并对比', exact: true }).click()
     await expect(page.getByLabel('我的新回答', { exact: true })).toHaveAttribute('readonly', '')
     await expect(page.getByText('评估完成', { exact: true })).toBeVisible()
   }
