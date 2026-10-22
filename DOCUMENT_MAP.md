@@ -10,6 +10,7 @@
 | 当前项目定位 | [PROJECT.md](docs/vibe/PROJECT.md) | 已登记 | 当前 Release、质量标准与范围入口 |
 | 当前真实架构 | [TECH_DESIGN.md](docs/vibe/TECH_DESIGN.md) | 已核验 | Java/Vue 入口、数据库、HTTP 契约与模型客户端 |
 | 当前界面视觉规范 | [DESIGN.md](DESIGN.md) | 已核验 | 当前生效的全局 Tokens、表面模式、公共组件与响应式规则；组件扩展由 `.impeccable/design.json` 承载，版本任务记录进入对应 Release |
+| 资料库界面设计 | [已确认方案与Tokens](DESIGN.md#资料库页面设计2026-10-22已确认待实现) · [合成布局草图](docs/vibe/releases/v5/materials-layout.html) | APPROVED / 待实现 | 八项设计决定：等规格卡片、分类搜索、宽详情抽屉、确认后上传；只交付设计文件，未改产品页面 |
 | Impeccable 上下文适配入口 | [PRODUCT.md](PRODUCT.md) | 已登记 | 仅引用现有产品事实源，不替代项目定位与 V1 行为规范 |
 | 当前执行进度 | [PROGRESS.md](docs/vibe/PROGRESS.md) | 已登记 | State、当前任务、代码检查点与下一步 |
 | 项目决策与授权 | [DECISIONS.md](docs/vibe/DECISIONS.md) | 已核验 | 技术取舍、模型配置、公开仓库与文档整理授权 |
