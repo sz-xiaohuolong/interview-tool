@@ -81,7 +81,8 @@ test('旧版场次兼容：多行回答、刷新恢复、报告、历史与专�
 
 test('简历：页面上传 Markdown、保存十道押题并从单题进入面试', async ({ page }) => {
   await page.goto('/materials')
-  await page.getByRole('button', { name: '新增简历', exact: true }).click()
+  await page.getByRole('button', { name: '新增资料', exact: true }).click()
+  await page.getByRole('menuitem', { name: '新增简历', exact: true }).click()
   let dialog = page.getByRole('dialog')
   await dialog.getByLabel('资料名称（选填）').fill('合成验收简历')
   await dialog.getByLabel('选择简历文件').setInputFiles({
@@ -110,7 +111,8 @@ test('简历：页面上传 Markdown、保存十道押题并从单题进入面�
 test('项目：创建文字资料、上传 TXT 附件并进入项目面试', async ({ page }) => {
   await page.goto('/materials')
   await page.getByRole('group', { name: '资料分类' }).getByRole('button', { name: /^项目/ }).click()
-  await page.getByRole('button', { name: '新增项目', exact: true }).click()
+  await page.getByRole('button', { name: '新增资料', exact: true }).click()
+  await page.getByRole('menuitem', { name: '新增项目', exact: true }).click()
   let dialog = page.getByRole('dialog')
   await dialog.getByLabel('项目名称').fill('合成验收知识库项目')
   const content = '项目简介：本地知识库练习服务。\n技术栈：Java、SQLite。\n个人职责：设计资料接口、处理附件与异常。'
@@ -140,7 +142,8 @@ test('390px 窄屏：首页、配置、资料、历史、对话与报告没有�
     await expectNoOverflow(page)
   }
   await page.goto('/materials')
-  await page.getByRole('button', { name: '新增简历', exact: true }).click()
+  await page.getByRole('button', { name: '新增资料', exact: true }).click()
+  await page.getByRole('menuitem', { name: '新增简历', exact: true }).click()
   await expect(page.getByRole('dialog')).toBeVisible()
   await expectNoOverflow(page)
   await page.getByRole('button', { name: '取消', exact: true }).click()
