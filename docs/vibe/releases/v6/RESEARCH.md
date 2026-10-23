@@ -444,9 +444,9 @@ BOSS 的公开 `robots.txt` 对带查询参数等路径列出抓取限制；本�
 |---|---|---|
 | [boss-cli README](https://github.com/jackwener/boss-cli) | 提供 search、分页和 detail 命令，但认证读取已保存 Cookie、浏览器 Cookie或二维码登录；同时包含聊天／投递等写操作 | 可作为未来开发者会话适配候选，不能作为当前零配置三站方案；未安装或运行，也未自动提取凭据 |
 | [ai-job-search-cn 猎聘接口说明](https://github.com/rockbenben/ai-job-search-cn/blob/main/.agents/skills/liepin-search/url-reference.md) · [MIT 许可](https://github.com/rockbenben/ai-job-search-cn/blob/main/LICENSE) | 文档提供猎聘公开接口；本轮据此独立完成两页及一详情 HTTP 核验。正文实际选择器是 `[data-selector="job-intro-content"]`，不是凭名称猜测 class | 保留为优先候选；未来可用少量现有后端 HTTP 适配，不必整体引入工具包；尚未复制其业务源码或定为正式依赖 |
-| [mcp-jobs URL配置](https://github.com/mergedao/mcp-jobs/blob/main/src/config/urlConfig.ts) · [采集规则](https://github.com/mergedao/mcp-jobs/blob/main/src/config/crawlerConfig.ts) | URL列表有智联，但本轮读取的采集规则仍没有智联条目；原有“工具涵盖三站”说法不能据 README成立 | 不采用为三站一键接入证明；静态配置不能替代真实链路 |
+| [mcp-jobs URL配置](https://github.com/mergedao/mcp-jobs/blob/main/src/config/urlConfig.ts) · [采集规则](https://github.com/mergedao/mcp-jobs/blob/main/src/config/crawlerConfig.ts) | 固定提交 `23e223d` 的 URL 清单虽包含智联和前程无忧，但实际采集规则只有猎聘、BOSS 及两者详情；猎聘城市参数固定为 `000`，BOSS 使用移动站规则，未见登录态复用。用户于 2026-10-23 在本机实测该工具已经失效；本机仅完成依赖安装和 TypeScript 构建，未将失效运行结果写入公开日志 | **淘汰，不作为降级策略、正式依赖或三站能力证明。** 保留本条仅用于防止后续误接入；静态配置和 README 声明不能替代真实链路 |
 
-本轮下载的文本副本及 SHA-256 在本机证据目录保留，用于标识实际核查版本；尚未选择正式依赖版本，不能将 `main` 链接称为不可变版本。猎聘说明文件摘要为 `3df5cb60633d37fa2bb3629d6cf2ca6fc9ade547b15b008cecc0b15ab88d4928`，boss-cli README 摘要为 `af4528d54ba4b34495d68a40bdb125a902e1c25700f4181253f8eefe66e5e368`，mcp-jobs采集规则摘要为 `49fe332200878cab11e770bf91c11694dd1cbe8612464c4fe2af7006223f8d3c`。正式采用前还需固定版本、核对许可与只读调用边界。
+本轮下载的文本副本及 SHA-256 在本机证据目录保留，用于标识实际核查版本；尚未选择正式依赖版本，不能将 `main` 链接称为不可变版本。猎聘说明文件摘要为 `3df5cb60633d37fa2bb3629d6cf2ca6fc9ade547b15b008cecc0b15ab88d4928`，boss-cli README 摘要为 `af4528d54ba4b34495d68a40bdb125a902e1c25700f4181253f8eefe66e5e368`，mcp-jobs 采集规则摘要为 `49fe332200878cab11e770bf91c11694dd1cbe8612464c4fe2af7006223f8d3c`。`mcp-jobs` 后续不再进入候选评估；其 package 元数据声明 ISC，但仓库固定提交未见独立 LICENSE 文件，不能据 README 的 MIT 徽章推断可直接复用。正式采用其他工具前仍需固定版本、核对许可与只读调用边界。
 
 ### 12.3 对实施顺序的影响
 
@@ -457,3 +457,7 @@ BOSS 的公开 `robots.txt` 对带查询参数等路径列出抓取限制；本�
 逐站证据、已执行和未执行的检查、截图路径见 [VERIFICATION](VERIFICATION.md#岗位搜索公开接入核验2026-10-22)。本节结论来自实际 HTTP／浏览器观察与维护者源码；内置网页搜索未返回可用内容，不作为证据。
 
 2026-10-23的登录准备中，BOSS现有标签显示“当前IP地址可能存在异常访问行为”的安全验证，智联已打开官方短信登录页。这是公开探针之后的新观察，不覆盖10月22日取得的概要证据。已交由开发者本人处理；尚无成功登录或后端配置的证据，不继续匿名重复请求。
+
+### 12.4 mcp-jobs 淘汰记录（2026-10-23）
+
+用户在本机实际测试后确认 `mcp-jobs` 已失效，明确要求不再使用。该工具不进入 V6 的降级路线、依赖清单、后端适配器或验收证据；此前对其源码的静态核对只作为负面候选记录保留。后续降级策略只允许采用能在当前环境完成真实搜索、翻页、详情和失败分类验证的方案，不能用“仓库仍可安装”或“构建成功”替代运行可用性。
