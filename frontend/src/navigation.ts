@@ -4,7 +4,7 @@ import type { InterviewSessionType } from './models/interview'
 export interface InterviewNavigationContext { id: string; sessionType: InterviewSessionType }
 export const interviewNavigationKey: InjectionKey<Ref<InterviewNavigationContext | null>> = Symbol('当前面试导航')
 
-export type PrimarySection = 'overview' | 'quick' | 'interview' | 'materials' | 'history' | 'training' | 'jobs'
+export type PrimarySection = 'overview' | 'quick' | 'interview' | 'materials' | 'history' | 'training' | 'jobs' | 'job-search'
 export interface LocationStep { title: string; to?: string }
 
 export const trainingNavigation = [
@@ -51,6 +51,9 @@ export function navigationFor(path: string, pageTitle = '', sessionType?: Interv
   } else if (belongsTo(path, '/history')) {
     primary = 'history'
     breadcrumbs = [{ title: '面试历史' }]
+  } else if (belongsTo(path, '/job-search')) {
+    primary = 'job-search'
+    breadcrumbs = [{ title: '岗位搜索' }]
   } else if (belongsTo(path, '/job-applications')) {
     primary = 'jobs'
     breadcrumbs = [{ title: '求职管理' }]

@@ -60,6 +60,14 @@ class TrainingMigrationTest {
         assertThat(reopened.jdbc.queryForObject("SELECT count(*) FROM job_applications",Integer.class)).isZero();
     }
 
+    @Test void approvedJobSearchTablesMayBeAbsentButPresentConstraintsRemainStrict() throws Exception {
+        Path data=root.resolve("before-job-search");var old=new SqliteStore(data.toString(),new ObjectMapper());old.insertMaterial("kept","JD","原资料","原正文","2026-10-23");
+        old.jdbc.execute("DROP TABLE job_search_jd_links");old.jdbc.execute("DROP TABLE job_search_favorite_sources");old.jdbc.execute("DROP TABLE job_search_favorites");
+        TrainingSchemaPreflight.check(data,false);assertThat(migrate(data,"job-search-backup")).isZero();var reopened=new SqliteStore(data.toString(),new ObjectMapper());assertThat(reopened.material("kept").content()).isEqualTo("原正文");
+        reopened.jdbc.execute("DROP TABLE job_search_jd_links");reopened.jdbc.execute("CREATE TABLE job_search_jd_links(source_key TEXT PRIMARY KEY,material_id TEXT,source_json TEXT,source_content_hash TEXT)");
+        assertThatThrownBy(()->TrainingSchemaPreflight.check(data,true)).hasMessageContaining("V2_SCHEMA_UNSUPPORTED");assertThat(migrate(data,"refused-job-search-backup")).isNotZero();
+    }
+
     private int migrate(Path data, String backup) throws Exception {
         var process = new ProcessBuilder("python3", "../scripts/prepare-training.py", "--data-dir", data.toString(),
                 "--backup", root.resolve(backup).toString(), "--confirm-maintenance").redirectErrorStream(true).start();

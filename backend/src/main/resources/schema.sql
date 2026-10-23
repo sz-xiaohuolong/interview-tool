@@ -20,3 +20,7 @@ CREATE TABLE IF NOT EXISTS job_applications (
     created_at TEXT NOT NULL, updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_job_applications_list ON job_applications(archived,status,next_action_date);
+CREATE TABLE IF NOT EXISTS job_search_favorites (id TEXT PRIMARY KEY, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS job_search_favorite_sources (source_key TEXT PRIMARY KEY, favorite_id TEXT NOT NULL REFERENCES job_search_favorites(id) ON DELETE CASCADE, snapshot_json TEXT NOT NULL, saved_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_job_search_favorite_sources_favorite ON job_search_favorite_sources(favorite_id);
+CREATE TABLE IF NOT EXISTS job_search_jd_links (source_key TEXT PRIMARY KEY, material_id TEXT NOT NULL UNIQUE REFERENCES materials(id) ON DELETE CASCADE, source_json TEXT NOT NULL, source_content_hash TEXT NOT NULL);

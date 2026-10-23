@@ -48,7 +48,7 @@ M1 集成测试验证真实 SQLite 持久化、参数过滤、七状态、边界
 
 本次目标是交付「搜索职位／我的收藏」双页签、条件输入、分来源进度、分批列表、四项筛选、保守去重、来源详情、整组收藏及来源级 JD 预览保存，并按已确认工作区断点适配桌面、平板和手机。不做投递联动、诊断、模型调用、自动投递、搜索历史、后台刷新、新主题或无关重构。
 
-已核对的代码基线为 `a28c3d2`：单一 Vue App、Spring Boot 后端与 SQLite；目前只有 `/api/job-applications` 手工投递管理，没有岗位搜索适配器、收藏快照或来源级 JD 关联。不得复用投递接口冒充搜索。现有资料库 CRUD 可复用，但来源幂等与打开指定 JD 需要补齐。
+规划时的代码基线为 `a28c3d2`，当时只有手工投递管理。2026-10-24 已在同一个 Vue App、Spring Boot 后端与 SQLite 中新增 `/api/job-search`、收藏快照和来源级 JD 关联，复用原资料库 CRUD；当前接线以 [技术契约第7节](TECH_DESIGN.md#7-岗位搜索技术契约2026-10-23) 为准。
 
 | 前置条件 | 本次安排与满足判据 |
 |---|---|
@@ -65,7 +65,7 @@ G0 的有界预算：三站各一组“Java 后端＋深圳”，最多两页、
 | 文件或模块 | 实施职责 | 任务 |
 |---|---|---|
 | 本目录 `TECH_DESIGN.md`、`RESEARCH.md`、`VERIFICATION.md` | 区分候选、真实探针结果和后续契约；三站通过后补齐实际采用工具版本、许可及配置说明 | G0、G1 |
-| `backend/src/main/java/cn/interview/service/job/` 及同职责 controller、entity、mapper | 在现有工程补搜索协调、来源适配、异常分类、收藏与来源 JD 关联；具体类按 G1 契约创建 | G1、G2、G4、G5 |
+| `backend/src/main/java/cn/interview/` 下 `client/jobsearch`、`service/jobsearch`、`controller/jobsearch`、`entity/jobsearch` 及共用 mapper | 在现有工程补搜索协调、直接 CDP、来源适配、异常分类、收藏与来源 JD 关联 | G1、G2、G4、G5 |
 | `backend/src/main/resources/schema.sql`、既有启动结构预检和维护脚本 | 只按必要持久化新增结构，兼容已有资料与历史；不能自动重置原库 | G4、G5 |
 | `frontend/src/api/`、`frontend/src/pages/jobs/`、`frontend/src/components/jobs/` | 新增岗位搜索 API、模块状态、列表与详情；不得复制投递页或创建版本化 App | G2～G5 |
 | `frontend/src/router.ts`、`navigation.ts`、`components/layout/AppLayout.vue` | 注册独立「岗位搜索」入口；现有「求职管理」保留原职责 | G2 |
@@ -74,7 +74,7 @@ G0 的有界预算：三站各一组“Java 后端＋深圳”，最多两页、
 | 后端同职责测试、前端 API／页面行为测试、`frontend/tests/` 与 `scripts/` 现有浏览器模式 | 先写失败用例，新增独立搜索验收入口；请求替身严格匹配方法和路径，未知请求明确失败 | G2～G7 |
 | 根 `DESIGN.md`、`DOCUMENT_MAP.md`、`docs/vibe/PROGRESS.md` | 确认实施基线、入口与进度；已实现事实才同步当前架构和 README | G0～G7 |
 
-上述新文件是计划位置，不表示文件或接口已经存在。G1 确定 HTTP 契约、任务回收、分页游标和结构后，在本目录技术方案中记录，再实施；不得先在前端猜接口。普通内部方案可自主选择，若触及冻结业务语义则先确认。
+以上按实际职责维护，不创建版本工程。G1 已固定 HTTP 契约、任务回收、分页游标和结构，G2～G5 按此实现；普通内部方案自主选择，冻结业务语义保持不变。
 
 ### 7.3 任务、依赖与完成条件
 
@@ -89,9 +89,21 @@ G0 的有界预算：三站各一组“Java 后端＋深圳”，最多两页、
 | G6 响应式与视觉审查 | 对照根 DESIGN，在真实页面截图审查层级、焦点、触控、长文、极值、空态及错误；按 P0／P1／P2 汇总，最多两轮集中修复 | G2～G5 | 375／768／1024／1280／1440px、工作区960px及高度360px临界、820px导航切换、侧栏两态和缩放无严重溢出；P0／P1解决，未测平台明确列出 |
 | G7 交付验证 | 标准工程、来源契约、资料／历史／投递回归，三站端到端样例与收藏／JD闭环；文档同步、相关提交与推送、日常后端重启及原数据核对 | G6，三站仍可用 | 所有适用验收有真实证据；运行结果与提交一致，原数据摘要不变；失败时不标完整交付 |
 
-初始仅 G0 就绪。任务状态由 [PROGRESS](../../PROGRESS.md#岗位搜索设计与接入核验2026-10-222026-10-23接入阻塞) 和 [VERIFICATION](VERIFICATION.md#岗位搜索公开接入核验2026-10-22) 记录；实施期间同步该记录，不把计划中的目标写成测试结果。
+初始规划仅 G0 就绪；该状态已被后续实施更新。当前状态见 [PROGRESS](../../PROGRESS.md#v6-岗位搜索聚合2026-10-22需求已冻结) 和 [VERIFICATION](VERIFICATION.md#岗位搜索软件实施与验证2026-10-24)，不能把计划中的目标写成测试结果。
 
 2026-10-23恢复安排：用户已明确授权复用本机 Chrome 登录态并指定优先采用 CDP；本轮完成官方验证／登录后，已取得三站搜索、不同下一批与正文，G1 就绪。当前事实及探针偏差以 [已登录 CDP 会话复核](VERIFICATION.md#已登录-cdp-会话复核2026-10-23) 为准，不再停留于此前的 `WAITING_HUMAN`。继续完善技术契约、真实适配及产品闭环；缺失的来源身份、预取限制和错误分类须在实现中验证。未来出现新的验证码或限流时停止受影响来源并记录，已有授权无需重复申请，用户不在聊天中发送凭据。
+
+2026-10-24实施检查点：
+
+| 任务 | 当前状态 | 说明 |
+|---|---|---|
+| G0 | 历史三站样例取得，当前正式接入PARTIAL | 标准CDP当前握手超时；不能把样例与合成链路当正式适配器通过 |
+| G1 | 已完成 | 固定第7节公共契约、七城、错误码和来源级持久边界 |
+| G2～G5 | 软件已实现，限定检查通过 | 搜索、扫选详情、收藏和JD已接线；后端、前端、原业务回归和隔离进程重启有真实命令证据 |
+| G6 | 限定浏览器验证通过 | 六视口、工作区临界、侧栏与低高度；未测实体触屏、原生缩放、软键盘、Safari或VoiceOver |
+| G7 | PARTIAL | 软件交付收尾；真实三站首批／不同下一批／详情与故障分类未完成，不标完整MVP通过 |
+
+详细失败、补丁、适用结果和日常交付状态只在 [验证记录](VERIFICATION.md#岗位搜索软件实施与验证2026-10-24) 维护。
 
 ### 7.4 Skill、工具与检查安排
 
@@ -101,7 +113,7 @@ G0 的有界预算：三站各一组“Java 后端＋深圳”，最多两页、
 - **Impeccable**：已安装；G6 先读取适用 craft-floor，按发现选 critique／audit、响应式 adapt 或 polish；不机械执行全部命令。没有实现页面时不运行或宣称完成视觉审计。
 - **浏览器与 Playwright**：内置浏览器用于公开页面只读核验；G6～G7 按仓库已有 Playwright模式在隔离库启动真实前后端，保存截图、操作断言与控制台错误。工具不可用时说明缺口，不用静态截图代替操作验证。
 
-G2计划创建 `frontend/src/pages/jobs/JobSearch.test.ts`、`frontend/src/api/job-search.contract.test.ts` 与后端 `JobSearchIntegrationTest`，局部检查为 `npm --prefix frontend test -- src/pages/jobs/JobSearch.test.ts src/api/job-search.contract.test.ts`、`mvn -f backend/pom.xml -Dtest=JobSearchIntegrationTest test`；G6创建 `frontend/tests/job-search.spec.ts`、对应Playwright配置与 `scripts/e2e-job-search.sh` 后执行 `bash scripts/e2e-job-search.sh`。这些文件和命令入口尚未实现，不能现在宣称可运行。每个代码切片执行 `npm --prefix frontend run build`，最终执行 `./scripts/test.sh`。现有投递E2E仅作为回归，不能代替搜索验收；当前没有独立Lint脚本，不为形式新增依赖。若G0阻断而本轮仅修改文档，只做文档格式、引用、证据文件和差异检查，禁止运行代码测试或重启。
+实际局部入口为 `npm --prefix frontend test -- src/pages/jobs/JobSearch.test.ts src/api/job-search.contract.test.ts`，后端按职责使用 `JobSearchHttpTest`、`JobSearchLifecycleTest`、`JobSearchLibraryTest`、`JobSearchLibraryHttpTest`、`JobSourceParsingTest`、`JobCityCatalogTest` 和 `CdpBrowserTest`。端到端入口已实现为 `bash scripts/e2e-job-search.sh`，使用明确合成招聘浏览器及临时数据，不能替代真实三站。标准入口仍为 `./scripts/test.sh` 和 `npm --prefix frontend run build`，按证据有效性只复验后续受影响部分。现有投递 E2E 只作为回归；当前没有独立 Lint 脚本，不为形式新增依赖。纯文档变更仍只核对文档，不运行代码测试或重启。
 
 ### 7.5 需求追溯与验收矩阵
 
@@ -123,4 +135,4 @@ G2计划创建 `frontend/src/pages/jobs/JobSearch.test.ts`、`frontend/src/api/j
 
 只提交本次相关文件并推送 `origin/main`；不创建 PR、Tag 或公网部署。接入阻断时先完成公开核查和计划文档交付，再列出恢复条件；不能自行减少平台、改成用户登录或 Mock优先开发。开发完成且适用检查通过后，按持续授权重启日常后端，核对健康、资料、历史、投递记录与持久文件摘要。
 
-发生字段含义错误、来源身份冲突、凭据泄漏、原数据变化或门槛失效时，停止相关后续步骤并记录原因。新增存储需沿用非破坏性初始化与原库预检；不删表、不覆盖日常库、不把回退代码当作数据恢复。当前文档阶段的稳定点为 `a28c3d2`，产品代码和日常服务保持；未来代码阶段在实施前另记录准确的数据基线与恢复点。
+发生字段含义错误、来源身份冲突、凭据泄漏、原数据变化或门槛失效时，停止相关后续步骤并记录原因。新增存储沿用非破坏性初始化与原库预检；不删表、不覆盖日常库、不把回退代码当作数据恢复。最初文档阶段稳定点为 `a28c3d2`；本次代码实施前稳定点为 `c963ef4`，已在本机忽略目录备份日常数据库、持久文件、原JAR及接口摘要，实际重启核对见验证记录。

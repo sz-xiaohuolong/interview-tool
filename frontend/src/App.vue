@@ -36,7 +36,7 @@ onModelConfigurationChanged(refreshHealth)
     </section>
     <div class="training-route-surface">
       <LinkedConfigure v-if="props.trainingEnabled && route.path === '/configure/quick' && typeof route.query.trainingLinkId === 'string'" :key="route.fullPath" />
-      <RouterView v-else :key="route.meta.trainingWorkspace ? 'training-workspace' : route.fullPath" v-slot="{ Component }">
+      <RouterView v-else :key="route.meta.trainingWorkspace ? 'training-workspace' : route.meta.jobSearchWorkspace ? 'job-search-workspace' : route.fullPath" v-slot="{ Component }">
         <component :is="Component">
           <template #report-tools>
             <ReportTools v-if="props.trainingEnabled && route.path.startsWith('/reports/')" :key="route.fullPath" :session-id="String(route.params.id)" />

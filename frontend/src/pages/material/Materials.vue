@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { BriefcaseBusiness, ChevronDown, FileText, FolderOpen, LockKeyhole, Paperclip, Pencil, Plus, Search, Trash2, Upload } from 'lucide-vue-next'
 import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent, DropdownMenuItem } from 'reka-ui'
@@ -12,6 +12,7 @@ import EmptyState from '../../components/common/EmptyState.vue'
 import SourceCodeEvidence from '../../components/interview/SourceCodeEvidence.vue'
 import LoadingState from '../../components/common/LoadingState.vue'
 import FileDropzone from '../../components/material/FileDropzone.vue'
+import { sourceLabel } from '../../api/job-search'
 
 const kinds: { value: MaterialKind; label: string; description: string }[] = [
   { value: 'RESUME', label: '简历', description: '保存真实经历，让每一道押题都有依据。' },
@@ -77,7 +78,7 @@ const editorLabel = computed(() => kinds.find(item => item.value === editorKind.
 async function loadMaterials() {
   loading.value = true
   loadError.value = ''
-  try { materials.value = await request<Material[]>('/materials') }
+  try { materials.value = await request<Material[]>('/materials'); openRequestedMaterial() }
   catch (error) { loadError.value = errorMessage(error) }
   finally { loading.value = false }
 }
@@ -96,6 +97,16 @@ function showDetails(material: Material, remember = true) {
   detailMessage.value = ''
   detailOpen.value = true
 }
+
+function openRequestedMaterial() {
+  const materialId = typeof route.query.materialId === 'string' ? route.query.materialId : ''
+  if (!materialId) return
+  const requested = materials.value.find(item => item.id === materialId && (!route.query.kind || item.kind === route.query.kind))
+  if (!requested) { detailOpen.value = false; pageError.value = '目标资料不存在或已删除，可从当前列表选择其他资料。'; return }
+  pageError.value = ''; search.value = ''; kind.value = requested.kind
+  showDetails(requested)
+}
+watch(() => [route.query.materialId, route.query.kind], () => { if (!loading.value && !loadError.value) openRequestedMaterial() })
 
 async function openEditor(material?: Material, newKind?: MaterialKind) {
   if (busy.value || loading.value) return
@@ -302,6 +313,7 @@ onMounted(loadMaterials)
       <section v-if="selected" class="material-detail" aria-label="资料内容预览">
         <p class="material-detail-meta">{{ kinds.find(item => item.value === selected?.kind)?.label }} · 更新于 {{ dateTime(selected.updatedAt) }}</p>
         <Notice :message="detailError" kind="error" /><Notice :message="detailMessage" />
+        <section v-if="selected.jobSource" class="material-job-source" aria-label="岗位来源信息"><p>原站来源：{{ sourceLabel(selected.jobSource.source) }} · 原获取时间 {{ dateTime(selected.jobSource.fetchedAt) }}</p><p>{{ selected.jobSource.contentEdited ? '正文已由用户修改，保留原来源信息。' : '正文与获取时的原始内容一致。' }}</p><a v-if="selected.jobSource.url" data-job-source-link class="text-link" :href="selected.jobSource.url" target="_blank" rel="noopener noreferrer">查看原岗位（新标签打开）</a></section>
         <SourceCodeEvidence v-if="selected.kind === 'PROJECT'" :source="selected.repository" /><p v-if="selected.kind === 'PROJECT' && !selected.repository" class="form-help">未关联 GitHub 仓库，可编辑资料补充。</p>
         <section class="material-reading"><div class="heading-row"><h3>手工正文</h3><button class="text-link reading-edit" :disabled="busy" @click="openEditor(selected)"><Pencil :size="15" />编辑正文</button></div><pre v-if="selected.content">{{ selected.content }}</pre><p v-else class="muted tiny">尚未填写手工正文{{ selected.documents.length ? '，已上传的内容见下方附件。' : '，可通过编辑补充。' }}</p></section>
         <section class="form-section"><h3>附件 <span class="muted tiny">{{ selected.documents.length }} / 20</span></h3><p v-if="!selected.documents.length" class="muted tiny material-intro">暂无附件。</p>
@@ -347,6 +359,7 @@ onMounted(loadMaterials)
 .card-actions { display:flex; flex-wrap:wrap; gap:var(--space-1); padding-top:var(--space-2); border-top:1px solid var(--border-subtle); }.card-actions .btn { min-height:36px; padding-inline:var(--space-2); font-size:var(--material-meta-size); }.card-actions .btn:first-child { color:var(--accent-ink); }.card-actions .btn:last-child { margin-left:auto; }
 .material-empty { padding:var(--space-8) var(--space-4); border-block:1px solid var(--border-subtle); text-align:center; }.material-empty :deep(.empty-state) { border:0; padding:var(--space-6); }.materials-privacy { margin-top:var(--space-6); font-size:12px; }
 .material-detail { min-width:0; }.material-detail-meta { color:var(--text-muted); font-size:12px; margin-bottom:var(--space-5); }.material-detail-actions { display:flex; justify-content:space-between; flex-wrap:wrap; gap:var(--space-2); }.material-detail-actions .btn { min-height:36px; }
+.material-job-source { margin-bottom:var(--space-5); padding-bottom:var(--space-4); border-bottom:1px solid var(--border-subtle); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }.material-job-source p { margin-bottom:var(--space-2); color:var(--text-secondary); }
 .material-reading .heading-row { margin-bottom:var(--space-3); }.reading-edit { border:0; background:transparent; padding:var(--space-2); min-height:36px; flex-shrink:0; }
 .material-reading pre,.document-item pre { font-size:14px; line-height:1.75; max-width:72ch; color:var(--text-secondary); overflow-wrap:anywhere; }.material-reading > p { font-size:14px; }
 .document-item { padding:var(--space-3) 0; border-bottom:1px solid var(--border-subtle); }.document-item summary { display:flex; align-items:center; gap:var(--space-2); min-height:36px; font-size:14px; color:var(--accent-ink); }.document-item summary span { overflow-wrap:anywhere; min-width:0; }.document-item summary small { margin-left:auto; color:var(--text-muted); white-space:nowrap; }.document-item details[open] summary { margin-bottom:var(--space-3); }.document-delete { margin-top:var(--space-2); }.document-uploader { margin-top:var(--space-4); }.pending-files { margin-top:var(--space-3); font-size:14px; overflow-wrap:anywhere; }.pending-files ul { padding-left:var(--space-5); font-size:12px; color:var(--text-secondary); }.pending-actions { display:flex; flex-wrap:wrap; gap:var(--space-2); margin-top:var(--space-3); }

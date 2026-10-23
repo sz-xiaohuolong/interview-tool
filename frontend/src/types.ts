@@ -1,8 +1,9 @@
 import type { SourceCodeSnapshot, SourceQuestion } from './source-code'
 import type { ProjectEvidenceMatrix } from './project-evidence'
+import type { JobSourceLink } from './api/job-search'
 export type MaterialKind = 'RESUME' | 'PROJECT' | 'JD'
 export interface Document { id: string; name: string; text: string; truncated: boolean; createdAt: string }
-export interface Material { id: string; kind: MaterialKind; name: string; content: string; createdAt: string; updatedAt: string; documents: Document[]; repository?: SourceCodeSnapshot | null }
+export interface Material { id: string; kind: MaterialKind; name: string; content: string; createdAt: string; updatedAt: string; documents: Document[]; repository?: SourceCodeSnapshot | null; jobSource?: JobSourceLink | null }
 export interface Health { status: string; provider: string; configured: boolean; model: string; demo?: boolean }
 export type InterviewMode = 'QUICK' | 'RESUME' | 'PROJECT'
 export interface Message { id: string; role: 'ASSISTANT' | 'USER'; content: string; questionIndex: number; hasCodeEvidence?: boolean; followUp: boolean; createdAt: string }

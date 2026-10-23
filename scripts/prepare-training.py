@@ -37,7 +37,7 @@ def verify(connection, legacy, migration, checksum):
     if actual:
         for name, sql in schemas.items():
             # 已批准的独立附加表和索引可由新版启动补建，其他旧表和已有约束仍须完整核验。
-            if name in {'project_repositories', 'job_applications', 'idx_job_applications_list'} and name not in actual:
+            if name in {'project_repositories', 'job_applications', 'idx_job_applications_list','job_search_favorites','job_search_favorite_sources','idx_job_search_favorite_sources_favorite','job_search_jd_links'} and name not in actual:
                 continue
             if name not in actual or normalized(actual[name]) != normalized(sql):
                 raise ValueError('V2_SCHEMA_UNSUPPORTED：已存在结构不符合已知约束')

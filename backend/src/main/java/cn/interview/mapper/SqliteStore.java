@@ -41,10 +41,10 @@ public class SqliteStore {
     public ObjectNode decode(String value){try{return (ObjectNode)json.readTree(value);}catch(Exception e){throw new IllegalStateException("本地数据无法读取",e);}}
     public List<Material> materials(String kind) {
         if(kind!=null)choice(kind,"RESUME","PROJECT","JD");
-        return jdbc.query("SELECT * FROM materials "+(kind==null?"":"WHERE kind=? ")+"ORDER BY updated_at DESC",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(rs.getString("id")),repository(rs.getString("id"))),kind==null?new Object[]{}:new Object[]{kind});
+        return jdbc.query("SELECT * FROM materials "+(kind==null?"":"WHERE kind=? ")+"ORDER BY updated_at DESC",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(rs.getString("id")),repository(rs.getString("id")),jobSource(rs.getString("id"))),kind==null?new Object[]{}:new Object[]{kind});
     }
     public Material material(String id) {
-        List<Material> found=jdbc.query("SELECT * FROM materials WHERE id=?",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(id),repository(id)),id);
+        List<Material> found=jdbc.query("SELECT * FROM materials WHERE id=?",(rs,row)->new Material(rs.getString("id"),rs.getString("kind"),rs.getString("name"),rs.getString("content"),rs.getString("created_at"),rs.getString("updated_at"),documents(id),repository(id),jobSource(id)),id);
         if(found.isEmpty())throw ApiException.missing("资料不存在或已删除");return found.getFirst();
     }
     public List<Document> documents(String id){return jdbc.query("SELECT * FROM documents WHERE material_id=? ORDER BY created_at",(rs,row)->new Document(rs.getString("id"),rs.getString("name"),rs.getString("content"),rs.getInt("truncated")==1,rs.getString("created_at")),id);}
@@ -75,7 +75,13 @@ public class SqliteStore {
         else jdbc.update("INSERT INTO project_repositories(material_id,payload) VALUES(?,?) ON CONFLICT(material_id) DO UPDATE SET payload=excluded.payload",id,encode(repository));
     }
     public void insertMaterial(String id,String kind,String name,String content,String now) {jdbc.update("INSERT INTO materials VALUES(?,?,?,?,?,?)",id,kind,name,content,now,now);}
-    public void updateMaterial(String id,String name,String content,String now) {jdbc.update("UPDATE materials SET name=?,content=?,updated_at=? WHERE id=?",name,content,now,id);}
+    public void updateMaterial(String id,String name,String content,String now) {
+        jdbc.update("UPDATE materials SET name=?,content=?,updated_at=? WHERE id=?",name,content,now,id);
+        var rows=jdbc.queryForList("SELECT source_json,source_content_hash FROM job_search_jd_links WHERE material_id=?",id);
+        for(var row:rows)if(!cn.interview.common.ContentHash.sha(content).equals(row.get("source_content_hash"))){var source=decode((String)row.get("source_json"));source.put("contentEdited",true);jdbc.update("UPDATE job_search_jd_links SET source_json=? WHERE material_id=?",encode(source),id);}
+    }
+    public com.fasterxml.jackson.databind.JsonNode jobSource(String id){var rows=jdbc.queryForList("SELECT source_json FROM job_search_jd_links WHERE material_id=?",String.class,id);return rows.isEmpty()?null:decode(rows.getFirst());}
+    public com.fasterxml.jackson.databind.JsonNode jobSourceByKey(String key){var rows=jdbc.queryForList("SELECT l.source_json FROM job_search_jd_links l JOIN materials m ON m.id=l.material_id WHERE l.source_key=?",String.class,key);return rows.isEmpty()?null:decode(rows.getFirst());}
     public void touchMaterial(String id,String now) {jdbc.update("UPDATE materials SET updated_at=? WHERE id=?",now,id);}
     public void deleteMaterial(String id) {jdbc.update("DELETE FROM materials WHERE id=?",id);}
     public List<String> documentStorageNames(String materialId) {return jdbc.queryForList("SELECT storage_name FROM documents WHERE material_id=?",String.class,materialId);}

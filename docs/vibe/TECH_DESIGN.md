@@ -189,3 +189,13 @@ ANALYZE 不接收源码；PLAN、相关 FOLLOWUP 和 REVIEW 复用本场证据�
 失败示例：状态更新 `{"status":"UNKNOWN"}` 返回 400、`{"code":"INVALID_INPUT","message":"投递状态无效"}`，原记录保持。不存在 ID 为 404／NOT_FOUND；失效预览为 409／INVALID_STATE，提示重新预览且本次无写入。文件编码、表头、整体语法、空文件及超限为 400；可解析的行错误在预览中逐行报告。所有 SQL 值绑定参数，排序由白名单决定；原链接只保存 HTTP(S)，不发起网络请求；普通错误和日志不包含 JD／备注正文。
 
 CSV 格式、可逆公式保护和重复规则见 [V6 技术设计第 4 节](releases/v6/TECH_DESIGN.md#4-csv-格式与身份)。验证覆盖真实 SQLite、浏览器和实际进程重启，范围与限制见 [V6 验证](releases/v6/VERIFICATION.md)。当前数据初始化为追加表及索引，原表无修改；启动预检查与维护脚本仅允许这两个新增结构缺失，已有结构仍严格核验；日常／演示仍使用单一工程及不同数据库目录。
+
+## 13. 岗位搜索、收藏与来源 JD（2026-10-24）
+
+`/job-search` 通过 `frontend/src/api/job-search.ts` 访问独立的 `/api/job-search`。`JobSearchController` → `JobSearchService`／`JobSearchLibraryService` → `JobSearchStore`，招聘读取由 `CdpJobSourceGateway`／`CdpBrowser` 承担；它们均位于当前 `backend/`，没有新增版本工程或第二个 App。与 `/api/job-applications` 的手工投递管理分开。
+
+搜索任务仅存内存，按来源分批、失败、重试、停止和回收；每站每批最多20条、累计100条，按平台与真实职位身份去重。前端分别保存搜索／收藏选择，内部页签或详情 query 不重建模块；离开后停止任务，重进只恢复条件。完整 API、错误码、七城映射及字段口径见 [V6 技术契约第7节](releases/v6/TECH_DESIGN.md#7-岗位搜索技术契约2026-10-23)。
+
+SQLite 追加 `job_search_favorites`、`job_search_favorite_sources`、`job_search_jd_links`；原表和资料内容不重写。收藏保存不可覆盖的来源快照，JD 按来源幂等关联现有资料，取消收藏保留 JD，删除资料后可重新保存。`Material.jobSource` 可空，旧资料不带来源，编辑保留来源并更新正文修改事实；精确打开地址为 `/materials?kind=JD&materialId=...`。启动预检和维护脚本只允许这些已声明的新对象缺失，已有对象及未知结构继续严格核验。
+
+真实来源与软件检查分开：2026-10-23样例可读不保证当前连接可用；2026-10-24直接 CDP 握手超时，真实三站产品验收仍未通过。受控合成招聘浏览器只证明应用链路与错误边界，不用于宣称平台稳定性。实际结果与交付状态见 [V6 验证记录](releases/v6/VERIFICATION.md)。
