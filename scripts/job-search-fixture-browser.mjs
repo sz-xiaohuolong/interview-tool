@@ -28,7 +28,7 @@ const records = (source, batch, size) => Array.from({ length: size }, (_, index)
   return { id, url, title: `Java 后端工程师 · 合成${labels[source]}${n}`, company: `合成${labels[source]}科技`, location: '深圳·南山·科技园', salary: n === 2 ? '面议' : '20-30K·13薪', experience: n === 2 ? '' : '3-5年', education: n === 2 ? '' : '本科' }
 })
 const shell = (body, script = '') => `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>合成招聘测试页面</title></head><body>${body}<script>${script}</script></body></html>`
-const bossItems = jobs => jobs.map(job => ({ encryptJobId: job.id, jobName: job.title, brandName: job.company, cityName: '深圳', areaDistrict: '南山', businessDistrict: '科技园', salaryDesc: job.salary, jobExperience: job.experience, jobDegree: job.education, jobLabels: [], skills: [] }))
+const bossItems = jobs => jobs.map(job => ({ encryptJobId: job.id, securityId: `synthetic-${job.id}`, jobName: job.title, brandName: job.company, cityName: '深圳', areaDistrict: '南山', businessDistrict: '科技园', salaryDesc: job.salary, jobExperience: job.experience, jobDegree: job.education, jobLabels: [], skills: [] }))
 // 使用已在真实页面核实的字段，避免宽松别名掩盖适配器漏读。
 const zhaoItems = jobs => jobs.map(job => ({ jobId: Number(job.id.slice(-11)), number: job.id, name: job.title, positionURL: job.url, companyName: job.company, salary60: job.salary, salaryCount: '', workCity: '深圳', cityDistrict: '南山', streetName: '科技园', tradingArea: '', workingExp: job.experience, education: job.education, publishTime: '2026-10-20 09:30:00' }))
 function card(source, job) {
@@ -43,7 +43,14 @@ function listPage(source, url) {
   const batch = Number(url.searchParams.get('currentPage') || '0') + 1
   const size = source === 'BOSS' ? 15 : source === 'LIEPIN' ? 40 : 20
   const jobs = records(source, batch, size)
-  if (source === 'LIEPIN') return shell(jobs.map(job => card(source, job)).join('') + `<ul class="ant-pagination"><li class="ant-pagination-item ant-pagination-item-active">${batch}</li><li class="ant-pagination-item ant-pagination-item-${batch + 1}"><a href="/zhaopin/?key=${encodeURIComponent(keyword)}&dq=050090&currentPage=${batch}&pageSize=40">${batch + 1}</a></li><li class="ant-pagination-next"><a href="/zhaopin/?key=${encodeURIComponent(keyword)}&dq=050090&currentPage=${batch}&pageSize=40">下一页</a></li></ul>`)
+  if (source === 'LIEPIN') {
+    // 模拟真实列表顶部明确标注“广告”的推荐卡片，不能冒充关键词结果。
+    const ads = records(source, batch, 3).map((job, index) => ({ ...job, id: `fixtureliepinad${index}`, url: `https://www.liepin.com/job/fixtureliepinad${index}.shtml`, title: `合成广告岗位${index}` }))
+    const adCards = ads.map(job => card(source, job).replace('</a></div>', '</a><span class="fixture-ad">广告</span></div>')).join('')
+    const hidden = { ...jobs[0], id: 'fixtureliepinhidden', url: 'https://www.liepin.com/job/fixtureliepinhidden.shtml', title: '合成隐藏异地岗位', location: '佛山' }
+    const hiddenCard = card(source, hidden).replace('class="jobCardPcContainer"', 'class="jobCardPcContainer" style="display:none"')
+    return shell(adCards + hiddenCard + jobs.map(job => card(source, job)).join('') + `<ul class="ant-pagination"><li class="ant-pagination-item ant-pagination-item-active">${batch}</li><li class="ant-pagination-item ant-pagination-item-${batch + 1}"><a href="/zhaopin/?key=${encodeURIComponent(keyword)}&dq=050090&currentPage=${batch}&pageSize=40">${batch + 1}</a></li><li class="ant-pagination-next"><a href="/zhaopin/?key=${encodeURIComponent(keyword)}&dq=050090&currentPage=${batch}&pageSize=40">下一页</a></li></ul>`)
+  }
   const dataUrl = source === 'BOSS' ? '/wapi/zpgeek/search/joblist.json' : '/c/i/search/positions'
   const container = source === 'BOSS' ? '<ul class="rec-job-list" id="cards"></ul>' : '<div id="cards"></div>'
   const initialState = source === 'ZHAOPIN' ? `window.__INITIAL_STATE__={positionList:${JSON.stringify(zhaoItems(jobs))},hasMore:true,positionCount:200,pageIndex:1};` : ''
@@ -76,9 +83,11 @@ await context.route('**/*', async route => {
     return route.fulfill({ contentType: 'text/html; charset=utf-8', body: listPage(source, url) })
   }
   if (/^\/(job_detail|job|jobdetail)\//.test(url.pathname)) {
-    const selector = source === 'BOSS' ? '<div class="job-detail-body"><div class="desc">' : source === 'LIEPIN' ? '<div data-selector="job-intro-content">' : '<div class="job-description__content">'
+    if (source === 'BOSS' && url.pathname.endsWith('/fixtureboss0014.html') && url.searchParams.get('securityId') !== 'synthetic-fixtureboss0014') return route.fulfill({ status: 302, headers: { location: '/web/geek/jobs' } })
+    const bossAuthenticated = source === 'BOSS' && url.searchParams.has('securityId')
+    const selector = source === 'BOSS' ? bossAuthenticated ? '<div class="job-detail"><div class="job-detail-section"><h3>职位描述</h3><div class="job-sec-text">' : '<div class="job-detail-body"><div class="desc">' : source === 'LIEPIN' ? '<div data-selector="job-intro-content">' : '<div class="describtion-card__detail-content">'
     const restricted = source === 'BOSS' && url.pathname.endsWith('/fixtureboss0015.html')
-    const body = selector + htmlEscape(restricted ? '【合成截断正文】完整要求需登录查看。' : description) + (source === 'BOSS' ? '</div></div>' : '</div>')
+    const body = selector + htmlEscape(restricted ? '【合成截断正文】完整要求需登录查看。' : description + (source === 'BOSS' ? `\n【合成来源身份：${url.pathname.split('/').pop().replace('.html', '')}】` : '')) + (bossAuthenticated ? '</div></div></div>' : source === 'BOSS' ? '</div></div>' : '</div>')
     return route.fulfill({ contentType: 'text/html; charset=utf-8', body: shell(body + (restricted ? '<p>登录查看完整内容</p>' : '')) })
   }
   return route.abort('blockedbyclient')

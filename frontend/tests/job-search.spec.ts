@@ -53,7 +53,7 @@ test('三站分批、来源身份、原文筛选与真实详情不会调用面�
   expect(task.sources.map((source: any) => source.status)).toEqual(['READY', 'READY', 'READY'])
   expect(task.jobs.length).toBe(55)
   expect(new Set(task.jobs.map((job: any) => job.key)).size).toBe(task.jobs.length)
-  for (const job of task.jobs) { expect(job.key).toBe(`${job.source}:${job.sourceId}`); expect(job.url).not.toContain('?'); expect(job.title).toContain('合成') }
+  for (const job of task.jobs) { expect(job.key).toBe(`${job.source}:${job.sourceId}`); expect(job.url).not.toContain('?'); expect(job.title).toContain('合成'); expect(job.title).not.toContain('合成广告'); expect(job.title).not.toContain('合成隐藏') }
   const first = task.jobs.find((job: any) => job.source === 'BOSS')
   expect(first.salaryText).toBe('20-30K·13薪')
   await select(page, first.key)
@@ -161,6 +161,35 @@ test('详情出现登录限制时保留概要，不把截断内容保存为完�
   expect((await response.json()).code).toBe('SESSION_EXPIRED')
   const retained = await (await request.get(`${api}/tasks/${task.id}`)).json()
   expect(retained.jobs.find((item: any) => item.key === job.key).description).toBeNull()
+  await request.post(`${api}/tasks/${task.id}/stop`)
+})
+
+test('BOSS 临时访问参数只在后端复用，外链去参且正文身份匹配', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 1400 })
+  await page.goto('/job-search')
+  const task = await start(page, request, '合成技术岗', ['BOSS'])
+  await expect(page.locator('[data-job-detail]')).toContainText('【合成测试正文】')
+  const job = task.jobs.find((item: any) => item.sourceId === 'fixtureboss0014')
+  const response = await request.post(`${api}/tasks/${task.id}/jobs/${job.key}/detail`, { data: {} })
+  expect(response.ok()).toBe(true)
+  const detail = await response.json()
+  expect(detail.key).toBe(job.key)
+  expect(detail.url).toBe(job.url)
+  expect(JSON.stringify(detail)).not.toContain('synthetic-fixtureboss0014')
+  expect(detail.description).toContain('【合成来源身份：fixtureboss0014】')
+  await request.post(`${api}/tasks/${task.id}/stop`)
+})
+
+test('智联按实际正文容器读取完整内容并保持具体岗位身份', async ({ page, request }) => {
+  await page.setViewportSize({ width: 375, height: 1000 })
+  await page.goto('/job-search')
+  const task = await start(page, request, '合成技术岗', ['ZHAOPIN'])
+  const job = task.jobs[0]
+  const response = await request.post(`${api}/tasks/${task.id}/jobs/${job.key}/detail`, { data: {} })
+  expect(response.ok()).toBe(true)
+  const detail = await response.json()
+  expect(detail.key).toBe(job.key)
+  expect(detail.description).toContain('【合成测试正文】')
   await request.post(`${api}/tasks/${task.id}/stop`)
 })
 

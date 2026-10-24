@@ -15,6 +15,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.*;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -25,9 +26,20 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
     private final ObjectMapper json;
     private final JobCityCatalog cities;
     private final Path configured;
+    private volatile CdpBrowser sharedBrowser;
+    private volatile boolean closed;
     @Autowired public CdpJobSourceGateway(ObjectMapper json,JobCityCatalog cities){this(json,cities,null);}
     CdpJobSourceGateway(ObjectMapper json,JobCityCatalog cities,Path configured){this.json=json;this.cities=cities;this.configured=configured;}
-    @Override public Cursor open(String source,String keyword,String cityId){String code=cities.sourceCode(cityId,source);return new CdpCursor(source,keyword,cityId,code,new CdpBrowser(activePortFile(),json));}
+    @Override public synchronized Cursor open(String source,String keyword,String cityId){
+        if(closed)throw CdpBrowser.failure("SOURCE_NETWORK");
+        String code=cities.sourceCode(cityId,source);
+        return new CdpCursor(source,keyword,cityId,code,browser(),false);
+    }
+    private synchronized CdpBrowser browser(){
+        if(sharedBrowser==null)sharedBrowser=new CdpBrowser(activePortFile(),json);
+        return sharedBrowser;
+    }
+    @PreDestroy public synchronized void close(){closed=true;if(sharedBrowser!=null){sharedBrowser.close();sharedBrowser=null;}}
     private Path activePortFile(){
         if(configured!=null)return configured;
         String explicit=System.getenv("INTERVIEW_JOB_BROWSER_ACTIVE_PORT_FILE");if(explicit!=null&&!explicit.isBlank())return Path.of(explicit).toAbsolutePath().normalize();
@@ -36,23 +48,27 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
     private final class CdpCursor implements Cursor {
         private final String source,keyword,cityId,cityCode;
         private final CdpBrowser browser;
+        private final boolean ownsBrowser;
         private final CdpBrowser.Page page;
         private final BlockingQueue<Response> responses=new ArrayBlockingQueue<>(4);
         private final Map<String,Response> loading=new ConcurrentHashMap<>();
         private final AtomicBoolean permit=new AtomicBoolean(true);
         private final LinkedHashSet<String> seen=new LinkedHashSet<>();
+        // 源站列表提供的临时详情链接只留在游标内存，不进入岗位、收藏、日志或资料元数据。
+        private final Map<String,String> bossDetailLinks=new ConcurrentHashMap<>();
         private volatile boolean closed;
         private volatile int allowedPage=1;
         private volatile String bossRequestUrl;
         private int pageNumber;
         private boolean attempted;
-        CdpCursor(String source,String keyword,String cityId,String cityCode,CdpBrowser browser){
-            this.source=source;this.keyword=keyword;this.cityId=cityId;this.cityCode=cityCode;this.browser=browser;
+        CdpCursor(String source,String keyword,String cityId,String cityCode,CdpBrowser browser,boolean ownsBrowser){
+            this.source=source;this.keyword=keyword;this.cityId=cityId;this.cityCode=cityCode;this.browser=browser;this.ownsBrowser=ownsBrowser;
+            CdpBrowser.Page created=null;
             try{
-                this.page=browser.page();page.events(this::event);page.command("Network.enable",Map.of("maxTotalBufferSize",4_000_000,"maxResourceBufferSize",2_000_000));
+                created=browser.page();this.page=created;page.events(this::event);page.command("Network.enable",Map.of("maxTotalBufferSize",4_000_000,"maxResourceBufferSize",2_000_000));
                 if(source.equals("BOSS"))page.command("Fetch.enable",Map.of("patterns",List.of(Map.of("urlPattern","*://www.zhipin.com/wapi/zpgeek/search/joblist.json*","requestStage","Request"))));
                 page.navigate(searchUrl(0));
-            }catch(RuntimeException e){browser.close();throw e;}
+            }catch(RuntimeException e){if(created!=null)created.close();if(ownsBrowser)browser.close();throw e;}
         }
         private String searchUrl(int number){return switch(source){
             case "BOSS"->"https://www.zhipin.com/web/geek/jobs?query="+enc(keyword)+"&city="+cityCode;
@@ -66,7 +82,9 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
                 page.fire(allow?"Fetch.continueRequest":"Fetch.failRequest",allow?Map.of("requestId",p.path("requestId").asText()):Map.of("requestId",p.path("requestId").asText(),"errorReason","Aborted"));return;
             }
             if(method.equals("Network.responseReceived")){
-                JsonNode response=p.path("response");String url=response.path("url").asText();if(isListUrl(source,url)&&loading.size()<4){if(source.equals("BOSS"))bossRequestUrl=url;loading.put(p.path("requestId").asText(),new Response(p.path("requestId").asText(),response.path("status").asInt()));}
+                JsonNode response=p.path("response");String url=response.path("url").asText();int status=response.path("status").asInt();
+                // 智联滚动加载会先发一个 204 预检请求，不能把它当作列表正文读取；只等待实际有正文的 2xx 响应。
+                if(isListUrl(source,url)&&status>=200&&status<300&&status!=204&&loading.size()<4){if(source.equals("BOSS"))bossRequestUrl=url;loading.put(p.path("requestId").asText(),new Response(p.path("requestId").asText(),status));}
             }else if(method.equals("Network.loadingFinished")){Response r=loading.remove(p.path("requestId").asText());if(r!=null)responses.offer(r);}
             else if(method.equals("Network.loadingFailed"))loading.remove(p.path("requestId").asText());
         }
@@ -102,7 +120,7 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
             return new Batch(List.copyOf(fresh),more&&seen.size()<100);
         }
         private List<JobRecord> parseBoss(JsonNode rows){
-            var jobs=new ArrayList<JobRecord>();for(JsonNode r:rows){String id=text(r,"encryptJobId");if(id.isEmpty())continue;var n=json.createObjectNode().put("sourceId",id).put("url","https://www.zhipin.com/job_detail/"+id+".html").put("title",text(r,"jobName")).put("company",text(r,"brandName")).put("city",text(r,"cityName")).put("location",String.join("·",List.of(text(r,"cityName"),text(r,"areaDistrict"),text(r,"businessDistrict")).stream().filter(s->!s.isEmpty()).toList())).put("salaryText",text(r,"salaryDesc")).put("experienceText",text(r,"jobExperience")).put("educationText",text(r,"jobDegree"));JobRecord job=parseJob(source,n,cities.name(cityId));if(job!=null)jobs.add(job);}if(!rows.isEmpty()&&jobs.isEmpty())throw CdpBrowser.failure("SOURCE_CHANGED");return jobs;
+            var jobs=new ArrayList<JobRecord>();for(JsonNode r:rows){String id=text(r,"encryptJobId");if(id.isEmpty())continue;var n=json.createObjectNode().put("sourceId",id).put("url","https://www.zhipin.com/job_detail/"+id+".html").put("title",text(r,"jobName")).put("company",text(r,"brandName")).put("city",text(r,"cityName")).put("location",String.join("·",List.of(text(r,"cityName"),text(r,"areaDistrict"),text(r,"businessDistrict")).stream().filter(s->!s.isEmpty()).toList())).put("salaryText",text(r,"salaryDesc")).put("experienceText",text(r,"jobExperience")).put("educationText",text(r,"jobDegree"));JobRecord job=parseJob(source,n,cities.name(cityId));if(job!=null){jobs.add(job);String access=text(r,"securityId");if(!access.isBlank()&&access.length()<=8192&&bossDetailLinks.size()<100)bossDetailLinks.put(job.key(),job.url()+"?securityId="+enc(access));}}if(!rows.isEmpty()&&jobs.isEmpty())throw CdpBrowser.failure("SOURCE_CHANGED");return jobs;
         }
         private JsonNode networkBody(){
             long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);
@@ -117,14 +135,14 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
         @Override public synchronized JobRecord detail(JobRecord job){
             ensureOpen();if(cleanUrl(source,job.url())==null)throw ApiException.bad("岗位链接不属于对应招聘来源");
             try(CdpBrowser.Page detail=browser.page()){
-                detail.navigate(job.url());long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);
-                String selector=switch(source){case "BOSS"->".job-detail-body .desc";case "LIEPIN"->"[data-selector=job-intro-content]";default->".job-description__content";};
-                while(System.nanoTime()<end){ensureOpen();JsonNode result=detail.evaluate("(()=>{const e=document.querySelector("+quoted(selector)+");const body=document.body?.innerText||'';return {description:(e?.innerText||e?.textContent||'').trim(),url:location.href,title:document.title,text:body.slice(0,2500)+body.slice(-2500)}})()");checkPage(result);String description=text(result,"description");if(!description.isEmpty()){if(description.length()>100_000)throw CdpBrowser.failure("SOURCE_CHANGED");return job.withDescription(description,Instant.now().toString());}pause();}
+                detail.navigate(source.equals("BOSS")?bossDetailLinks.getOrDefault(job.key(),job.url()):job.url());long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);
+                String selector=switch(source){case "BOSS"->".job-detail .job-detail-section .job-sec-text, .job-detail-body .desc";case "LIEPIN"->"[data-selector=job-intro-content]";default->".describtion-card__detail-content";};
+                while(System.nanoTime()<end){ensureOpen();JsonNode result=detail.evaluate("(()=>{const e=document.querySelector("+quoted(selector)+");const body=document.body?.innerText||'';return {description:(e?.innerText||e?.textContent||'').trim(),url:location.href,title:document.title,text:body.slice(0,2500)+body.slice(-2500)}})()");checkPage(result);String description=text(result,"description"),actual=cleanUrl(source,text(result,"url"));if(!description.isEmpty()&&actual!=null&&identity(actual).equals(job.sourceId())){if(description.length()>100_000)throw CdpBrowser.failure("SOURCE_CHANGED");return job.withDescription(description,Instant.now().toString());}pause();}
                 throw CdpBrowser.failure("SOURCE_CHANGED");
             }
         }
         private void ensureOpen(){if(closed||Thread.currentThread().isInterrupted())throw CdpBrowser.failure("SOURCE_TIMEOUT");}
-        @Override public void close(){if(closed)return;closed=true;loading.clear();responses.clear();browser.close();}
+        @Override public void close(){if(closed)return;closed=true;loading.clear();responses.clear();bossDetailLinks.clear();try{page.close();}catch(RuntimeException ignored){}if(ownsBrowser)try{browser.close();}catch(RuntimeException ignored){}}
     }
     private record Response(String id,int status) {}
     private static boolean isListUrl(String source,String url){try{URI u=URI.create(url);return "https".equals(u.getScheme())&&u.getUserInfo()==null&&switch(source){case "BOSS"->"www.zhipin.com".equals(u.getHost())&&"/wapi/zpgeek/search/joblist.json".equals(u.getPath());case "ZHAOPIN"->Set.of("www.zhaopin.com","fe-api.zhaopin.com").contains(u.getHost())&&"/c/i/search/positions".equals(u.getPath());default->false;};}catch(Exception e){return false;}}
@@ -140,7 +158,7 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
     private static void checkPage(JsonNode n){String text=n.path("text").asText("");String url=n.path("url").asText("");String title=n.path("title").asText("");if(title.contains("安全验证")||url.matches(".*(?:/web/user/safe|/captcha|/verify|/security-check).*" )||text.matches("(?s).*(?:请完成安全验证|请进行安全验证|请拖动滑块|人机验证|验证码验证|^安全验证$).*"))throw new ApiException(503,"VERIFICATION_REQUIRED","来源需要安全验证");if(url.matches(".*(?:/login|/passport).*" )||text.matches("(?s).*(?:请先登录后|登录后查看|登录后继续|登录已过期|登录查看完整内容|登录查看全文|登录查看更多).*"))throw new ApiException(503,"SESSION_EXPIRED","来源需要恢复登录");if(text.matches("(?s).*(?:访问过于频繁|请求过于频繁|操作频繁，请稍后).*"))throw new ApiException(429,"RATE_LIMITED","来源暂时限流");}
     private static String pageStatus(){return "({url:location.href,title:document.title,text:(document.body?.innerText||'').slice(0,2500)})";}
     private static String liepinExpression(){return """
-        (()=>{const t=e=>(e?.innerText||e?.textContent||'').trim();const cards=[...document.querySelectorAll('.jobCardPcContainer')];const jobs=[];for(const c of cards){const a=c.querySelector('.jobDetailBox a[href*="/job/"],a[href*="/job/"],a[href*="/a/"]');if(!a)continue;const u=new URL(a.href,location.origin);const id=(u.pathname.match(/\\/(?:job|a)\\/([^/]+)\\.shtml$/)||[])[1];if(!id)continue;const lines=t(c).split(/\\n+/).map(x=>x.trim()).filter(Boolean);const title=t(c.querySelector('.job-title,.job-name,h3'))||lines[0]||'';const salary=t(c.querySelector('.job-salary,.salary'))||lines.find(x=>/\\d.*(?:[kK]|万|元|薪)/.test(x))||'';const place=t(c.querySelector('.job-dq,.job-location,.job-area'))||lines.find(x=>/北京|上海|广州|深圳|杭州|苏州|成都/.test(x))||'';jobs.push({sourceId:id,url:u.href,title,company:t(c.querySelector('.company-name,.company-name-text,[class*=companyName]')),city:'',location:place,salaryText:salary,experienceText:lines.find(x=>/经验|\\d+.*年|应届/.test(x))||'',educationText:lines.find(x=>/本科|大专|硕士|博士|学历|学历不限/.test(x))||''});}const body=t(document.body);return {jobs,hasMore:!!document.querySelector('.ant-pagination-next:not(.ant-pagination-disabled)'),emptyKnown:/没有找到|暂无职位|暂无相关职位/.test(body),url:location.href,title:document.title,text:body.slice(0,2500)}})()
+        (()=>{const t=e=>(e?.innerText||e?.textContent||'').trim();const cards=[...document.querySelectorAll('.jobCardPcContainer')];const jobs=[];for(const c of cards){if(!c.getClientRects().length)continue;const a=c.querySelector('.jobDetailBox a[href*="/job/"],a[href*="/job/"],a[href*="/a/"]');if(!a)continue;const u=new URL(a.href,location.origin);const id=(u.pathname.match(/\\/(?:job|a)\\/([^/]+)\\.shtml$/)||[])[1];if(!id)continue;const lines=t(c).split(/\\n+/).map(x=>x.trim()).filter(Boolean);if(lines.includes('广告'))continue;const title=t(c.querySelector('.job-title,.job-name,h3'))||lines[0]||'';const salary=t(c.querySelector('.job-salary,.salary'))||lines.find(x=>/\\d.*(?:[kK]|万|元|薪)/.test(x))||'';const place=t(c.querySelector('.job-dq,.job-location,.job-area'))||lines.find(x=>/北京|上海|广州|深圳|杭州|苏州|成都/.test(x))||'';jobs.push({sourceId:id,url:u.href,title,company:t(c.querySelector('.company-name,.company-name-text,[class*=companyName]')),city:'',location:place,salaryText:salary,experienceText:lines.find(x=>/经验|\\d+.*年|应届/.test(x))||'',educationText:lines.find(x=>/本科|大专|硕士|博士|学历|学历不限/.test(x))||''});}const body=t(document.body);return {jobs,hasMore:!!document.querySelector('.ant-pagination-next:not(.ant-pagination-disabled)'),emptyKnown:/没有找到|暂无职位|暂无相关职位/.test(body),url:location.href,title:document.title,text:body.slice(0,2500)}})()
         """;}
     private static String zhaopinExpression(){return """
         (()=>{const state=window.__INITIAL_STATE__;const list=state?.positionList;const jobs=Array.isArray(list)?list:(list?.list||list?.data?.list||[]);if(!jobs.length){for(const c of document.querySelectorAll('.job-card')){const a=c.querySelector('a[href*="/jobdetail/"]');if(a)jobs.push({positionURL:a.href,name:(c.querySelector('.job-card__title-clamp')?.innerText||a.innerText||'').trim(),salary:(c.querySelector('.job-card__salary')?.innerText||'').trim(),companyName:(c.querySelector('.job-card__company-name')?.innerText||'').trim(),workCity:(c.querySelector('.job-card__location')?.innerText||'').trim()});}}const text=(document.body?.innerText||'').slice(0,2500);return {jobs,hasMore:jobs.length>0,emptyKnown:/没有找到|暂无职位|暂无相关职位/.test(text),url:location.href,title:document.title,text}})()

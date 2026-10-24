@@ -100,7 +100,7 @@ public class JobSearchService {
         return new TaskSnapshot(t.id,t.keyword,t.cityId,t.cityName,t.stopped?"STOPPED":progress.stream().anyMatch(p->p.status.equals("SEARCHING"))?"RUNNING":"IDLE",t.revision,progress,List.copyOf(jobs));
     }
     private void stopTask(Task t){if(t.stopped)return;t.stopped=true;for(Run r:t.runs.values()){r.generation++;if(r.status.equals("SEARCHING")||r.more)r.status="STOPPED";r.more=false;r.buffer.clear();release(r);}t.revision++;}
-    private void release(Run r){if(r.future!=null)r.future.cancel(true);workers.purge();if(r.cursor!=null){r.cursor.close();r.cursor=null;}}
+    private void release(Run r){if(r.future!=null)r.future.cancel(true);workers.purge();if(r.cursor!=null){try{r.cursor.close();}catch(RuntimeException ignored){}finally{r.cursor=null;}}}
     synchronized void expire(){Instant before=clock.instant().minusSeconds(900);tasks.values().removeIf(t->{if(t.active.isBefore(before)){stopTask(t);return true;}return false;});}
     @PreDestroy public synchronized void close(){tasks.values().forEach(this::stopTask);tasks.clear();workers.shutdownNow();reaper.shutdownNow();}
 }
