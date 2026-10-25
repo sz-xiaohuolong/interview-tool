@@ -326,7 +326,7 @@ onBeforeUnmount(() => { leave(); observer?.disconnect(); window.removeEventListe
         <section v-if="task && allJobs.length" class="job-filters-section" aria-label="筛选已获取结果"><div class="filter-heading"><strong>筛选已获取结果</strong><button class="text-link mobile-filter-toggle" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">筛选（{{ filterCount }}）</button><span class="muted tiny">仅作用于本次已获取结果</span><button class="text-link" @click="clearFilters">清除筛选</button></div>
           <div class="job-filters" :class="{ expanded: filtersOpen }">
             <div class="filter-field"><label for="job-source-filter">结果来源</label><select id="job-source-filter" v-model="filters.source"><option value="">全部已搜索来源</option><option v-for="source in task.sources" :key="source.source" :value="source.source">{{ sourceLabel(source.source) }}</option></select></div>
-            <div class="filter-field salary-filter"><details><summary>月薪（k／月）{{ filters.minK ?? '不限' }}～{{ filters.maxK ?? '不限' }}</summary><div class="salary-inputs"><label>下限<input v-model="salaryMin" aria-label="最低月薪" inputmode="decimal" @blur="commitSalary" @keydown.enter.prevent="commitSalary" /></label><label>上限<input v-model="salaryMax" aria-label="最高月薪" inputmode="decimal" @blur="commitSalary" @keydown.enter.prevent="commitSalary" /></label></div></details><label class="check-label"><input v-model="filters.unknownSalary" type="checkbox" />保留未知／面议</label></div>
+            <div class="filter-field salary-filter"><label for="job-salary-filter">月薪（k／月）</label><details id="job-salary-filter"><summary>{{ filters.minK ?? '不限' }}～{{ filters.maxK ?? '不限' }}</summary><div class="salary-inputs"><label>下限<input v-model="salaryMin" aria-label="最低月薪" inputmode="decimal" @blur="commitSalary" @keydown.enter.prevent="commitSalary" /></label><label>上限<input v-model="salaryMax" aria-label="最高月薪" inputmode="decimal" @blur="commitSalary" @keydown.enter.prevent="commitSalary" /></label></div></details><label class="check-label"><input v-model="filters.unknownSalary" type="checkbox" />保留未知／面议</label></div>
             <div class="filter-field"><label for="job-experience">经验要求</label><select id="job-experience" v-model="filters.experience"><option value="">全部</option><option v-for="value in experienceOptions" :key="value">{{ value }}</option></select><label class="check-label"><input v-model="filters.unknownExperience" type="checkbox" />保留未知经验</label></div>
             <div class="filter-field"><label for="job-education">学历要求</label><select id="job-education" v-model="filters.education"><option value="">全部</option><option v-for="value in educationOptions" :key="value">{{ value }}</option></select><label class="check-label"><input v-model="filters.unknownEducation" type="checkbox" />保留未知学历</label></div>
           </div><Notice :message="salaryError" kind="error" /><p v-if="filtersOpen" class="tiny muted">未知表示未获取或无法可靠解释；原文明确“不限”是已知要求。</p><p v-if="filterCount" class="filter-summary">已设 {{ filterCount }} 项条件：{{ filters.source ? sourceLabel(filters.source) : '全部来源' }}；月薪 {{ filters.minK ?? '不限' }}～{{ filters.maxK ?? '不限' }}k；经验 {{ filters.experience || '全部' }}；学历 {{ filters.education || '全部' }}</p>
@@ -344,8 +344,9 @@ onBeforeUnmount(() => { leave(); observer?.disconnect(); window.removeEventListe
         <EmptyState v-else-if="tab === 'search' && task && !allJobs.length" :title="task.sources.every(source => source.status === 'FAILED') ? '本次搜索未能取得结果' : task.status === 'STOPPED' ? '已停止，尚未取得岗位' : task.sources.some(source => source.status === 'FAILED') ? '部分来源未完成，本次范围不完整' : '所选平台本次未找到岗位'" description="可修改条件重新搜索；失败来源可在上方单独重试。" />
         <EmptyState v-else-if="tab === 'search' && allJobs.length && !rows.length" title="当前筛选无匹配"><button class="btn btn-secondary" @click="clearFilters">清除筛选</button></EmptyState>
         <EmptyState v-else-if="tab === 'favorites' && !favoritesLoading && !favoritesError && !rows.length" title="还没有收藏的岗位"><button id="jobs-go-search" class="btn btn-secondary" @click="setTab('search')">去搜索</button></EmptyState>
-        <article v-for="row in rows" :key="row.id" class="job-row" :class="{ selected: row.sources.some(job => job.key === selectedKey) }">
-          <button class="job-row-main" :data-job-select="row.representative.key" @click="choose(row)"><div class="job-row-heading"><h2>{{ row.representative.title || '岗位名称未获取' }}</h2><strong class="job-salary">{{ row.representative.salaryText || '薪资未知' }}</strong></div><p class="job-company">{{ row.representative.company || '公司未知' }}</p><p class="job-requirements">{{ row.representative.location || row.representative.city || '地点未知' }} · {{ row.representative.experienceText || '经验未知' }} · {{ row.representative.educationText || '学历未知' }}</p><p v-if="row.representative.salaryMonths || (row.representative.salaryMinK == null && row.representative.salaryMaxK == null)" class="job-row-meta">{{ row.representative.salaryMonths ? `${row.representative.salaryMonths} 薪` : '' }} {{ row.representative.salaryMinK == null && row.representative.salaryMaxK == null ? '月薪口径未知' : '' }}</p><p class="job-row-meta">{{ sourceLabel(row.representative.source) }}概要／共 {{ row.sources.length }} 个来源 · 获取 {{ dateTime(row.representative.fetchedAt) }}</p><p v-if="row.representative.publishedAt" class="job-row-meta">发布时间 {{ row.representative.publishedAt }}</p><p v-if="sourceDifference(row.sources)" class="source-difference">来源信息有差异</p><p v-if="row.favorite" class="job-row-meta">首次收藏 {{ dateTime(row.favorite.createdAt) }}</p></button>
+        <div v-if="rows.length" class="job-list-header" role="row" aria-label="岗位列表字段"><span>更新时间</span><span>公司与职位</span><span>城市</span><span>薪资与要求</span><span>来源</span><span>操作</span></div>
+        <article v-for="row in rows" :key="row.id" class="job-row" :class="{ selected: row.sources.some(job => job.key === selectedKey) }" role="listitem">
+          <button class="job-row-main" :data-job-select="row.representative.key" @click="choose(row)"><span class="job-cell job-cell-time"><strong>{{ dateTime(row.representative.fetchedAt) }}</strong><small v-if="row.representative.publishedAt">发布 {{ row.representative.publishedAt }}</small></span><span class="job-cell job-cell-title"><strong>{{ row.representative.title || '岗位名称未获取' }}</strong><small>{{ row.representative.company || '公司未知' }}</small><small v-if="row.favorite">首次收藏 {{ dateTime(row.favorite.createdAt) }}</small></span><span class="job-cell job-cell-location"><span class="job-tag">{{ row.representative.city || '城市未知' }}</span><small>{{ row.representative.location || '地点未知' }}</small></span><span class="job-cell job-cell-requirements"><strong>{{ row.representative.salaryText || '薪资未知' }}</strong><small>{{ row.representative.experienceText || '经验未知' }} · {{ row.representative.educationText || '学历未知' }}</small><small v-if="row.representative.salaryMonths || (row.representative.salaryMinK == null && row.representative.salaryMaxK == null)">{{ row.representative.salaryMonths ? `${row.representative.salaryMonths} 薪` : '月薪口径未知' }}</small></span><span class="job-cell job-cell-source"><span class="job-tag source-tag">{{ sourceLabel(row.representative.source) }}</span><small>{{ sourceLabel(row.representative.source) }}概要 · 共 {{ row.sources.length }} 个来源</small><small v-if="sourceDifference(row.sources)" class="source-difference">信息有差异</small></span></button>
           <div class="job-row-actions"><button v-if="!row.favorite" data-job-favorite class="btn btn-ghost" :disabled="favoriteBusy[row.id] || !favoritesReady" :aria-label="`${favoriteLabel(row)}：${row.representative.title}`" @click="favorite(row)">{{ favoriteLabel(row) }}</button><button v-if="row.favorite || favoriteFor(row)" data-cancel-favorite class="text-link" :aria-label="`取消收藏：${row.representative.title}`" @click="askCancel(row.favorite || favoriteFor(row)!)">取消收藏</button></div><Notice :message="favoriteErrors[row.id]" kind="error" />
         </article>
         <footer v-if="tab === 'search' && task && allJobs.length" class="results-footer"><button v-if="canMore" class="btn btn-secondary" :disabled="running || actionBusy" @click="taskAction('more')">{{ actionBusy ? '正在加载…' : '加载更多' }}</button><p class="tiny muted">{{ task.status === 'STOPPED' ? '已停止；继续查询需重新搜索。' : task.sources.some(source => source.status === 'LIMIT') ? '部分来源已达本次获取上限，每站最多 100 条。' : !running && !canMore ? '已获取本次可用结果。' : '每批每站最多 20 条，按需加载更多。' }}</p></footer>
@@ -376,4 +377,47 @@ onBeforeUnmount(() => { leave(); observer?.disconnect(); window.removeEventListe
 @media(max-width:1100px) { .job-search-page .btn,.job-search-page input:not([type=checkbox]),.job-search-page select { min-height:44px; }.job-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) { .job-search-fields { grid-template-columns:minmax(0,1fr) auto; }.job-search-fields .form-field:first-child { grid-column:1 / -1; }.city-field { min-width:0; }.job-search-fields input,.job-jd-form input,.job-jd-form textarea { font-size:16px; }.job-search-page h1 { font-size:22px; }.source-checks { gap:12px 16px; }.source-checks legend { float:none; margin:0 0 8px; }.mobile-filter-toggle { display:inline-flex; }.job-filters { display:none; grid-template-columns:1fr; }.job-filters.expanded { display:grid; }.filter-heading > span { flex-basis:100%; }.job-row-heading { display:block; }.job-salary { display:block; margin-top:4px; }.job-detail { padding-inline:0; }.detail-facts { gap:12px; } }
 @media(prefers-reduced-motion:reduce) { .job-search-page * { scroll-behavior:auto!important; transition:none!important; } }
+
+/* 结果筛选统一控件高度，列表采用对齐的字段行。 */
+.job-filters { align-items: start; }
+.filter-field > label:first-child { min-height: 22px; margin-bottom: 8px; }
+.filter-field > select, .salary-filter details > summary { min-height: 44px; height: 44px; display: flex; align-items: center; }
+.filter-field .check-label { min-height: 44px; margin-top: 8px; align-items: center; }
+.salary-filter details { margin: 0; }
+.salary-filter details > summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.job-list-header { display: grid; grid-template-columns: 86px minmax(0,1.5fr) minmax(0,.85fr) minmax(0,1.15fr) minmax(0,.85fr) 110px; gap: 12px; align-items: center; padding: 12px 14px; border-block: 1px solid var(--border-subtle); background: var(--surface-soft); color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.job-list-header span:last-child { text-align: right; }
+.job-row { display: grid; grid-template-columns: minmax(0,1fr) 110px; align-items: stretch; }
+.job-row-main { display: grid; grid-template-columns: 86px minmax(0,1.5fr) minmax(0,.85fr) minmax(0,1.15fr) minmax(0,.85fr); gap: 12px; align-items: center; padding: 14px; }
+.job-cell { display: flex; min-width: 0; flex-direction: column; gap: 3px; overflow-wrap: anywhere; }
+.job-cell strong { font-size: 14px; font-weight: 600; line-height: 1.45; }
+.job-cell small { color: var(--text-muted); font-size: 12px; line-height: 1.55; }
+.job-cell-title strong { color: var(--text-primary); }
+.job-cell-requirements strong { color: var(--accent-ink); }
+.job-cell-location, .job-cell-source { align-items: flex-start; }
+.job-tag { display: inline-flex; align-items: center; width: fit-content; max-width: 100%; min-height: 28px; padding: 4px 9px; border-radius: 5px; background: var(--surface-soft); color: var(--text-secondary); font-size: 13px; line-height: 1.4; }
+.source-tag { background: var(--accent-soft); color: var(--accent-ink); }
+.job-row-actions { min-width: 0; align-items: center; justify-content: center; padding: 12px 10px; border-left: 1px solid var(--border-subtle); }
+.job-row-actions .btn, .job-row-actions .text-link { white-space: normal; text-align: center; }
+.job-row:hover .job-row-actions { background: var(--surface-soft); }
+.job-row.selected .job-row-actions { background: var(--accent-soft); }
+.job-row :deep(.notice) { grid-column: 1 / -1; }
+
+@media(max-width:900px) {
+  .job-list-header { grid-template-columns: 76px minmax(130px,1.4fr) minmax(78px,.8fr) minmax(110px,1fr) minmax(78px,.75fr) 92px; gap: 8px; padding-inline: 10px; }
+  .job-row { grid-template-columns: minmax(0,1fr) 92px; }
+  .job-row-main { grid-template-columns: 76px minmax(130px,1.4fr) minmax(78px,.8fr) minmax(110px,1fr) minmax(78px,.75fr); gap: 8px; padding-inline: 10px; }
+}
+
+@media(max-width:600px) {
+  .job-list-header { display: none; }
+  .job-row, .job-row-main { display: block; }
+  .job-row-main { padding: 14px 14px 8px; }
+  .job-cell { display: block; margin-bottom: 6px; }
+  .job-cell strong, .job-cell small { display: inline; }
+  .job-cell small::before { content: ' · '; color: var(--border-control); }
+  .job-cell-time small::before, .job-cell-title small:first-of-type::before { content: ''; }
+  .job-cell-location .job-tag, .job-cell-source .job-tag { display: inline-flex; margin-right: 6px; }
+  .job-row-actions { justify-content: flex-end; padding: 0 14px 12px; border-left: 0; }
+}
 </style>
