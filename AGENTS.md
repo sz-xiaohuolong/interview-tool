@@ -79,6 +79,57 @@
 - 行为先写失败测试，按实际风险验证。以真实命令结果记录证据，Mock 不能替代真实模型质量验证。
 - `.runtime/`、`.evidence/`、`backend/test-results/` 保存本地原始记录，不提交；公开归档只包含已检查的合成样本、必要摘要和源文件摘要。
 
+<!-- vibe-workflow:stack-rules:start -->
+## 项目技术栈与工程规范
+
+状态：`ESTABLISHED`
+
+事实依据：
+
+- `backend/pom.xml`：Java 21、Spring Boot 3.5.9、Maven、Spring AI、SQLite JDBC、JUnit/Spring Boot Test。
+- `frontend/package.json`、`frontend/package-lock.json`、`frontend/vite.config.ts`、`frontend/tsconfig.json`：Node.js `22.12+`（或 `24+`）、Vue 3.5、TypeScript 5.9 严格模式、Vite 6.4、Vitest 4.1、Playwright 1.56、Tailwind CSS 4.1、Vue Router 4.6。
+- `scripts/dev.sh`、`scripts/test.sh`、`scripts/e2e.sh` 与 `README.md`：启动、构建、单元测试和浏览器验收入口；脚本会为 Maven 固定使用 Java 21。
+- 2026-10-25 本机核对：Corretto Java 21、Maven 3.9.9、Node.js 23.11.0、npm 11.11.0；直接执行 Maven 时默认 JDK 为 23，必须沿用项目脚本或显式设置 Java 21。
+
+### 技术栈摘要
+
+- 后端是单一 Spring Boot 服务，代码与测试统一位于 `backend/`，使用按业务职责组织的 Controller、Service、Mapper、Entity、DTO、VO、Config、Exception 等包。
+- 前端是单一 Vue 3 + TypeScript 应用，入口、路由和 Vite 配置共用；接口客户端位于 `frontend/src/api/`，页面和组件按业务职责组织。
+- 数据默认保存在本机 SQLite；日常服务使用 8080／5173，演示服务使用独立的 8081／5174 数据与配置目录。
+
+### 验证命令
+
+- `./scripts/test.sh`：Python 启动隔离检查、后端 Maven 测试、前端 Vitest 和生产构建。
+- `cd frontend && npm test`：前端单元测试。
+- `cd frontend && npm run build`：前端类型检查与生产构建。
+- `bash scripts/e2e.sh`：使用临时数据目录的浏览器回归；不得把合成数据结果当作真实模型或外站质量证据。
+- `./scripts/dev.sh`：启动日常前后端；默认前端 `5173`、后端 `8080`。
+
+### 黄金规则
+
+1. 版本号只用于文档归档和兼容边界；业务实现始终复用同一后端、前端入口、路由和资源目录。
+2. Controller 负责参数校验与响应，Service 负责业务逻辑，Mapper/Store 负责数据库访问；新增 Java 类必须放在与职责匹配的 package 中。
+3. SQLite 写入使用现有事务与参数绑定，启动预检查不得覆盖未知结构或用户资料；数据边界和幂等约束由服务端负责。
+4. 修改公开接口或页面调用时，先核对真实客户端、路由和 Controller；兼容地址必须映射同一业务实现，失败不能静默改调旧接口。
+5. 没有密钥时不得静默退回 Mock；Mock 只能出现在明确标识的测试或演示数据边界内。
+6. 前端保持 TypeScript 严格模式，异步流程覆盖加载、成功、空数据和失败状态；可操作控件必须有真实行为和可理解的错误提示。
+7. 只监听回环地址，不提交密钥、个人资料、缓存、依赖目录和本地证据；日志与错误不得泄露资料正文或凭据。
+8. 验证范围按改动影响决定；纯文档修改只做文档与链接检查，不运行无关代码测试或重启服务。
+
+### 目录边界
+
+- `backend/src/main/java`、`backend/src/test`：后端源码与测试；`backend/src/main/resources`：Schema、Prompt 和静态知识资源。
+- `frontend/src`：Vue 页面、组件、路由、接口客户端和前端测试；`frontend/vite.config.ts`、`frontend/package.json`：前端工程入口。
+- `scripts/`：启动、构建、测试、隔离浏览器验收和数据准备脚本。
+- `docs/vibe/`、`DOCUMENT_MAP.md`、`DESIGN.md`：项目事实源与设计规范；`docs/vibe/releases/` 仅保存迭代历史。
+- `data/`、`.runtime/`、`.evidence/`、`node_modules/`、`backend/target/` 和生成截图属于本机运行或验证产物，不纳入提交。
+
+### 待核验事项
+
+- 直接执行 `mvn` 的本机默认 JDK 仍是 23；涉及后端构建和测试时沿用项目脚本或显式设置 Java 21。
+- 外站 CDP、真实模型和浏览器环境会随本机登录态与网络变化；相关验证必须按对应记录的输入、配置和环境重新核对。
+<!-- vibe-workflow:stack-rules:end -->
+
 ## 业务接口与兼容入口检查
 
 - 修改面试页面或接口前，先核对实际启动入口、路由注册、前端客户端与后端 Controller，不能根据页面名称或文档中的正式 Release 推断正在使用哪个接口。接口归属见 `docs/vibe/TECH_DESIGN.md` 第7节。
