@@ -28,9 +28,9 @@ const records = (source, batch, size) => Array.from({ length: size }, (_, index)
   return { id, url, title: `Java 后端工程师 · 合成${labels[source]}${n}`, company: `合成${labels[source]}科技`, location: '深圳·南山·科技园', salary: n === 2 ? '面议' : '20-30K·13薪', experience: n === 2 ? '' : '3-5年', education: n === 2 ? '' : '本科' }
 })
 const shell = (body, script = '') => `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>合成招聘测试页面</title></head><body>${body}<script>${script}</script></body></html>`
-const bossItems = jobs => jobs.map(job => ({ encryptJobId: job.id, securityId: `synthetic-${job.id}`, jobName: job.title, brandName: job.company, cityName: '深圳', areaDistrict: '南山', businessDistrict: '科技园', salaryDesc: job.salary, jobExperience: job.experience, jobDegree: job.education, jobLabels: [], skills: [] }))
+const bossItems = jobs => jobs.map(job => ({ encryptJobId: job.id, securityId: `synthetic-${job.id}`, jobName: job.title, brandName: job.company, cityName: '深圳', areaDistrict: '南山', businessDistrict: '科技园', salaryDesc: job.salary, jobExperience: job.experience, jobDegree: job.education, jobType: job.id.endsWith('0002') ? 4 : 0, jobLabels: [], skills: [] }))
 // 使用已在真实页面核实的字段，避免宽松别名掩盖适配器漏读。
-const zhaoItems = jobs => jobs.map(job => ({ jobId: Number(job.id.slice(-11)), number: job.id, name: job.title, positionURL: job.url, companyName: job.company, salary60: job.salary, salaryCount: '', workCity: '深圳', cityDistrict: '南山', streetName: '科技园', tradingArea: '', workingExp: job.experience, education: job.education, publishTime: '2026-10-20 09:30:00' }))
+const zhaoItems = jobs => jobs.map(job => ({ jobId: Number(job.id.slice(-11)), number: job.id, name: job.title, positionURL: job.url, companyName: job.company, salary60: job.salary, salaryCount: '', workCity: '深圳', cityDistrict: '南山', streetName: '科技园', tradingArea: '', workingExp: job.experience, education: job.education, workType: '全职', publishTime: '2026-10-20 09:30:00' }))
 function card(source, job) {
   if (source === 'BOSS') return `<li class="job-card-wrapper"><a class="job-name" href="${job.url}">${job.title}</a><span class="company-name">${job.company}</span><span class="salary">\ue001\ue002</span><span class="job-area">${job.location}</span><ul class="tag-list"><li>${job.experience}</li><li>${job.education}</li></ul></li>`
   if (source === 'LIEPIN') return `<div class="jobCardPcContainer"><a class="jobDetailBox" href="${job.url}"><div class="job-title-box"><div class="job-title">${job.title}</div></div><p class="job-salary">${job.salary}</p><p class="company-name">${job.company}</p><p class="job-dq">${job.location}</p><p class="job-edu">${job.education}</p><p class="job-exp">${job.experience}</p></a></div>`
@@ -38,11 +38,19 @@ function card(source, job) {
 }
 function listPage(source, url) {
   const keyword = url.searchParams.get('query') || url.searchParams.get('key') || url.searchParams.get('kw') || ''
+  if (keyword.includes('合成全国')) {
+    const [parameter, code] = { BOSS: ['city', '100010000'], LIEPIN: ['dq', '410'], ZHAOPIN: ['jl', '489'] }[source]
+    if (url.searchParams.get(parameter) !== code) return shell('<h1>合成测试：缺少明确的全国城市条件</h1>')
+  }
   if (keyword.includes('全部失败') || keyword.includes('部分失败') && source === 'LIEPIN') return shell('<h1>请完成安全验证</h1><p>合成验证码状态，不进行真实验证。</p>')
   if (keyword.includes('空结果')) return shell('<div class="empty">暂无相关职位，没有搜索结果</div>', source === 'ZHAOPIN' ? 'window.__INITIAL_STATE__={positionList:[],hasMore:false,positionCount:0};' : source === 'BOSS' ? `fetch('/wapi/zpgeek/search/joblist.json?page=1&query='+encodeURIComponent(${JSON.stringify(keyword)}));` : '')
   const batch = Number(url.searchParams.get('currentPage') || '0') + 1
   const size = source === 'BOSS' ? 15 : source === 'LIEPIN' ? 40 : 20
   const jobs = records(source, batch, size)
+  if (keyword.includes('合成全国') && source === 'LIEPIN') {
+    // 对齐当前源站的标题与地点结构，覆盖原七城以外的城市；岗位性质缺失时保留未知。
+    return shell(jobs.map((job, index) => `<div class="jobCardPcContainer"><div class="jobDetailBox"><a data-nick="job-detail-job-info" href="${job.url}"><div class="jobTitleBox"><div class="ellipsis-1">${job.title}</div><div><span>【</span><span class="ellipsis-1">${index % 2 ? '武汉-江夏区' : '青岛-市南区'}</span><span>】</span></div></div><span>${job.salary}</span><div><span>${job.experience}</span><span>${job.education}</span></div></a><span class="companyName">${job.company}</span></div></div>`).join('') + '<li class="ant-pagination-next"><a>下一页</a></li>')
+  }
   if (source === 'LIEPIN') {
     // 模拟真实列表顶部明确标注“广告”的推荐卡片，不能冒充关键词结果。
     const ads = records(source, batch, 3).map((job, index) => ({ ...job, id: `fixtureliepinad${index}`, url: `https://www.liepin.com/job/fixtureliepinad${index}.shtml`, title: `合成广告岗位${index}` }))
@@ -53,12 +61,14 @@ function listPage(source, url) {
   }
   const dataUrl = source === 'BOSS' ? '/wapi/zpgeek/search/joblist.json' : '/c/i/search/positions'
   const container = source === 'BOSS' ? '<ul class="rec-job-list" id="cards"></ul>' : '<div id="cards"></div>'
-  const initialState = source === 'ZHAOPIN' ? `window.__INITIAL_STATE__={positionList:${JSON.stringify(zhaoItems(jobs))},hasMore:true,positionCount:200,pageIndex:1};` : ''
+  const stateData = source === 'ZHAOPIN' ? JSON.stringify({ positionList: zhaoItems(jobs), hasMore: true, positionCount: 200, pageIndex: 1 }) : ''
+  const embeddedState = source === 'ZHAOPIN' && keyword.includes('合成全国') ? `<script>__INITIAL_STATE__=${stateData};</script><script>delete window.__INITIAL_STATE__;</script>` : ''
+  const initialState = source === 'ZHAOPIN' && !embeddedState ? `window.__INITIAL_STATE__=${stateData};` : ''
   // 正常浏览器 fetch 产生可被 CDP 读取的响应；滚动只追加一批。
-  return shell(container + '<div style="height:1800px">合成测试分页区域</div>', `${initialState}
+  return shell(embeddedState + container + '<div style="height:1800px">合成测试分页区域</div>', `${initialState}
     let batch=1,busy=false;const source=${JSON.stringify(source)};
     const snippets=${JSON.stringify(Array.from({ length: 8 }, (_, i) => records(source, i + 1, size).map(job => card(source, job)).join('')))};
-    async function load(){if(busy||batch>7)return;busy=true;try{const r=await fetch(${JSON.stringify(dataUrl)}+'?page='+batch+'&query='+encodeURIComponent(${JSON.stringify(keyword)}));const d=await r.json();document.getElementById('cards').insertAdjacentHTML('beforeend',snippets[batch-1]);${source === 'ZHAOPIN' ? 'if(batch>1)window.__INITIAL_STATE__.positionList.push(...d.data.list);window.__INITIAL_STATE__.pageIndex=batch;' : ''}batch++;}finally{busy=false;}}
+    async function load(){if(busy||batch>7)return;busy=true;try{const r=await fetch(${JSON.stringify(dataUrl)}+'?page='+batch+'&query='+encodeURIComponent(${JSON.stringify(keyword)}));const d=await r.json();document.getElementById('cards').insertAdjacentHTML('beforeend',snippets[batch-1]);${source === 'ZHAOPIN' ? 'if(window.__INITIAL_STATE__){if(batch>1)window.__INITIAL_STATE__.positionList.push(...d.data.list);window.__INITIAL_STATE__.pageIndex=batch;}' : ''}batch++;}finally{busy=false;}}
     addEventListener('scroll',()=>{if(scrollY+innerHeight>=document.documentElement.scrollHeight-120)void load();});void load();`)
 }
 

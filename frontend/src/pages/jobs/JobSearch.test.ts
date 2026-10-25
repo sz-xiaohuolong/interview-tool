@@ -13,7 +13,7 @@ function button(text: string) { const target = body.findAll('button').find(item 
 function api(handler: (url: string, options?: RequestInit) => Response | Promise<Response> | undefined) {
   vi.stubGlobal('fetch', vi.fn((url: string, options?: RequestInit) => {
     const response = handler(url, options); if (response) return Promise.resolve(response)
-    if (url === '/api/job-search/cities' && !options?.method) return Promise.resolve(respond([{ id: 'sz', name: '深圳' }]))
+    if (url === '/api/job-search/cities' && !options?.method) return Promise.resolve(respond([{ id: 'all', name: '所有' }, { id: 'sz', name: '深圳' }]))
     if (url === '/api/job-search/favorites' && !options?.method) return Promise.resolve(respond([]))
     if (url === '/api/job-search/jd-links/lookup' && options?.method === 'POST') return Promise.resolve(respond(Object.fromEntries(JSON.parse(String(options.body)).keys.map((key: string) => [key, null]))))
     if (url.endsWith('/stop') && options?.method === 'POST') return Promise.resolve(respond(snapshot({ status: 'STOPPED' })))
@@ -153,6 +153,14 @@ it('城市选择器支持展开、键盘确认和清除', async () => {
   await input.trigger('keydown', { key: 'ArrowDown' }); await input.trigger('keydown', { key: 'Enter' }); await flushPromises()
   expect((input.element as HTMLInputElement).value).toBe('深圳'); expect(body.find('[role="listbox"]').exists()).toBe(false)
   await body.get('[aria-label="清除城市"]').trigger('click'); expect((input.element as HTMLInputElement).value).toBe('')
+})
+it('城市可以选择“所有”，请求使用 all 且不绑定具体城市', async () => {
+  let input: any
+  api((url, options) => { if (url === '/api/job-search/tasks' && options?.method === 'POST') { input = JSON.parse(String(options.body)); return respond(snapshot({ cityId: 'all', cityName: '所有' })) } })
+  await render(); await body.get('#job-city').trigger('focus'); await body.get('#job-city-option-all').trigger('click')
+  expect((body.get('#job-city').element as HTMLInputElement).value).toBe('所有')
+  await body.get('#job-keyword').setValue('Java'); await body.get('#job-search-form').trigger('submit'); await flushPromises()
+  expect(input).toEqual({ keyword: 'Java', cityId: 'all', sources: ['BOSS', 'LIEPIN', 'ZHAOPIN'] }); expect(body.text()).toContain('本次：Java／所有')
 })
 it('缺少关键词、未知城市与未选来源就近说明且不发请求', async () => {
   let starts = 0; api((url, options) => { if (url === '/api/job-search/tasks' && options?.method === 'POST') { starts++; return respond(snapshot()) } })

@@ -21,7 +21,7 @@ class JobSearchHttpTest {
     @DynamicPropertySource static void config(DynamicPropertyRegistry r) { r.add("app.data-dir",()->DATA.toString()); }
     @Autowired MockMvc mvc;
     @Test void citiesAndMissingTaskAreExplicit() throws Exception {
-        mvc.perform(get("/api/job-search/cities")).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value("shenzhen"));
+        mvc.perform(get("/api/job-search/cities")).andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value("all")).andExpect(jsonPath("$[0].name").value("所有"));
         mvc.perform(get("/api/job-search/tasks/absent")).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
     @Test void invalidSearchAndUntrustedIdentityAreRejected() throws Exception {

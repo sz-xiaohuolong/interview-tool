@@ -28,4 +28,46 @@ class JobSourceParsingTest {
         var job=CdpJobSourceGateway.parseJob("BOSS",n,"深圳");assertThat(job.key()).isEqualTo("BOSS:real-id");assertThat(job.salaryText()).isEmpty();assertThat(job.salaryMinK()).isNull();assertThat(job.educationText()).isEqualTo("不限");
         n.put("sourceId","made-from-title");assertThat(CdpJobSourceGateway.parseJob("BOSS",n,"深圳")).isNull();
     }
+
+    @Test void bossTypeCodesAreExpandedBeforeClassification(){
+        var json=new ObjectMapper();
+        assertThat(CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",4))).contains("实习");
+        assertThat(CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",0))).contains("全职");
+        assertThat(CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",5))).contains("校招");
+        assertThat(CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",6))).contains("兼职");
+    }
+
+    @Test void concreteBossTypeCodeIsReflectedInTheUnifiedJobType(){
+        var json=new ObjectMapper();
+        var internship=json.createObjectNode().put("sourceId","intern").put("title","Java 工程师").put("url","https://www.zhipin.com/job_detail/intern.html").put("jobTypeText",CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",4)));
+        var fullTime=json.createObjectNode().put("sourceId","full").put("title","Java 工程师").put("url","https://www.zhipin.com/job_detail/full.html").put("jobTypeText",CdpJobSourceGateway.bossTypeText(json.createObjectNode().put("jobType",0)));
+        assertThat(CdpJobSourceGateway.parseJob("BOSS",internship,"深圳").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.DAILY_INTERNSHIP);
+        assertThat(CdpJobSourceGateway.parseJob("BOSS",fullTime,"深圳").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.FULL_TIME);
+    }
+
+    @Test void zhaopinWorkTypeIsUsedWhenJobTypeAliasIsMissing(){
+        var json=new ObjectMapper();var gateway=new CdpJobSourceGateway(json,new cn.interview.service.jobsearch.JobCityCatalog());
+        var row=json.createObjectNode().put("name","Java 工程师").put("number","CC000000000J10000000001").put("positionURL","https://www.zhaopin.com/jobdetail/CC000000000J10000000001.htm").put("companyName","合成公司").put("workCity","深圳").put("workType","全职");
+        assertThat(gateway.parseZhaopinJob(row,"深圳").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.FULL_TIME);
+    }
+
+    @Test void zhaopinNestedTypeAndStructuredLabelsAreReadWithoutTreatingCompanyNatureAsEmployment() throws Exception {
+        var json=new ObjectMapper();var gateway=new CdpJobSourceGateway(json,new cn.interview.service.jobsearch.JobCityCatalog());
+        var row=json.readTree("""
+            {"name":"Java 工程师","positionURL":"https://www.zhaopin.com/jobdetail/CC000000000J10000000002.htm",
+             "workCity":"青岛","jobDetailData":{"position":{"base":{"workType":"全职"}}}}
+            """);
+        assertThat(gateway.parseZhaopinJob(row,"所有").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.FULL_TIME);
+        ((com.fasterxml.jackson.databind.node.ObjectNode)row).remove("jobDetailData");
+        ((com.fasterxml.jackson.databind.node.ObjectNode)row).put("propertyName","全职教育机构");
+        assertThat(gateway.parseZhaopinJob(row,"所有").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.UNKNOWN);
+        ((com.fasterxml.jackson.databind.node.ObjectNode)row).set("workType",json.readTree("{\"name\":\"实习\"}"));
+        assertThat(gateway.parseZhaopinJob(row,"所有").jobType()).isEqualTo(cn.interview.entity.jobsearch.JobType.DAILY_INTERNSHIP);
+        ((com.fasterxml.jackson.databind.node.ObjectNode)row).remove("workType");
+        for(String alias:java.util.List.of("jobType","positionType")){
+            ((com.fasterxml.jackson.databind.node.ObjectNode)row).put(alias,"全职");
+            assertThat(gateway.parseZhaopinJob(row,"所有").jobType()).as(alias).isEqualTo(cn.interview.entity.jobsearch.JobType.FULL_TIME);
+            ((com.fasterxml.jackson.databind.node.ObjectNode)row).remove(alias);
+        }
+    }
 }

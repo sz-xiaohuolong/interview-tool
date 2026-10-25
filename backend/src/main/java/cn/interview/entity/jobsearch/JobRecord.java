@@ -16,4 +16,9 @@ public record JobRecord(String key,String source,String sourceId,String title,St
         return new JobRecord(key,source,sourceId,title,company,city,location,url,salaryText,salaryMinK,salaryMaxK,salaryMonths,
             experienceText,educationText,text,fetchedAt,time,publishedAt,jobType);
     }
+
+    public JobRecord withJobType(JobType value) {
+        return new JobRecord(key,source,sourceId,title,company,city,location,url,salaryText,salaryMinK,salaryMaxK,salaryMonths,
+            experienceText,educationText,description,fetchedAt,detailFetchedAt,publishedAt,value == null ? JobType.UNKNOWN : value);
+    }
 }

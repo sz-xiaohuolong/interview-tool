@@ -42,6 +42,31 @@ test.beforeEach(async ({ request }) => {
   }
 })
 
+test('所有城市发送全国条件并保留真实地点及可判定岗位类型', async ({ page, request }) => {
+  await page.goto('/job-search')
+  await page.locator('#job-keyword').fill('合成全国 Java')
+  await page.locator('#job-city').fill('所有')
+  await page.locator('#job-city-option-all').click()
+  const createdResponse = page.waitForResponse(response => new URL(response.url()).pathname === `${api}/tasks` && response.request().method() === 'POST')
+  await page.getByRole('button', { name: '开始搜索', exact: true }).click()
+  const created = await (await createdResponse).json()
+  try {
+    let task = await idle(request, created.id)
+    expect(task.cityId).toBe('all')
+    expect(task.sources.map((source: any) => source.status)).toEqual(['READY', 'READY', 'READY'])
+    expect(task.jobs.filter((job: any) => job.source === 'BOSS').map((job: any) => job.jobType)).toContain('DAILY_INTERNSHIP')
+    expect(task.jobs.filter((job: any) => job.source === 'ZHAOPIN').every((job: any) => job.jobType === 'FULL_TIME')).toBe(true)
+    const liepin = task.jobs.filter((job: any) => job.source === 'LIEPIN')
+    expect(new Set(liepin.map((job: any) => job.city))).toEqual(new Set(['青岛', '武汉']))
+    expect(liepin.every((job: any) => job.company === '合成猎聘科技' && job.jobType === 'UNKNOWN')).toBe(true)
+    await request.post(`${api}/tasks/${task.id}/more`, { data: {} })
+    task = await idle(request, task.id)
+    expect(task.sources.map((source: any) => source.status)).toEqual(['READY', 'READY', 'READY'])
+    expect(task.jobs.filter((job: any) => job.source === 'LIEPIN').length).toBe(40)
+    expect(task.jobs.filter((job: any) => job.source === 'ZHAOPIN').every((job: any) => job.jobType === 'FULL_TIME')).toBe(true)
+  } finally { await request.post(`${api}/tasks/${created.id}/stop`) }
+})
+
 test('三站分批、来源身份、原文筛选与真实详情不会调用面试接口', async ({ page, request }) => {
   const errors: string[] = [], writes: string[] = []
   // 本例验证持续双栏中的筛选流程；低高度降级由专门场景覆盖。
@@ -225,6 +250,8 @@ for (const width of [375, 768, 820, 1024, 1280, 1440]) {
     await page.setViewportSize({ width, height: 1000 }); await page.goto('/job-search')
     const task = await start(page, request, '合成技术岗', ['BOSS'])
     await noOverflow(page, width); await capture(page, `list-${width}`)
+    // 宽屏会自动读取首条正文；等待这一操作完成，避免与本例的手动切换竞争同一来源。
+    if (await page.locator('[data-job-detail]').isVisible()) await expect(page.locator('[data-job-detail]')).toContainText('【合成测试正文】')
     const key = task.jobs[2].key
     await select(page, key)
     await expect(page.locator('[data-job-detail]')).toContainText('【合成测试正文】')

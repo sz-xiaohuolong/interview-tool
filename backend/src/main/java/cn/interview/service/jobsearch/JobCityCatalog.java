@@ -10,6 +10,8 @@ public class JobCityCatalog {
     // 只列入三站真实样例已核实的城市；扩展前必须核实三站来源码。
     private record City(String id,String name,Map<String,String> codes){}
     private static final List<City> CITIES=List.of(
+        // 明确传递全国代码；省略参数可能沿用浏览器记住的城市。
+        new City("all","所有",Map.of("BOSS","100010000","LIEPIN","410","ZHAOPIN","489")),
         new City("shenzhen","深圳",Map.of("BOSS","101280600","LIEPIN","050090","ZHAOPIN","765")),
         new City("beijing","北京",Map.of("BOSS","101010100","LIEPIN","010","ZHAOPIN","530")),
         new City("shanghai","上海",Map.of("BOSS","101020100","LIEPIN","020","ZHAOPIN","538")),
