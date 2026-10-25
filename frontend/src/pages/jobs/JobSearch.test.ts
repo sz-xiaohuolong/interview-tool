@@ -113,6 +113,14 @@ it('恢复支持城市的 ID 映射，不自动搜索且未修改时不误报条
   await body.get('#job-search-form').trigger('submit'); await flushPromises(); expect(starts).toBe(1); expect(body.text()).not.toContain('条件已修改')
   expect(JSON.parse(localStorage.getItem('job-search:draft')!).cityId).toBe('sz')
 })
+it('城市选择器支持展开、键盘确认和清除', async () => {
+  api(() => undefined)
+  await render(); const input = body.get('#job-city')
+  await input.trigger('focus'); expect(body.get('[role="listbox"]').text()).toContain('深圳')
+  await input.trigger('keydown', { key: 'ArrowDown' }); await input.trigger('keydown', { key: 'Enter' }); await flushPromises()
+  expect((input.element as HTMLInputElement).value).toBe('深圳'); expect(body.find('[role="listbox"]').exists()).toBe(false)
+  await body.get('[aria-label="清除城市"]').trigger('click'); expect((input.element as HTMLInputElement).value).toBe('')
+})
 it('缺少关键词、未知城市与未选来源就近说明且不发请求', async () => {
   let starts = 0; api((url, options) => { if (url === '/api/job-search/tasks' && options?.method === 'POST') { starts++; return respond(snapshot()) } })
   await render(); await body.get('#job-search-form').trigger('submit'); expect(body.text()).toContain('请填写岗位关键词')
