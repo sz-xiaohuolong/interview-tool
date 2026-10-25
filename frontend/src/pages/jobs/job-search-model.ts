@@ -1,6 +1,6 @@
-import type { JobRecord, JobSource } from '../../api/job-search'
-export interface ResultFilters { source: JobSource | ''; minK: number | null; maxK: number | null; experience: string; education: string; unknownSalary: boolean; unknownExperience: boolean; unknownEducation: boolean }
-export const defaultFilters = (): ResultFilters => ({ source: '', minK: null, maxK: null, experience: '', education: '', unknownSalary: true, unknownExperience: true, unknownEducation: true })
+import type { JobRecord, JobSource, JobType } from '../../api/job-search'
+export interface ResultFilters { source: JobSource | ''; jobType: JobType | ''; minK: number | null; maxK: number | null; experience: string; education: string; unknownSalary: boolean; unknownJobType: boolean; unknownExperience: boolean; unknownEducation: boolean }
+export const defaultFilters = (): ResultFilters => ({ source: '', jobType: '', minK: null, maxK: null, experience: '', education: '', unknownSalary: true, unknownJobType: true, unknownExperience: true, unknownEducation: true })
 const normalize = (text?: string | null) => text?.replace(/\s+/g, ' ').trim() || ''
 export function deduplicateJobs(jobs: JobRecord[]) {
   const result = new Map<string, JobRecord>()
@@ -32,6 +32,8 @@ export function groupJobs(jobs: JobRecord[]): JobGroup[] {
 }
 export function matchesJob(job: JobRecord, filters: ResultFilters) {
   if (filters.source && filters.source !== job.source) return false
+  const jobType = job.jobType || 'UNKNOWN'
+  if (jobType === 'UNKNOWN' ? !filters.unknownJobType : filters.jobType && filters.jobType !== jobType) return false
   const salaryUnknown = job.salaryMinK == null && job.salaryMaxK == null
   if (salaryUnknown ? !filters.unknownSalary : (filters.minK != null && (job.salaryMaxK ?? Infinity) < filters.minK) || (filters.maxK != null && (job.salaryMinK ?? -Infinity) > filters.maxK)) return false
   const experience = job.experienceText?.trim() || '', education = job.educationText?.trim() || ''
@@ -43,5 +45,5 @@ export function originalOptions(jobs: JobRecord[], field: 'experienceText' | 'ed
   return [...new Set(jobs.map(job => job[field]?.trim()).filter((value): value is string => !!value))]
 }
 export function sourceDifference(jobs: JobRecord[]) {
-  return ['salaryText', 'experienceText', 'educationText'].some(field => new Set(jobs.map(job => job[field as keyof JobRecord] || '')).size > 1)
+  return ['jobType', 'salaryText', 'experienceText', 'educationText'].some(field => new Set(jobs.map(job => job[field as keyof JobRecord] || '')).size > 1)
 }

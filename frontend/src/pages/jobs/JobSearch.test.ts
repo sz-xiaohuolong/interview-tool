@@ -44,6 +44,20 @@ it('部分失败保留结果，同 ID 不同来源独立；单站重试路径准
   await render(); await search(); expect(body.findAll('[data-job-select]')).toHaveLength(2); expect(body.text()).toContain('访问配置需更新')
   await button('重试猎聘').trigger('click'); await flushPromises(); expect(body.findAll('[data-job-select]')).toHaveLength(2)
 })
+it('岗位超过20条后按20条分页，不再显示加载更多', async () => {
+  const jobs = Array.from({ length: 21 }, (_, index) => job('BOSS', { key: `BOSS:${index}`, sourceId: String(index), title: `岗位${index + 1}` }))
+  api((url, options) => { if (url === '/api/job-search/tasks' && options?.method === 'POST') return respond(snapshot({ jobs, sources: [{ source: 'BOSS', status: 'READY', count: 21, hasMore: false }] })) })
+  await render(); await search()
+  expect(body.findAll('[data-job-select]')).toHaveLength(20)
+  expect(body.text()).toContain('第 1-20 条／共 21 条岗位')
+  expect(body.text()).not.toContain('加载更多')
+  await body.get('[data-pagination-page="2"]').trigger('click'); await flushPromises()
+  expect(body.findAll('[data-job-select]')).toHaveLength(1)
+  expect(body.get('[data-job-select]').attributes('data-job-select')).toBe('BOSS:20')
+  expect(body.text()).toContain('第 21-21 条／共 21 条岗位')
+  await body.get('[aria-label="上一页"]').trigger('click'); await flushPromises()
+  expect(body.findAll('[data-job-select]')).toHaveLength(20)
+})
 it('停止后忽略迟到轮询，发起新条件后旧结果不混入', async () => {
   vi.useFakeTimers(); let resolvePoll!: (value: Response) => void; let starts = 0
   api((url, options) => {
@@ -61,6 +75,25 @@ it('筛选排除当前详情则清空，不自动选另一项；原文选项不�
   await render(); await search(); expect(body.find('[data-job-detail]').exists()).toBe(true)
   await body.get('#job-experience').setValue('不限'); await flushPromises()
   expect(body.find('[data-job-detail]').exists()).toBe(false); expect(body.text()).toContain('选择一个岗位查看详情'); expect(body.get('#job-experience').text()).toContain('3–10年')
+})
+it('岗位类型筛选可区分日常实习、暑期实习和正式岗位，并保留未知类型', async () => {
+  const jobs = [
+    job('BOSS', { key: 'BOSS:daily', sourceId: 'daily', title: '日常实习', description: '日常正文', jobType: 'DAILY_INTERNSHIP' }),
+    job('LIEPIN', { key: 'LIEPIN:summer', sourceId: 'summer', title: '暑期实习', description: '暑期正文', jobType: 'SUMMER_INTERNSHIP' }),
+    job('ZHAOPIN', { key: 'ZHAOPIN:full', sourceId: 'full', title: '正式岗位', description: '正式正文', jobType: 'FULL_TIME' }),
+    job('BOSS', { key: 'BOSS:unknown', sourceId: 'unknown', title: '类型未知', description: '未知正文', jobType: 'UNKNOWN' }),
+  ]
+  api((url, options) => { if (url === '/api/job-search/tasks' && options?.method === 'POST') return respond(snapshot({ jobs, sources: [{ source: 'BOSS', status: 'READY', count: 2, hasMore: false }, { source: 'LIEPIN', status: 'READY', count: 1, hasMore: false }, { source: 'ZHAOPIN', status: 'READY', count: 1, hasMore: false }] })) })
+  await render(); await search()
+  expect(body.findAll('[data-job-select]')).toHaveLength(4)
+  await body.get('#job-type').setValue('DAILY_INTERNSHIP'); await flushPromises()
+  expect(body.findAll('[data-job-select]')).toHaveLength(2)
+  expect(body.text()).toContain('日常实习'); expect(body.text()).toContain('类型未知'); expect(body.text()).not.toContain('暑期实习概要'); expect(body.text()).not.toContain('正式岗位概要')
+  await body.get('#job-type').setValue('SUMMER_INTERNSHIP'); await flushPromises()
+  expect(body.findAll('[data-job-select]')).toHaveLength(2)
+  expect(body.text()).toContain('暑期实习'); expect(body.text()).toContain('类型未知'); expect(body.text()).not.toContain('日常实习概要')
+  await body.get('#job-type').setValue('FULL_TIME'); await body.get('#job-unknown-type').setValue(false); await flushPromises()
+  expect(body.findAll('[data-job-select]')).toHaveLength(1); expect(body.text()).toContain('正式岗位')
 })
 it('收藏读取本地快照，不抓详情；切页签保留运行状态', async () => {
   let detail = 0
@@ -240,14 +273,14 @@ it('页签切换分别恢复选中与滚动，收藏默认首次时间倒序', a
   await button('搜索职位').trigger('click'); await flushPromises(); expect(body.get('[data-job-detail]').text()).toContain('选择的搜索岗位'); expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 230, behavior: 'instant' })
   await button('我的收藏').trigger('click'); await flushPromises(); expect(body.get('[data-job-detail]').text()).toContain('旧收藏'); expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 470, behavior: 'instant' })
 })
-it('加载更多期间已选岗位的正文仍能完成，不因任务操作代次改变而永久加载', async () => {
+it('切换分页期间已选岗位的正文仍能完成，不因任务操作代次改变而永久加载', async () => {
   let resolveDetail!: (value: Response) => void
   api((url, options) => {
     if (url === '/api/job-search/tasks' && options?.method === 'POST') return respond(snapshot({ jobs: [job('BOSS', { description: null })], sources: [{ source: 'BOSS', status: 'READY', count: 1, hasMore: true }] }))
     if (url === '/api/job-search/tasks/t1/jobs/BOSS%3Asame/detail') return new Promise<Response>(resolve => { resolveDetail = resolve })
     if (url === '/api/job-search/tasks/t1/more' && options?.method === 'POST') return respond(snapshot({ revision: 2, jobs: [job('BOSS', { description: null })] }))
   })
-  await render(); await search(); await button('加载更多').trigger('click'); await flushPromises(); resolveDetail(respond(job('BOSS', { description: '首项完整正文' }))); await flushPromises()
+  await render(); await search(); await body.get('[aria-label="下一页"]').trigger('click'); await flushPromises(); resolveDetail(respond(job('BOSS', { description: '首项完整正文' }))); await flushPromises()
   expect(body.get('[data-job-detail]').text()).toContain('首项完整正文'); expect(body.get('[data-job-detail]').text()).not.toContain('正在读取当前来源正文')
 })
 it('真实路由离开停止任务且迟到响应不重新安排轮询', async () => {
@@ -274,13 +307,13 @@ it('月薪无效输入保持上一次有效结果，不因负数或倒置区间�
   await body.get('[aria-label="最高月薪"]').setValue('10'); await body.get('[aria-label="最高月薪"]').trigger('blur'); await flushPromises(); expect(body.text()).toContain('仍保留上一次有效筛选'); expect(body.findAll('[data-job-select]')).toHaveLength(1)
   await body.get('[aria-label="最低月薪"]').setValue('-1'); await body.get('[aria-label="最低月薪"]').trigger('blur'); await flushPromises(); expect(body.findAll('[data-job-select]')).toHaveLength(1)
 })
-it('更多批次迟到不能覆盖新任务，后续批次不抢走用户选择', async () => {
+it('分页请求迟到不能覆盖新任务，后续批次不抢走用户选择', async () => {
   let starts = 0, resolveMore!: (value: Response) => void
   api((url, options) => {
     if (url === '/api/job-search/tasks' && options?.method === 'POST') return respond(++starts === 1 ? snapshot({ sources: [{ source: 'BOSS', status: 'READY', count: 1, hasMore: true }] }) : snapshot({ id: 't2', jobs: [job('BOSS', { title: '最新任务' })] }))
     if (url === '/api/job-search/tasks/t1/more' && options?.method === 'POST') return new Promise<Response>(resolve => { resolveMore = resolve })
   })
-  await render(); await search(); await button('加载更多').trigger('click'); await body.get('#job-search-form').trigger('submit'); await flushPromises()
+  await render(); await search(); await body.get('[aria-label="下一页"]').trigger('click'); await body.get('#job-search-form').trigger('submit'); await flushPromises()
   resolveMore(respond(snapshot({ revision: 3, jobs: [job('BOSS', { title: '旧批次迟到' })] }))); await flushPromises(); expect(body.text()).toContain('最新任务'); expect(body.text()).not.toContain('旧批次迟到')
 })
 it('JD 预览期间背景搜索更新不能重写输入和冻结来源', async () => {

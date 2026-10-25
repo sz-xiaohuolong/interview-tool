@@ -1,11 +1,17 @@
 import { post, request } from '../api'
 export const jobSources = [{ value: 'BOSS', label: 'BOSS 直聘' }, { value: 'LIEPIN', label: '猎聘' }, { value: 'ZHAOPIN', label: '智联招聘' }] as const
 export type JobSource = typeof jobSources[number]['value']
+export const jobTypes = [
+  { value: 'DAILY_INTERNSHIP', label: '日常实习' },
+  { value: 'SUMMER_INTERNSHIP', label: '暑期实习' },
+  { value: 'FULL_TIME', label: '正式岗位' },
+] as const
+export type JobType = typeof jobTypes[number]['value'] | 'UNKNOWN'
 export interface JobRecord {
   key: string; source: JobSource; sourceId: string; title: string; company: string; city: string; location: string; url: string
   salaryText: string; salaryMinK: number | null; salaryMaxK: number | null; salaryMonths: number | null
   experienceText: string | null; educationText: string | null; description: string | null
-  fetchedAt: string; detailFetchedAt?: string | null; publishedAt?: string | null; savedAt?: string
+  fetchedAt: string; detailFetchedAt?: string | null; publishedAt?: string | null; savedAt?: string; jobType?: JobType | null
 }
 export interface SourceProgress { source: JobSource; status: 'SEARCHING' | 'READY' | 'EMPTY' | 'FAILED' | 'ENDED' | 'LIMIT' | 'STOPPED'; count: number; hasMore: boolean; errorCode?: string | null; errorMessage?: string | null }
 export interface SearchInput { keyword: string; cityId: string; sources: JobSource[] }
@@ -30,3 +36,4 @@ export const jobSearch = {
   saveJd: (input: SaveJdInput) => post<{ materialId: string; created: boolean; source: JobSourceLink }>(`${base}/jd`, input),
 }
 export const sourceLabel = (source: JobSource) => jobSources.find(item => item.value === source)?.label || source
+export const jobTypeLabel = (type?: JobType | null) => jobTypes.find(item => item.value === type)?.label || '未知类型'
