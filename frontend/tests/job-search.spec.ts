@@ -42,6 +42,30 @@ test.beforeEach(async ({ request }) => {
   }
 })
 
+for (const [status, code] of [[401, 'SESSION_EXPIRED'], [403, 'SESSION_EXPIRED'], [429, 'RATE_LIMITED'], [500, 'SOURCE_NETWORK']] as const) {
+  test(`BOSS 第二批 ${status} 不读取或等待失败正文`, async ({ request }) => {
+    const created = await request.post(`${api}/tasks`, { data: { keyword: `合成翻页失败 ${status}`, cityId: 'shenzhen', sources: ['BOSS'] } })
+    expect(created.ok()).toBe(true)
+    const { id } = await created.json()
+    try {
+      const first = await idle(request, id)
+      expect(first.jobs).toHaveLength(15)
+      expect(first.sources[0].status).toBe('READY')
+      expect((await request.post(`${api}/tasks/${id}/more`, { data: {} })).ok()).toBe(true)
+      let failed: any
+      await expect.poll(async () => {
+        const response = await request.get(`${api}/tasks/${id}`)
+        expect(response.ok()).toBe(true)
+        failed = await response.json()
+        return failed.status
+      }, { timeout: 3000 }).not.toBe('RUNNING')
+      expect(failed.sources[0].errorCode).toBe(code)
+      expect(failed.jobs).toEqual(first.jobs)
+      expect(JSON.stringify(failed)).not.toContain('secret')
+    } finally { await request.post(`${api}/tasks/${id}/stop`) }
+  })
+}
+
 test('所有城市发送全国条件并保留真实地点及可判定岗位类型', async ({ page, request }) => {
   await page.goto('/job-search')
   await page.locator('#job-keyword').fill('合成全国 Java')

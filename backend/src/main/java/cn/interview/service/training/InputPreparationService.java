@@ -4,6 +4,7 @@ import cn.interview.common.ContentHash;
 import cn.interview.exception.ApiException;
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;
+import cn.interview.common.CreationResult;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -18,8 +19,8 @@ import static cn.interview.common.Models.*;
 public class InputPreparationService {
     final TrainingStore db;final OperationService ops;
     InputPreparationService(TrainingStore db,OperationService ops){this.db=db;this.ops=ops;}
-    ObjectNode prepareJd(JsonNode body){return prepare("JD_INPUT","LOCAL_USER",body,null);}
-    ObjectNode prepare(String kind,String scope,JsonNode body,JsonNode story){return ops.write(kind,scope,body,()->{
+    CreationResult prepareJd(JsonNode body){return prepare("JD_INPUT","LOCAL_USER",body,null);}
+    CreationResult prepare(String kind,String scope,JsonNode body,JsonNode story){return ops.create(kind,scope,body,()->{
         var result=db.object().put("id",id()).put("kind",kind);result.put("manifestId",result.path("id").asText());var snapshots=result.putArray("snapshots");var dependencies=result.putArray("dependencies");var model=result.putObject("modelInput");
         if(story==null){String jd;
             if(body.hasNonNull("jdMaterialId")){var material=db.database().material(required(body,"jdMaterialId",100));if(!material.kind().equals("JD"))throw RecoveryException.invalid("请选择 JD 类型资料");jd=material.content();for(var document:material.documents())jd+="\n"+document.text();dependency(dependencies,"MATERIAL",material.id(),db.json().valueToTree(material));model.put("jdSourceIdentity",material.id());}

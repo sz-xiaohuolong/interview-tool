@@ -35,12 +35,7 @@ public class TrainingStore {
     }
     public ObjectNode object() { return database.json.createObjectNode(); }
     public ArrayNode array() { return database.json.createArrayNode(); }
-    public String hash(JsonNode input) { return ContentHash.sha(canonical(input).toString()); }
-    JsonNode canonical(JsonNode input) {
-        if(input.isObject()) { var out=object(); var keys=new TreeSet<String>();input.fieldNames().forEachRemaining(keys::add);keys.forEach(k->out.set(k,canonical(input.get(k))));return out; }
-        if(input.isArray()) { var out=array();input.forEach(v->out.add(canonical(v)));return out; }
-        return input;
-    }
+    public String hash(JsonNode input) { return ContentHash.sha(input); }
     private List<String> columns(String table) {
         enabled(); if(!TABLES.contains(table)) throw new IllegalArgumentException("不支持的 专项训练 表");
         return columns.computeIfAbsent(table,t->database.jdbc.query("PRAGMA table_info("+t+")",(rs,n)->rs.getString("name")));

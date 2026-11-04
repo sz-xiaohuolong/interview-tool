@@ -33,10 +33,15 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
     @Override public synchronized Cursor open(String source,String keyword,String cityId){
         if(closed)throw CdpBrowser.failure("SOURCE_NETWORK");
         String code=cities.sourceCode(cityId,source);
-        return new CdpCursor(source,keyword,cityId,code,browser(),false);
+        return new RecoveringCursor(source,keyword,cityId,code);
     }
     private synchronized CdpBrowser browser(){
-        if(sharedBrowser==null)sharedBrowser=new CdpBrowser(activePortFile(),json);
+        if(closed)throw CdpBrowser.failure("SOURCE_NETWORK");
+        if(sharedBrowser==null||!sharedBrowser.isOpen()){
+            CdpBrowser previous=sharedBrowser;
+            sharedBrowser=new CdpBrowser(activePortFile(),json);
+            if(previous!=null){previous.closeTargetsOn(sharedBrowser);previous.close();}
+        }
         return sharedBrowser;
     }
     @PreDestroy public synchronized void close(){closed=true;if(sharedBrowser!=null){sharedBrowser.close();sharedBrowser=null;}}
@@ -44,6 +49,44 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
         if(configured!=null)return configured;
         String explicit=System.getenv("INTERVIEW_JOB_BROWSER_ACTIVE_PORT_FILE");if(explicit!=null&&!explicit.isBlank())return Path.of(explicit).toAbsolutePath().normalize();
         String home=System.getProperty("user.home");var candidates=List.of(Path.of(home,"Library/Application Support/Google/Chrome/DevToolsActivePort"),Path.of(home,"Library/Application Support/Chromium/DevToolsActivePort"),Path.of(home,".config/google-chrome/DevToolsActivePort"),Path.of(home,".config/chromium/DevToolsActivePort"));return candidates.stream().filter(Files::isRegularFile).findFirst().orElse(candidates.getFirst());
+    }
+    /** 仅在下一次显式读取时恢复连接，并重放成功批次以恢复来源位置。 */
+    private final class RecoveringCursor implements Cursor {
+        private final String source,keyword,cityId,cityCode;
+        private final Set<String> delivered=new LinkedHashSet<>();
+        private volatile CdpCursor current;
+        private volatile boolean disposed;
+        private int completedBatches;
+        private boolean replayPending;
+        RecoveringCursor(String source,String keyword,String cityId,String cityCode){
+            this.source=source;this.keyword=keyword;this.cityId=cityId;this.cityCode=cityCode;
+            current=new CdpCursor(source,keyword,cityId,cityCode,browser(),false);
+        }
+        @Override public synchronized Batch next(){
+            ensureActive();var candidates=new ArrayList<JobRecord>();
+            if(replayPending||!current.browser.isOpen()){
+                replayPending=true;
+                CdpCursor previous=current;
+                CdpCursor replacement=new CdpCursor(source,keyword,cityId,cityCode,browser(),false);
+                current=replacement;previous.close();
+                if(disposed||Thread.currentThread().isInterrupted()){replacement.close();ensureActive();}
+                for(int i=0;i<completedBatches;i++){
+                    ensureActive();Batch replay=replacement.next();candidates.addAll(replay.jobs());
+                    if(!replay.hasMore()){ensureActive();replayPending=false;return deliver(candidates,false);}
+                }
+                replayPending=false;
+            }
+            ensureActive();Batch batch=current.next();completedBatches++;candidates.addAll(batch.jobs());
+            ensureActive();return deliver(candidates,batch.hasMore());
+        }
+        private Batch deliver(List<JobRecord> candidates,boolean more){
+            var fresh=new ArrayList<JobRecord>();
+            for(JobRecord job:candidates)if(delivered.size()<100&&delivered.add(job.key()))fresh.add(job);
+            return new Batch(List.copyOf(fresh),more&&delivered.size()<100);
+        }
+        private void ensureActive(){if(disposed||Thread.currentThread().isInterrupted())throw CdpBrowser.failure("SOURCE_NETWORK");}
+        @Override public synchronized JobRecord detail(JobRecord job){ensureActive();return current.detail(job);}
+        @Override public void close(){disposed=true;current.close();}
     }
     private final class CdpCursor implements Cursor {
         private final String source,keyword,cityId,cityCode;
@@ -83,8 +126,14 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
             }
             if(method.equals("Network.responseReceived")){
                 JsonNode response=p.path("response");String url=response.path("url").asText();int status=response.path("status").asInt();
-                // 智联滚动加载会先发一个 204 预检请求，不能把它当作列表正文读取；只等待实际有正文的 2xx 响应。
-                if(isListUrl(source,url)&&status>=200&&status<300&&status!=204&&loading.size()<4){if(source.equals("BOSS"))bossRequestUrl=url;loading.put(p.path("requestId").asText(),new Response(p.path("requestId").asText(),status));}
+                // 预检无列表正文；失败状态直接入队，不能等待或读取失败正文。
+                if(isListUrl(source,url)){
+                    Response received=new Response(p.path("requestId").asText(),status);
+                    if(status>=400&&status<600)responses.offer(received);
+                    else if(status>=200&&status<300&&status!=204&&loading.size()<4){
+                        if(source.equals("BOSS"))bossRequestUrl=url;loading.put(received.id(),received);
+                    }
+                }
             }else if(method.equals("Network.loadingFinished")){Response r=loading.remove(p.path("requestId").asText());if(r!=null)responses.offer(r);}
             else if(method.equals("Network.loadingFailed"))loading.remove(p.path("requestId").asText());
         }
@@ -94,7 +143,7 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
                 if(pageNumber>0){if(bossRequestUrl==null)throw CdpBrowser.failure("SOURCE_CHANGED");allowedPage=pageNumber+1;permit.set(true);responses.clear();
                     String next=replacePage(bossRequestUrl,allowedPage);
                     // 请求仍在已登录的同源页面中完成，认证由 Chrome 自己处理。
-                    try{page.evaluate("(async()=>{const r=await fetch("+quoted(next)+",{credentials:'same-origin'});await r.text();return true})()");}catch(ApiException e){if(responses.isEmpty())throw e;}
+                    try{page.evaluate("(async()=>{const r=await fetch("+quoted(next)+",{credentials:'same-origin'});if(r.ok&&r.status!==204)await r.text();return true})()");}catch(ApiException e){if(responses.isEmpty())throw e;}
                 }
                 data=networkBody();JsonNode payload=data.has("zpData")?data.path("zpData"):data.path("data");JsonNode rows=payload.path("jobList");
                 if(!rows.isArray()){checkRemoteError(data);throw CdpBrowser.failure("SOURCE_CHANGED");}
@@ -124,12 +173,18 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
         }
         private JsonNode networkBody(){
             long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);
-            try{while(System.nanoTime()<end){ensureOpen();Response r=responses.poll(200,TimeUnit.MILLISECONDS);if(r==null)continue;if(r.status()==429)throw new ApiException(429,"RATE_LIMITED","访问过于频繁");if(r.status()==401||r.status()==403)throw new ApiException(503,"SESSION_EXPIRED","来源会话不可用");if(r.status()>=400)throw CdpBrowser.failure("SOURCE_NETWORK");JsonNode result=page.command("Network.getResponseBody",Map.of("requestId",r.id()));String body=result.path("body").asText();if(result.path("base64Encoded").asBoolean())body=new String(Base64.getDecoder().decode(body),StandardCharsets.UTF_8);if(body.length()>2_000_000)throw CdpBrowser.failure("SOURCE_CHANGED");return json.readTree(body);}
+            try{while(System.nanoTime()<end){ensureOpen();Response r=responses.poll(200,TimeUnit.MILLISECONDS);if(r==null)continue;checkResponse(r);JsonNode result=page.command("Network.getResponseBody",Map.of("requestId",r.id()));String body=result.path("body").asText();if(result.path("base64Encoded").asBoolean())body=new String(Base64.getDecoder().decode(body),StandardCharsets.UTF_8);if(body.length()>2_000_000)throw CdpBrowser.failure("SOURCE_CHANGED");return json.readTree(body);}
                 checkPage(page.evaluate(pageStatus()));throw CdpBrowser.failure("SOURCE_TIMEOUT");
             }catch(InterruptedException e){Thread.currentThread().interrupt();throw CdpBrowser.failure("SOURCE_TIMEOUT");}catch(ApiException e){throw e;}catch(Exception e){throw CdpBrowser.failure("SOURCE_CHANGED");}
         }
+        private void checkResponse(Response response){
+            if(response.status()==429)throw new ApiException(429,"RATE_LIMITED","访问过于频繁");
+            if(response.status()==401||response.status()==403)throw new ApiException(503,"SESSION_EXPIRED","来源会话不可用");
+            if(response.status()>=400)throw CdpBrowser.failure("SOURCE_NETWORK");
+        }
+        private void checkFailures(){for(Response response:responses)if(response.status()>=400)checkResponse(response);}
         private JsonNode waitForList(String expression){
-            long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);long fallbackAt=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);while(System.nanoTime()<end){ensureOpen();JsonNode result=page.evaluate(expression);if(result.path("jobs").isArray()&&!result.path("jobs").isEmpty()){
+            long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(22);long fallbackAt=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);while(System.nanoTime()<end){ensureOpen();checkFailures();JsonNode result=page.evaluate(expression);checkFailures();if(result.path("jobs").isArray()&&!result.path("jobs").isEmpty()){
                     // 智联首屏的 DOM 卡片可能先于内嵌职位状态出现；优先等到带岗位性质的状态数据，避免把全职岗位误报为未知。
                     if(result.path("embedded").asBoolean()||System.nanoTime()>=fallbackAt||!source.equals("ZHAOPIN"))return result;
                 }
@@ -144,7 +199,7 @@ public final class CdpJobSourceGateway implements JobSourceGateway {
                 throw CdpBrowser.failure("SOURCE_CHANGED");
             }
         }
-        private void ensureOpen(){if(closed||Thread.currentThread().isInterrupted())throw CdpBrowser.failure("SOURCE_TIMEOUT");}
+        private void ensureOpen(){if(closed||Thread.currentThread().isInterrupted())throw CdpBrowser.failure("SOURCE_TIMEOUT");if(!browser.isOpen())throw CdpBrowser.failure("SOURCE_NETWORK");}
         @Override public void close(){if(closed)return;closed=true;loading.clear();responses.clear();bossDetailLinks.clear();try{page.close();}catch(RuntimeException ignored){}if(ownsBrowser)try{browser.close();}catch(RuntimeException ignored){}}
     }
     private record Response(String id,int status) {}

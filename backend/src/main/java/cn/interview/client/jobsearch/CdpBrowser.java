@@ -41,6 +41,7 @@ final class CdpBrowser implements AutoCloseable {
         try{socket=HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build().newWebSocketBuilder().connectTimeout(Duration.ofSeconds(8)).buildAsync(endpoint(activePort),new Listener()).get(8,TimeUnit.SECONDS);}
         catch(Exception e){if(e instanceof InterruptedException)Thread.currentThread().interrupt();throw new ApiException(503,"ACCESS_UNAVAILABLE","无法连接本机 Chrome，请由开发者检查浏览器访问配置");}
     }
+    boolean isOpen(){return !closed && !socket.isInputClosed() && !socket.isOutputClosed();}
     Page page(){
         String target=command(null,"Target.createTarget",Map.of("url","about:blank","background",true)).path("targetId").asText();
         if(target.isBlank())throw failure("SOURCE_NETWORK");owned.add(target);
@@ -50,7 +51,7 @@ final class CdpBrowser implements AutoCloseable {
         }catch(RuntimeException e){closeTarget(target);throw e;}
     }
     JsonNode command(String session,String method,Map<String,?> params){
-        if(closed)throw failure("SOURCE_NETWORK");long id=sequence.incrementAndGet();var response=new CompletableFuture<JsonNode>();pending.put(id,response);
+        if(!isOpen())throw failure("SOURCE_NETWORK");long id=sequence.incrementAndGet();var response=new CompletableFuture<JsonNode>();pending.put(id,response);
         try{send(message(id,session,method,params)).get(5,TimeUnit.SECONDS);JsonNode result=response.get(25,TimeUnit.SECONDS);if(result.has("error"))throw failure("SOURCE_CHANGED");return result.path("result");}
         catch(TimeoutException e){throw failure("SOURCE_TIMEOUT");}
         catch(InterruptedException e){Thread.currentThread().interrupt();throw failure("SOURCE_TIMEOUT");}
@@ -59,7 +60,13 @@ final class CdpBrowser implements AutoCloseable {
     private ObjectNode message(long id,String session,String method,Map<String,?> params){ObjectNode n=json.createObjectNode().put("id",id).put("method",method);n.set("params",json.valueToTree(params));if(session!=null)n.put("sessionId",session);return n;}
     private synchronized CompletableFuture<WebSocket> send(ObjectNode message){CompletableFuture<WebSocket> sent=outbound.handle((v,e)->null).thenCompose(v->socket.sendText(message.toString(),true));outbound=sent;return sent;}
     private CompletableFuture<WebSocket> fire(String session,String method,Map<String,?> params){if(closed)return CompletableFuture.completedFuture(socket);return send(message(sequence.incrementAndGet(),session,method,params));}
-    private void closeTarget(String target){if(owned.remove(target))fire(null,"Target.closeTarget",Map.of("targetId",target));}
+    private void closeTarget(String target){if(!closed&&owned.remove(target))fire(null,"Target.closeTarget",Map.of("targetId",target));}
+    void closeTargetsOn(CdpBrowser replacement){
+        for(String target:List.copyOf(owned))if(owned.remove(target))try{replacement.command(null,"Target.closeTarget",Map.of("targetId",target));}catch(ApiException ignored){}
+    }
+    private void disconnected(){
+        closed=true;listeners.clear();pending.values().forEach(f->f.completeExceptionally(new IllegalStateException("浏览器连接已断开")));pending.clear();
+    }
     static ApiException failure(String code){return switch(code){case "SOURCE_TIMEOUT"->new ApiException(504,code,"招聘来源读取超时，请稍后重试");case "SOURCE_CHANGED"->new ApiException(502,code,"招聘来源页面结构发生变化，请由开发者检查");default->new ApiException(502,"SOURCE_NETWORK","本机浏览器连接中断，请稍后重试");};}
     @Override public void close(){
         if(closed)return;var sends=new ArrayList<CompletableFuture<WebSocket>>();for(String target:List.copyOf(owned))if(owned.remove(target))sends.add(fire(null,"Target.closeTarget",Map.of("targetId",target)));
@@ -81,11 +88,11 @@ final class CdpBrowser implements AutoCloseable {
         private final StringBuilder text=new StringBuilder();
         @Override public void onOpen(WebSocket socket){socket.request(1);}
         @Override public CompletionStage<?> onText(WebSocket ws,CharSequence part,boolean last){
-            if(text.length()+part.length()>16*1024*1024){text.setLength(0);ws.abort();return null;}text.append(part);
+            if(text.length()+part.length()>16*1024*1024){text.setLength(0);disconnected();ws.abort();return null;}text.append(part);
             if(last){try{JsonNode n=json.readTree(text.toString());if(n.has("id")){var f=pending.get(n.path("id").asLong());if(f!=null)f.complete(n);}else{Consumer<JsonNode> handler=listeners.get(n.path("sessionId").asText());if(handler!=null)handler.accept(n);}}catch(Exception ignored){}finally{text.setLength(0);}}
             ws.request(1);return null;
         }
-        @Override public CompletionStage<?> onClose(WebSocket ws,int status,String reason){pending.values().forEach(f->f.completeExceptionally(new IllegalStateException("连接关闭")));return null;}
-        @Override public void onError(WebSocket ws,Throwable error){pending.values().forEach(f->f.completeExceptionally(new IllegalStateException("连接失败")));}
+        @Override public CompletionStage<?> onClose(WebSocket ws,int status,String reason){disconnected();return null;}
+        @Override public void onError(WebSocket ws,Throwable error){disconnected();}
     }
 }

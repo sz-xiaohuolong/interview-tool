@@ -45,7 +45,7 @@ class TrainingEvidenceBoundaryTest {
     @Test void modelDraftIsNotConvertedIntoUserFactOnRegeneration(){
         var raw=db.object();raw.putObject("result").put("text","团队达成未确认成果").put("originType","MODEL_DRAFT");
         var b=db.object().put("requestId",Models.id()).put("templateKind","STAR");b.set("fields",raw);
-        var s=stories.create(b);var manifest=stories.prepare(s.path("id").asText(),db.object().put("requestId",Models.id()).put("expectedVersion",0));
+        var s=stories.create(b).body();var manifest=stories.prepare(s.path("id").asText(),db.object().put("requestId",Models.id()).put("expectedVersion",0)).body();
         for(var snapshot:manifest.path("snapshots"))assertThat(snapshot.path("text").asText()).doesNotContain("团队达成未确认成果");
         var confirmations=db.object();for(String key:StoryService.FIELDS.get("STAR"))confirmations.putObject(key).put("notApplicable",true).put("reason","暂缺");
         var confirm=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("storyVersion",1);confirm.set("confirmations",confirmations);
@@ -59,21 +59,21 @@ class TrainingEvidenceBoundaryTest {
     @Test void thirteenRequirementsAreRejectedEvenWhenModelClaimsNoMore(){
         var lines=new ArrayList<String>();for(int i=1;i<=13;i++)lines.add(String.format("合成要求 %02d：验证事务边界",i));
         String text=String.join("\n",lines);var in=db.object().put("jdText",text);in.putArray("trainingEvents");in.putArray("snapshots").addObject().put("id","jd").put("purpose","JD").put("text",text);
-        var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db);raw.put("hasMore",false);var last=((ObjectNode)raw.path("requirements").get(11)).deepCopy().put("jdQuote",lines.get(12));raw.withArray("requirements").add(last);
+        var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db.json());raw.put("hasMore",false);var last=((ObjectNode)raw.path("requirements").get(11)).deepCopy().put("jdQuote",lines.get(12));raw.withArray("requirements").add(last);
         assertThatThrownBy(()->validator.validate(ModelTask.JD_DIAGNOSTIC,in,raw)).isInstanceOfSatisfying(RecoveryException.class,e->{assertThat(e.code).isEqualTo("V2_JD_SCOPE_TOO_LARGE");assertThat(e.status).isEqualTo(422);});
     }
     @Test void absentMaterialRequiresWholeSnapshotCheck(){
-        var in=jdInput();var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db);((ObjectNode)raw.path("requirements").get(0)).putArray("evidenceRefs");
+        var in=jdInput();var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db.json());((ObjectNode)raw.path("requirements").get(0)).putArray("evidenceRefs");
         assertThatThrownBy(()->validator.validate(ModelTask.JD_DIAGNOSTIC,in,raw)).isInstanceOf(RecoveryException.class);
     }
     @Test void requirementCannotClaimSupportFromDifferentFindingInSameEvent(){
         var in=jdInput();var event=in.withArray("trainingEvents").addObject().put("id","event").put("status","GAP");var fs=event.putArray("findings");fs.addObject().put("id","supported").put("status","SUPPORTED");fs.addObject().put("id","gap").put("status","GAP");
-        var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db);var r=(ObjectNode)raw.path("requirements").get(0);r.put("trainingStatus","SUPPORTED");r.withArray("trainingEventIds").add("event");r.putArray("trainingBindings").addObject().put("eventId","event").put("findingId","gap");
+        var raw=TrainingMockTasksTestAccess.generate(ModelTask.JD_DIAGNOSTIC,in,db.json());var r=(ObjectNode)raw.path("requirements").get(0);r.put("trainingStatus","SUPPORTED");r.withArray("trainingEventIds").add("event");r.putArray("trainingBindings").addObject().put("eventId","event").put("findingId","gap");
         assertThatThrownBy(()->validator.validate(ModelTask.JD_DIAGNOSTIC,in,raw)).isInstanceOf(RecoveryException.class);
     }
     @Test void endedDesignSessionCannotRetryHistoricalFailure(){
-        var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE"));String sid=s.path("id").asText();var fields=db.object();for(var f:s.path("stages").get(0).path("fieldDefinitions"))fields.put(f.path("id").asText(),"合成方案");
-        var broken=new TrainingModelClient(baseLlm::connection,db,new cn.interview.client.transport.OpenAiJsonClient(db.json()),60){@Override public ObjectNode call(ModelTask task,ObjectNode input,ObjectNode protocol){throw TrainingModelClient.failed("MODEL_TEST_FAILURE","合成失败");}};
+        var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE")).body();String sid=s.path("id").asText();var fields=db.object();for(var f:s.path("stages").get(0).path("fieldDefinitions"))fields.put(f.path("id").asText(),"合成方案");
+        var broken=new TrainingModelClient(baseLlm::connection,db.json(),new cn.interview.client.transport.OpenAiJsonClient(db.json()),60){@Override public ObjectNode call(ModelTask task,ObjectNode input,ObjectNode protocol){throw TrainingModelClient.failed("MODEL_TEST_FAILURE","合成失败");}};
         var failing=new ModelTaskRunner(db,ops,broken,validator,capacity,handlers);var ds=new DesignPracticeService(db,ops,failing);
         var body=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("stageId","CLARIFY");body.set("artifact",fields);
         assertThatThrownBy(()->ds.submit(sid,body)).isInstanceOf(RecoveryException.class);var failed=db.get("v2_design_sessions",sid);String op=failed.path("operationId").asText();
@@ -82,8 +82,8 @@ class TrainingEvidenceBoundaryTest {
         assertThat(db.get("v2_design_sessions",sid)).isEqualTo(before);
     }
     @Test void identicalFailedStageMustRetryOriginalOperationInsteadOfDuplicatingArtifact(){
-        var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE"));String sid=s.path("id").asText();var fields=db.object();for(var f:s.path("stages").get(0).path("fieldDefinitions"))fields.put(f.path("id").asText(),"合成方案");
-        var broken=new TrainingModelClient(baseLlm::connection,db,new cn.interview.client.transport.OpenAiJsonClient(db.json()),60){@Override public ObjectNode call(ModelTask task,ObjectNode input,ObjectNode protocol){throw TrainingModelClient.failed("MODEL_TEST_FAILURE","合成失败");}};
+        var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE")).body();String sid=s.path("id").asText();var fields=db.object();for(var f:s.path("stages").get(0).path("fieldDefinitions"))fields.put(f.path("id").asText(),"合成方案");
+        var broken=new TrainingModelClient(baseLlm::connection,db.json(),new cn.interview.client.transport.OpenAiJsonClient(db.json()),60){@Override public ObjectNode call(ModelTask task,ObjectNode input,ObjectNode protocol){throw TrainingModelClient.failed("MODEL_TEST_FAILURE","合成失败");}};
         var failing=new ModelTaskRunner(db,ops,broken,validator,capacity,handlers);var ds=new DesignPracticeService(db,ops,failing);
         var body=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("stageId","CLARIFY");body.set("artifact",fields);
         assertThatThrownBy(()->ds.submit(sid,body)).isInstanceOf(RecoveryException.class);var failed=db.get("v2_design_sessions",sid);String operation=failed.path("operationId").asText();

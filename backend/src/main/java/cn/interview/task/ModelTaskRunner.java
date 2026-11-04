@@ -5,6 +5,7 @@ import cn.interview.client.training.TrainingModelClient;
 import cn.interview.exception.ApiException;
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;
+import cn.interview.common.CreationResult;
 import cn.interview.service.training.OperationService;
 import cn.interview.validation.TrainingOutputValidator;
 
@@ -30,18 +31,22 @@ public class ModelTaskRunner {
     public ObjectNode publicProtocol(JsonNode protocol) { return llm.publicProtocol(protocol); }
     ModelTaskHandler handler(ModelTask task){return handlers.stream().filter(h->h.supports(task)).findFirst().orElseThrow(()->new IllegalStateException("缺少固定任务处理器"));}
     public ObjectNode run(ModelTask task,String kind,String scope,JsonNode request,Supplier<Work> reserve){
-        var replay=ops.replay(kind,scope,request);if(replay!=null)return result(replay);
+        return runCreated(task,kind,scope,request,reserve).body();
+    }
+    public CreationResult runCreated(ModelTask task,String kind,String scope,JsonNode request,Supplier<Work> reserve){
+        var replay=ops.replay(kind,scope,request);if(replay!=null)return new CreationResult(result(replay),false);
         try(var lease=capacity.acquire()){
-            ObjectNode op=db.atomic(()->{
-                var prior=ops.replay(kind,scope,request);if(prior!=null)return prior;
+            CreationResult reserved=db.atomic(()->{
+                var prior=ops.replay(kind,scope,request);if(prior!=null)return new CreationResult(prior,false);
                 Work work=reserve.get();if(work.input.toString().length()>60000)throw RecoveryException.invalid("输入超过60000字符，请缩小范围；没有封存提交");
                 var created=ops.record(kind,scope,request,db.object().put("id",work.resource.path("id").asText()).put("revision",work.resource.path("revision").asInt()),"RUNNING");
                 created.put("task",task.name()).put("resourceTable",work.table);created.set("input",work.input.deepCopy());created.set("protocol",llm.protocol(task));
                 var row=work.resource;int revision=row.path("revision").asInt();row.put("operationId",created.path("id").asText());handler(task).running(row,created);
-                db.save(work.table,row,revision);created.put("expectedRevision",row.path("revision").asInt());saveOperation(created,"RUNNING",0);return created;
+                db.save(work.table,row,revision);created.put("expectedRevision",row.path("revision").asInt());saveOperation(created,"RUNNING",0);return new CreationResult(created,true);
             });
-            if(!op.path("state").asText().equals("RUNNING"))return result(op);
-            return execute(op);
+            ObjectNode op=reserved.body();
+            if(!reserved.created())return new CreationResult(result(op),false);
+            return new CreationResult(execute(op),true);
         }
     }
     ObjectNode execute(ObjectNode op){

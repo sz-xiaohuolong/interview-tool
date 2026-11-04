@@ -2,6 +2,7 @@ package cn.interview.service.training;
 
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;
+import cn.interview.common.CreationResult;
 import cn.interview.service.interview.FocusedInterviewService;
 import cn.interview.task.ModelCapacity;
 
@@ -19,8 +20,8 @@ public class TrainingLinkService {
     final TrainingStore db;final OperationService ops;final ModelCapacity capacity;final ReviewService reviews;final JdService jdService;
     TrainingLinkService(TrainingStore db,OperationService ops,ModelCapacity capacity,ReviewService reviews,JdService jdService) {this.db=db;this.ops=ops;this.capacity=capacity;this.reviews=reviews;this.jdService=jdService;}
 
-    public ObjectNode link(JsonNode body) {
-        return ops.write("TRAINING_LINK","LOCAL_USER",body,()->{
+    public CreationResult link(JsonNode body) {
+        return ops.create("TRAINING_LINK","LOCAL_USER",body,()->{
             String kind=choice(required(body,"sourceKind",20),"REVIEW","JD"),sourceId=required(body,"sourceId",100);
             var source=db.get(kind.equals("REVIEW")?"v2_review_items":"v2_jd_diagnostics",sourceId);
             if(kind.equals("REVIEW")&&!Set.of("DUE","IN_PROGRESS","WAITING_EVIDENCE").contains(source.path("status").asText())||

@@ -3,6 +3,7 @@ package cn.interview.service.training;
 import cn.interview.common.ContentHash;
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;
+import cn.interview.common.CreationResult;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -56,8 +57,8 @@ public class ReviewService {
         }
         return result;
     }
-    public ObjectNode importReport(JsonNode body) {
-        return ops.write("REVIEW_IMPORT","LOCAL_USER",body,()->{
+    public CreationResult importReport(JsonNode body) {
+        return ops.create("REVIEW_IMPORT","LOCAL_USER",body,()->{
             String session=required(body,"sessionId",100);var preview=preview(session);
             if(!required(body,"expectedReportHash",100).equals(preview.path("reportHash").asText()))
                 throw RecoveryException.conflict("V2_SOURCE_CHANGED","报告已更新，请重新查看候选后导入。");

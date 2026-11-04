@@ -189,7 +189,7 @@ defineExpose({ cancel, stopAndKeepDraft })
 
       <!-- Accessibility text & test compatibility -->
       <span v-if="!Recognition" class="sr-only" role="status">当前浏览器不支持语音输入，请继续打字或使用 Chrome。</span>
-      <span v-else class="sr-only">浏览器可能在线处理语音；本工具不保存音频。文字可修改，请确认后手动提交。</span>
+      <span v-else class="sr-only">文字可修改，请确认后手动提交。</span>
       <span v-if="status" class="sr-only" role="status" aria-live="polite">{{ status }}</span>
 
       <!-- Floating notification pill for active transcription preview or errors -->

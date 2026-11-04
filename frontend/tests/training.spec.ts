@@ -26,7 +26,7 @@ with sqlite3.connect(Path(sys.argv[1]) / 'interview.db') as db:
   const updated = (await post(request, '/training/review-imports', { requestId: crypto.randomUUID(), sessionId: sid, expectedReportHash: (await (await request.get(`/api/training/review-import-preview?sessionId=${sid}`)).json()).reportHash })).items[0]
   await page.goto(`/review/${initial.id}`)
   await expect(page.getByLabel('我的新回答', { exact: true })).toBeEditable()
-  await expect(page.getByLabel('练习状态', { exact: true }).locator('option')).toHaveText([/全部题目/, /待练习/, /练习中/, /已完成/])
+  await expect(page.getByRole('group', { name: '练习状态', exact: true }).getByRole('button')).toHaveText([/全部/, /待攻坚/, /练习中/, /已攻克/])
   for (const text of ['异议说明', '技能标签', '核对练习结果与原发现', '查看确认、补证与安排历史']) await expect(page.getByText(text, { exact: true })).toHaveCount(0)
   await screenshots(page, 'review-source-version')
   const current = await (await request.get(`/api/training/review-items/${initial.id}`)).json()
@@ -167,7 +167,7 @@ test('专项训练精简：原题开练、反复继续零创建、自动对比�
   await page.reload(); await expect(page.getByRole('heading', { name: '这次回答，有哪些变化？', exact: true })).toBeVisible()
   expect(writes.length).toBe(afterSubmitWrites)
   await page.getByRole('link', { name: '再练一题', exact: true }).click()
-  await page.getByLabel('练习状态', { exact: true }).selectOption('done')
+  await page.getByRole('group', { name: '练习状态', exact: true }).getByRole('button', { name: /已攻克/ }).click()
   const done = page.locator(`[data-workbench-row="review:${review.id}"]`)
   await expect(done).toContainText('已完成')
   await page.goto(resultUrl)

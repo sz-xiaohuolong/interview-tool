@@ -238,7 +238,12 @@ watch(expired, value => { if (value) speech.value?.stopAndKeepDraft() }, { flush
 watch(() => messages.value.length, async () => {
   await nextTick()
   // 新问题与输入框同时就绪，避免平滑滚动期间仍停留在旧问题。
-  if (messagesPanel.value) messagesPanel.value.scrollTop = messagesPanel.value.scrollHeight
+  if (messagesPanel.value) {
+    messagesPanel.value.scrollTop = messagesPanel.value.scrollHeight
+    // 手机还存在页面滚动，输入框失焦后也应看得到刚收到的问题。
+    const questions = messagesPanel.value.querySelectorAll<HTMLElement>('.message:not(.user) .message-content')
+    questions[questions.length - 1]?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' })
+  }
 })
 
 onMounted(async () => {
@@ -382,6 +387,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
                   </button>
                 </div>
               </div>
+              <p class="speech-disclosure">浏览器可能在线处理语音；本工具不保存音频</p>
               <div class="composer-footer"><span class="tiny muted">Ctrl / ⌘ + Enter 提交 · Shift + Enter 换行 · 已提交记录自动保存</span></div>
             </form>
           </section>
@@ -394,7 +400,7 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
           <ProjectEvidenceMatrix v-if="enhanced && session.report?.matrix && session.report.version !== 2" :matrix="session.report.matrix" source-kind="V3" :source-id="session.id" />
           
           <aside class="interview-inspector" aria-label="面试上下文与依据">
-            <!-- 右侧双人视频席位 (复刻图2) -->
+            <!-- 面试官与候选人席位 -->
             <div v-if="hasStarted && !session.report" class="video-participants-grid">
               <AiInterviewerVideoTile :thinking="thinking" />
               <CandidateVideoTile />
@@ -845,7 +851,9 @@ onUnmounted(() => { disposed = true; clearTimeout(pollTimer); clearInterval(cloc
   font-size: 12px;
 }
 
-/* 右侧视频与面板栏 (~28%) */
+.speech-disclosure { margin: 8px 10px 0; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+
+/* 右侧席位与面板栏 */
 .is-live .interview-inspector {
   border-left: 1px solid var(--border-subtle);
   background: #f8fafc;

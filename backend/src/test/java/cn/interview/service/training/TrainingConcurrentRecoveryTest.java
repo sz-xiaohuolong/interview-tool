@@ -63,10 +63,10 @@ class TrainingConcurrentRecoveryTest {
                 ObjectNode session,request;String table;
                 if(practiceCase) {
                     var c=db.object().put("familyId",Models.id()).put("caseVersion",1).put("sourceKind","SESSION").put("sourceId","synthetic").put("question","合成问题：解释事务边界").put("context","").put("mock",false).put("analysisExposure","UNKNOWN");c.set("rubric",practice.rubric());c.putArray("priorDialogue");db.atomic(()->db.insert("v2_practice_cases",c));
-                    session=practice.attempt(c.path("id").asText(),db.object().put("requestId",Models.id()).put("exposureDeclaration","UNKNOWN"));
+                    session=practice.attempt(c.path("id").asText(),db.object().put("requestId",Models.id()).put("exposureDeclaration","UNKNOWN")).body();
                     request=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("answer","不可覆盖的合成独立回答");table="v2_practice_attempts";
                 } else {
-                    session=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE"));
+                    session=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE")).body();
                     request=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("stageId","CLARIFY");var fields=request.putObject("artifact");
                     session.path("stages").get(0).path("fieldDefinitions").forEach(f->fields.put(f.path("id").asText(),"仅用于恢复测试的合成产物"));table="v2_design_sessions";
                 }

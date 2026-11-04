@@ -21,7 +21,7 @@ class TrainingRestartTest {
         var data=SyntheticTrainingData.migrated();String sid,opid;com.fasterxml.jackson.databind.node.ObjectNode oldOperation;
         try(var app=start(data)){
             var db=app.getBean(TrainingStore.class);var design=app.getBean(DesignPracticeService.class);
-            var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE"));sid=s.path("id").asText();var body=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("stageId","CLARIFY");var fields=body.putObject("artifact");s.path("stages").get(0).path("fieldDefinitions").forEach(f->fields.put(f.path("id").asText(),"合成重启产物"));
+            var s=design.create(db.object().put("requestId",Models.id()).put("scenarioId","ORDER_SERVICE")).body();sid=s.path("id").asText();var body=db.object().put("requestId",Models.id()).put("expectedVersion",0).put("stageId","CLARIFY");var fields=body.putObject("artifact");s.path("stages").get(0).path("fieldDefinitions").forEach(f->fields.put(f.path("id").asText(),"合成重启产物"));
             s=design.submit(sid,body);opid=s.path("operationId").asText();var resource=db.get("v2_design_sessions",sid);var stage=(com.fasterxml.jackson.databind.node.ObjectNode)resource.path("stages").get(0);stage.put("state","FEEDBACK_PENDING");var artifact=(com.fasterxml.jackson.databind.node.ObjectNode)stage.path("artifactVersions").get(0);artifact.put("feedbackStatus","PENDING");artifact.remove("feedback");
             db.atomic(()->db.save("v2_design_sessions",resource,resource.path("revision").asInt()));
             oldOperation=db.get("v2_operations",opid).put("state","RUNNING").put("expectedRevision",resource.path("revision").asInt());

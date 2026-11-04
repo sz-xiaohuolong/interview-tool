@@ -4,6 +4,7 @@ import cn.interview.client.training.ModelTask;
 import cn.interview.common.ContentHash;
 import cn.interview.exception.RecoveryException;
 import cn.interview.mapper.TrainingStore;
+import cn.interview.common.CreationResult;
 import cn.interview.task.ModelTaskHandler;
 import cn.interview.task.ModelTaskRunner;
 
@@ -20,7 +21,7 @@ public class PracticeService implements ModelTaskHandler {
     final TrainingStore db;final OperationService ops;final ModelTaskRunner runner;
     PracticeService(TrainingStore db,OperationService ops,ModelTaskRunner runner){this.db=db;this.ops=ops;this.runner=runner;}
     static String text(JsonNode body,String key,int limit,boolean required){JsonNode value=body.path(key);if(!value.isTextual()||value.asText().length()>limit||required&&value.asText().isBlank())throw RecoveryException.invalid(key+" 必须是"+(required?"非空":"允许为空的")+"文本，最多"+limit+"字符");return value.asText();}
-    public ObjectNode create(JsonNode body){return visibleCase(ops.write("PRACTICE_CASE","LOCAL_USER",body,()->{
+    public CreationResult create(JsonNode body){return ops.create("PRACTICE_CASE","LOCAL_USER",body,()->{
         String kind=choice(required(body,"sourceKind",20),"SESSION","STORY");if(kind.equals("STORY"))return storyCase(body);
         String sid=required(body,"sourceId",100),mid=required(body,"messageId",100);var source=db.database().session(sid);var messages=source.path("messages");int position=-1;
         for(int i=0;i<messages.size();i++)if(messages.get(i).path("id").asText().equals(mid))position=i;
@@ -36,7 +37,7 @@ public class PracticeService implements ModelTaskHandler {
         if(body.hasNonNull("revisedFromCaseId")){var priorCase=db.get("v2_practice_cases",required(body,"revisedFromCaseId",100));row.put("familyId",priorCase.path("familyId").asText());Integer version=db.latestPracticeCaseVersion(priorCase.path("familyId").asText());row.put("caseVersion",version+1);}
         db.insert("v2_practice_cases",row);
         var original=db.object().put("caseId",row.path("id").asText()).put("ordinal",0).put("kind","ORIGINAL_SNAPSHOT").put("status","IMPORTED").put("answerText",messages.get(position+1).path("content").asText()).put("protocolStatus","UNKNOWN").put("effectiveExposure","UNKNOWN").put("mock",row.path("mock").asBoolean());original.putNull("submittedAt");original.putNull("evaluation");db.insert("v2_practice_attempts",original);return row;
-    }));}
+    }).map(this::visibleCase);}
     ObjectNode storyCase(JsonNode body){
         String storyId=required(body,"sourceId",100),vid=required(body,"storyVersionId",100),template=required(body,"questionTemplateId",50);var story=db.get("v2_stories",storyId);var version=db.get("v2_story_versions",vid);
         if(story.path("status").asText().equals("ARCHIVED")||!version.path("storyId").asText().equals(storyId)||!version.path("status").asText().equals("CONFIRMED"))throw RecoveryException.conflict("V2_SOURCE_NOT_READY","请选择未归档故事中的已确认版本");
@@ -71,7 +72,7 @@ public class PracticeService implements ModelTaskHandler {
     public ObjectNode attempts(String id,String cursor,int limit){db.get("v2_practice_cases",id);limit=Math.max(1,Math.min(100,limit));int ordinal=-1;
         if(cursor!=null&&!cursor.isBlank())try{ordinal=Integer.parseInt(cursor);if(ordinal<0)throw new NumberFormatException();}catch(NumberFormatException e){throw RecoveryException.invalid("作答游标无效，请返回第一页");}
         var ids=db.attemptIdsAfter(id,ordinal,limit+1);var page=db.object();var list=page.putArray("items");for(String aid:ids.subList(0,Math.min(limit,ids.size())))list.add(view(db.get("v2_practice_attempts",aid)));page.putNull("nextCursor");if(ids.size()>limit)page.put("nextCursor",list.get(list.size()-1).path("ordinal").asText());return page;}
-    public ObjectNode attempt(String cid,JsonNode body){return ops.write("PRACTICE_ATTEMPT",cid,body,()->{
+    public CreationResult attempt(String cid,JsonNode body){return ops.create("PRACTICE_ATTEMPT",cid,body,()->{
         var c=db.get("v2_practice_cases",cid);if(Set.of("PROJECT_GAP","REVIEW_GAP").contains(c.path("contextOrigin").asText())&&!c.path("status").asText().equals("READY"))throw RecoveryException.conflict("V2_SOURCE_NOT_READY","补练题目尚未生成，请恢复原操作后再作答");String declaration=choice(optional(body,"exposureDeclaration","UNKNOWN",30),"SEEN","NOT_SEEN","UNKNOWN");
         int ordinal=db.nextAttemptOrdinal(cid);
         var row=db.object().put("caseId",cid).put("ordinal",ordinal).put("kind","NEW_ANSWER").put("status","DRAFT").put("answerText",body.has("answer")?text(body,"answer",6000,false):"").put("exposureDeclaration",declaration).put("effectiveExposure",c.path("analysisExposure").asText().equals("PROVIDED")?"PROVIDED":declaration).put("mock",c.path("mock").asBoolean());row.putNull("submittedAt");return db.insert("v2_practice_attempts",row);
@@ -89,14 +90,14 @@ public class PracticeService implements ModelTaskHandler {
     void checkMode(JsonNode c){if(c.path("mock").asBoolean()!=runner.isMock())throw RecoveryException.conflict("V2_MODEL_MODE_CHANGED","来源与当前 Mock 模式不同，请使用对应模式。");}
     ObjectNode view(ObjectNode a){var out=a.deepCopy();if(a.hasNonNull("primaryGroupId")){var group=db.get("v2_practice_evaluation_groups",a.path("primaryGroupId").asText());out.set("evaluation",groupView(group));}return out;}
     ObjectNode groupView(ObjectNode group){var out=group.deepCopy();if(out.has("protocol"))out.set("protocol",runner.publicProtocol(out.path("protocol")));return out;}
-    public ObjectNode newGroup(String cid,JsonNode body){return groupView(runner.run(ModelTask.PRACTICE_EVALUATOR,"EVALUATION_GROUP",cid,body,()->{
+    public CreationResult newGroup(String cid,JsonNode body){return runner.runCreated(ModelTask.PRACTICE_EVALUATOR,"EVALUATION_GROUP",cid,body,()->{
         var c=db.get("v2_practice_cases",cid);checkMode(c);var a=db.get("v2_practice_attempts",required(body,"attemptId",100));
         if(!a.path("caseId").asText().equals(cid)||!a.path("kind").asText().equals("NEW_ANSWER")||!Set.of("READY","FAILED","INTERRUPTED").contains(a.path("status").asText()))throw RecoveryException.invalid("请选择该案例已封存的新回答；旧原答只允许双侧配对重评");
         var row=db.object().put("caseId",cid).put("status","RUNNING");row.putArray("attemptIds").add(a.path("id").asText());db.insert("v2_practice_evaluation_groups",row);return new ModelTaskRunner.Work("v2_practice_evaluation_groups",row,evaluationInput(c,a));
-    }));}
+    }).map(this::groupView);}
     ObjectNode selectedGroup(JsonNode body,String side,JsonNode a){String key=side+"EvaluationGroupId";String gid=body.hasNonNull(key)?required(body,key,100):a.path("primaryGroupId").asText();if(gid.isBlank())return null;var group=db.get("v2_practice_evaluation_groups",gid);if(!group.path("status").asText().equals("READY")||!ReviewService.contains(group.path("attemptIds"),a.path("id").asText()))throw RecoveryException.invalid("所选评估组尚未就绪或不属于该回答");return group;}
-    public ObjectNode compare(JsonNode body){
-        String mode=choice(required(body,"mode",30),"COMPARE","REEVALUATE_PAIR");String kind=mode.equals("COMPARE")?"PRACTICE_COMPARE":"PRACTICE_PAIR";var prior=ops.replay(kind,"LOCAL_USER",body);if(prior!=null)return prior.has("resourceTable")?comparisonView(runner.result(prior)):(ObjectNode)prior.path("result").deepCopy();
+    public CreationResult compare(JsonNode body){
+        String mode=choice(required(body,"mode",30),"COMPARE","REEVALUATE_PAIR");String kind=mode.equals("COMPARE")?"PRACTICE_COMPARE":"PRACTICE_PAIR";var prior=ops.replay(kind,"LOCAL_USER",body);if(prior!=null)return new CreationResult(prior.has("resourceTable")?comparisonView(runner.result(prior)):(ObjectNode)prior.path("result").deepCopy(),false);
         String left=required(body,"leftAttemptId",100),right=required(body,"rightAttemptId",100);if(left.equals(right))throw RecoveryException.invalid("请选择两次不同的独立作答");
         var l=db.get("v2_practice_attempts",left);var r=db.get("v2_practice_attempts",right);for(JsonNode a:List.of(l,r))if(!Set.of("READY","IMPORTED","FAILED","INTERRUPTED").contains(a.path("status").asText()))throw RecoveryException.invalid("请选择已封存的两段原文");
         var lc=db.get("v2_practice_cases",l.path("caseId").asText());var rc=db.get("v2_practice_cases",r.path("caseId").asText());
@@ -107,14 +108,14 @@ public class PracticeService implements ModelTaskHandler {
         final String comparisonType=comparability;
         if(comparability.equals("DIFFERENT_CONTEXT")||mode.equals("COMPARE")&&comparability.equals("TEXT_ONLY")){
             if(mode.equals("REEVALUATE_PAIR"))throw RecoveryException.conflict("V2_DIFFERENT_CONTEXT","题目或上下文不同，不能重评为进步");
-            return ops.write(kind,"LOCAL_USER",body,()->db.insert("v2_practice_comparisons",comparisonRow(l,r,comparisonType).put("status",comparisonType)));
+            return ops.create(kind,"LOCAL_USER",body,()->db.insert("v2_practice_comparisons",comparisonRow(l,r,comparisonType).put("status",comparisonType)));
         }
         checkMode(lc);ModelTask task=mode.equals("REEVALUATE_PAIR")?ModelTask.PRACTICE_PAIR_EVALUATOR:ModelTask.PRACTICE_COMPARE;
-        var result=runner.run(task,kind,"LOCAL_USER",body,()->{
+        var result=runner.runCreated(task,kind,"LOCAL_USER",body,()->{
             var row=comparisonRow(l,r,mode.equals("REEVALUATE_PAIR")?"SAME_PROTOCOL":comparisonType).put("status","RUNNING");if(lg!=null)row.put("leftEvaluationGroupId",lg.path("id").asText());if(rg!=null)row.put("rightEvaluationGroupId",rg.path("id").asText());
             if(task==ModelTask.PRACTICE_PAIR_EVALUATOR){var group=db.object().put("caseId",lc.path("id").asText()).put("status","RUNNING");group.putArray("attemptIds").add(left).add(right);db.insert("v2_practice_evaluation_groups",group);row.put("pairedGroupId",group.path("id").asText());}
             db.insert("v2_practice_comparisons",row);var input=db.object().put("question",lc.path("question").asText()).put("leftAnswer",l.path("answerText").asText()).put("rightAnswer",r.path("answerText").asText()).put("leftSnapshotId","left:"+left).put("rightSnapshotId","right:"+right);input.set("rubric",lc.path("rubric").deepCopy());input.set("priorDialogue",lc.path("priorDialogue").deepCopy());var snapshots=input.putArray("snapshots");snapshot(snapshots,input.path("leftSnapshotId").asText(),l.path("answerText").asText(),"ANSWER");snapshot(snapshots,input.path("rightSnapshotId").asText(),r.path("answerText").asText(),"ANSWER");snapshot(snapshots,"context",lc.path("context").asText(),"CONTEXT");if(lg!=null)input.set("leftEvaluation",groupEvaluation(lg,left));if(rg!=null)input.set("rightEvaluation",groupEvaluation(rg,right));return new ModelTaskRunner.Work("v2_practice_comparisons",row,input);
-        });return comparisonView(result);
+        });return result.map(this::comparisonView);
     }
     JsonNode groupEvaluation(JsonNode group,String aid){if(group.path("result").has("checks"))return group.path("result");return group.path("attemptIds").path(0).asText().equals(aid)?group.path("result").path("leftEvaluation"):group.path("result").path("rightEvaluation");}
     String protocolKey(JsonNode protocol){if(!protocol.isObject())return "UNKNOWN";for(String field:List.of("rubricVersion","promptHash","outputSchemaVersion","providerIdentity","requestedModel"))if(!protocol.path(field).isTextual()||protocol.path(field).asText().isBlank()||protocol.path(field).asText().equals("UNKNOWN"))return "UNKNOWN";if(!protocol.path("parameters").isObject()||!protocol.path("mock").isBoolean())return "UNKNOWN";var p=((ObjectNode)protocol).deepCopy();p.remove(List.of("startedAt","finishedAt","finishReason","systemFingerprint","promptText"));return db.hash(p);}

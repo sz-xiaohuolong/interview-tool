@@ -14,7 +14,7 @@ class ReviewController {
     final TrainingRecordRemovalService removal;
     ReviewController(ReviewService service,TrainingRecordRemovalService removal) {this.service=service;this.removal=removal;}
     @GetMapping("/review-import-preview") Object preview(@RequestParam String sessionId) {return service.preview(sessionId);}
-    @PostMapping("/review-imports") Object importReport(@RequestBody JsonNode body) {return ApiResponses.created("REVIEW_IMPORT","LOCAL_USER",body,()->service.importReport(body));}
+    @PostMapping("/review-imports") Object importReport(@RequestBody JsonNode body) {return ApiResponses.created(service.importReport(body));}
     @GetMapping("/review-items") Object list(@RequestParam(required=false) String cursor,@RequestParam(defaultValue="20") int limit,@RequestParam(required=false) String status) {return service.list(cursor,limit,status);}
     @GetMapping("/review-item-for-source") Object source(@RequestParam String sessionId,@RequestParam int questionIndex){return service.source(sessionId,questionIndex);}
     @DeleteMapping("/review-items/{id}") Object delete(@PathVariable String id,@RequestBody JsonNode body){return removal.review(id,body);}

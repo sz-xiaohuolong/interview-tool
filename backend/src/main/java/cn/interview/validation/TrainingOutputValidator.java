@@ -4,7 +4,7 @@ import cn.interview.client.training.TrainingModelClient;
 import cn.interview.client.training.ModelTask;
 import cn.interview.common.ContentHash;
 import cn.interview.exception.RecoveryException;
-import cn.interview.mapper.TrainingStore;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -17,10 +17,10 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TrainingOutputValidator {
-    final TrainingStore db;
+    final ObjectMapper json;
 
-    TrainingOutputValidator(TrainingStore db) {
-        this.db = db;
+    public TrainingOutputValidator(ObjectMapper json) {
+        this.json = json;
     }
 
     RecoveryException invalid() {
@@ -77,7 +77,7 @@ public class TrainingOutputValidator {
 
     JsonNode refs(JsonNode refs, JsonNode input, String onlySnapshot, Set<String> ids) {
         if (!refs.isArray() || refs.size() > 30) throw invalid();
-        var out = db.array();
+        var out = json.createArrayNode();
         for (JsonNode r : refs) out.add(ref(r, input, onlySnapshot, ids));
         return out;
     }
@@ -171,7 +171,7 @@ public class TrainingOutputValidator {
             keys(requirement, "jdQuote", "importance", "priorityReason", "materialCoverage", "trainingStatus", "evidenceRefs", "trainingEventIds", "trainingBindings");
             String quote = requirement.path("jdQuote").asText();
             if (!seen.add(quote) || quote.length() > 10000) throw invalid();
-            var jdRef = ref(db.object().put("kind", "QUOTE").put("snapshotId", "jd").put("quote", quote), input, "jd", Set.of("JD_REQUIREMENT"));
+            var jdRef = ref(json.createObjectNode().put("kind", "QUOTE").put("snapshotId", "jd").put("quote", quote), input, "jd", Set.of("JD_REQUIREMENT"));
             ((ObjectNode) requirement).set("jdEvidence", jdRef);
             if (!Set.of("REQUIRED", "PREFERRED", "UNSPECIFIED").contains(requirement.path("importance").asText()) || !requirement.path("priorityReason").isTextual() || requirement.path("priorityReason").asText().length() > 2000)
                 throw invalid();
@@ -296,7 +296,7 @@ public class TrainingOutputValidator {
             case PRACTICE_COMPARE -> comparison(raw, input);
             case PRACTICE_PAIR_EVALUATOR -> {
                 keys(raw, "leftEvaluation", "rightEvaluation", "comparison");
-                var out = db.object();
+                var out = json.createObjectNode();
                 var l = evaluation(raw.path("leftEvaluation"), input, input.path("leftSnapshotId").asText());
                 var r = evaluation(raw.path("rightEvaluation"), input, input.path("rightSnapshotId").asText());
                 var both = input.deepCopy();

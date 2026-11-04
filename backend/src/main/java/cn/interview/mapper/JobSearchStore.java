@@ -21,42 +21,23 @@ public class JobSearchStore {
     }
     public JobRecord favoriteJob(String id,String key){for(JsonNode item:favorite(id).path("sources"))if(key.equals(item.path("key").asText()))return parseJob(item);throw ApiException.missing("该来源岗位不在指定收藏中");}
     private JobRecord parseJob(JsonNode node){ObjectNode copy=((ObjectNode)node).deepCopy();copy.remove("savedAt");try{return store.json.treeToValue(copy,JobRecord.class);}catch(Exception e){throw new IllegalStateException("收藏快照无法读取",e);}}
-    public ObjectNode saveFavorite(List<JobRecord> jobs,String favoriteId){return saveFavorite(jobs,favoriteId,Map.of());}
-    public synchronized ObjectNode saveFavorite(List<JobRecord> jobs,String favoriteId,Map<String,JobRecord> currentEvidence){
-        if(jobs.isEmpty())throw ApiException.bad("请至少选择一个岗位来源");
-        return store.atomic(()->{
-            var existing=new LinkedHashSet<>(store.jdbc.queryForList("SELECT favorite_id FROM job_search_favorite_sources WHERE source_key IN ("+String.join(",",Collections.nCopies(jobs.size(),"?"))+")",String.class,jobs.stream().map(JobRecord::key).toArray()));
-            if(favoriteId!=null){favorite(favoriteId);existing.add(favoriteId);}
-            if(existing.size()>1)throw ApiException.conflict("所选来源已属于不同收藏，请分别处理");
-            String target=existing.isEmpty()?id():existing.iterator().next();var combined=new ArrayList<JobRecord>();var present=new HashSet<String>();
-            if(!existing.isEmpty())for(JsonNode j:favorite(target).path("sources")){JobRecord saved=parseJob(j);combined.add(favoriteEvidence(saved,currentEvidence.get(saved.key())));present.add(saved.key());}
-            for(JobRecord job:jobs)if(present.add(job.key()))combined.add(job);
-            if(combined.stream().map(JobRecord::source).distinct().count()!=combined.size())throw ApiException.bad("这些来源缺少完整的同岗证据，请分别收藏");
-            for(JobRecord j:combined)if(!sameJob(combined.getFirst(),j))throw ApiException.bad("这些来源缺少完整的同岗证据，请分别收藏");
-            String time=now();if(existing.isEmpty())store.jdbc.update("INSERT INTO job_search_favorites(id,created_at) VALUES(?,?)",target,time);
-            for(JobRecord j:jobs)store.jdbc.update("INSERT INTO job_search_favorite_sources(source_key,favorite_id,snapshot_json,saved_at) VALUES(?,?,?,?) ON CONFLICT(source_key) DO NOTHING",j.key(),target,store.encode(j),time);
-            return favorite(target);
-        });
+    /** 锁和事务覆盖调用方的读取、校验与写入。 */
+    public synchronized <T> T atomic(java.util.function.Supplier<T> action){return store.atomic(action);}
+    public Set<String> favoriteIds(List<String> keys){
+        return new LinkedHashSet<>(store.jdbc.queryForList("SELECT favorite_id FROM job_search_favorite_sources WHERE source_key IN ("+String.join(",",Collections.nCopies(keys.size(),"?"))+")",String.class,keys.toArray()));
     }
-    private static JobRecord favoriteEvidence(JobRecord saved,JobRecord current){
-        if(!normalized(saved.description()).isEmpty()||current==null||normalized(current.description()).isEmpty())return saved;
-        if(!saved.key().equals(current.key())||!saved.source().equals(current.source())||!saved.sourceId().equals(current.sourceId()))return saved;
-        if(!normalized(saved.title()).equals(normalized(current.title()))||!normalized(saved.company()).equals(normalized(current.company()))||!normalized(saved.city()).equals(normalized(current.city()))||!normalized(saved.location()).equals(normalized(current.location())))return saved;
-        // 仅借用当前任务正文验证同岗；插入与返回仍保留旧收藏原始快照。
-        return saved.withDescription(current.description(),current.detailFetchedAt());
+    public List<JobRecord> favoriteJobs(String id){var jobs=new ArrayList<JobRecord>();favorite(id).path("sources").forEach(node->jobs.add(parseJob(node)));return jobs;}
+    public void insertFavorite(String id,String time){store.jdbc.update("INSERT INTO job_search_favorites(id,created_at) VALUES(?,?)",id,time);}
+    public void insertFavoriteSources(String id,List<JobRecord> jobs,String time){
+        for(JobRecord job:jobs)store.jdbc.update("INSERT INTO job_search_favorite_sources(source_key,favorite_id,snapshot_json,saved_at) VALUES(?,?,?,?) ON CONFLICT(source_key) DO NOTHING",job.key(),id,store.encode(job),time);
     }
-    static String normalized(String value){return value==null?"":value.strip().replaceAll("\\s+"," ");}
-    static boolean sameJob(JobRecord a,JobRecord b){if(a.key().equals(b.key()))return true;if(a.source().equals(b.source()))return false;return equalKnown(a.title(),b.title())&&equalKnown(a.company(),b.company())&&normalized(a.city()).equals(normalized(b.city()))&&equalKnown(a.location(),b.location())&&equalKnown(a.description(),b.description());}
-    private static boolean equalKnown(String a,String b){return !normalized(a).isEmpty()&&normalized(a).equals(normalized(b));}
     public synchronized void deleteFavorite(String id){favorite(id);store.jdbc.update("DELETE FROM job_search_favorites WHERE id=?",id);}
     public ObjectNode lookup(List<String> keys){var result=store.json.createObjectNode();for(String key:keys){JsonNode link=store.jobSourceByKey(key);if(link==null)result.putNull(key);else result.set(key,link);}return result;}
-    public synchronized ObjectNode saveJd(JobRecord job,String name,String content){
-        return store.atomic(()->{
-            JsonNode previous=store.jobSourceByKey(job.key());if(previous!=null)return store.json.createObjectNode().put("materialId",previous.path("materialId").asText()).put("created",false).set("source",previous);
-            String materialId=id(),time=now();store.insertMaterial(materialId,"JD",name,content,time);
-            var source=store.json.createObjectNode().put("materialId",materialId).put("source",job.source()).put("sourceId",job.sourceId()).put("url",job.url()).put("fetchedAt",job.detailFetchedAt()==null?job.fetchedAt():job.detailFetchedAt()).put("contentEdited",job.description()==null||!job.description().equals(content));
-            store.jdbc.update("INSERT INTO job_search_jd_links(source_key,material_id,source_json,source_content_hash) VALUES(?,?,?,?)",job.key(),materialId,store.encode(source),job.description()==null?"":ContentHash.sha(job.description()));
-            return store.json.createObjectNode().put("materialId",materialId).put("created",true).set("source",source);
-        });
+    public JsonNode jdLink(String key){return store.jobSourceByKey(key);}
+    public ObjectNode insertJd(JobRecord job,String name,String content,boolean contentEdited){
+        String materialId=id(),time=now();store.insertMaterial(materialId,"JD",name,content,time);
+        var source=store.json.createObjectNode().put("materialId",materialId).put("source",job.source()).put("sourceId",job.sourceId()).put("url",job.url()).put("fetchedAt",job.detailFetchedAt()==null?job.fetchedAt():job.detailFetchedAt()).put("contentEdited",contentEdited);
+        store.jdbc.update("INSERT INTO job_search_jd_links(source_key,material_id,source_json,source_content_hash) VALUES(?,?,?,?)",job.key(),materialId,store.encode(source),job.description()==null?"":ContentHash.sha(job.description()));
+        return source;
     }
 }

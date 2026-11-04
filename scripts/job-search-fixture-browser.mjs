@@ -64,8 +64,10 @@ function listPage(source, url) {
   const stateData = source === 'ZHAOPIN' ? JSON.stringify({ positionList: zhaoItems(jobs), hasMore: true, positionCount: 200, pageIndex: 1 }) : ''
   const embeddedState = source === 'ZHAOPIN' && keyword.includes('合成全国') ? `<script>__INITIAL_STATE__=${stateData};</script><script>delete window.__INITIAL_STATE__;</script>` : ''
   const initialState = source === 'ZHAOPIN' && !embeddedState ? `window.__INITIAL_STATE__=${stateData};` : ''
+  // 合成失败响应的正文永不结束，用真实 Chromium 验证后端只等待响应头。
+  const stalledFailure = keyword.includes('合成翻页失败') ? `const nativeFetch=window.fetch.bind(window);window.fetch=async(...args)=>{const response=await nativeFetch(...args);if(!response.ok)response.text=()=>new Promise(()=>{});return response;};` : ''
   // 正常浏览器 fetch 产生可被 CDP 读取的响应；滚动只追加一批。
-  return shell(embeddedState + container + '<div style="height:1800px">合成测试分页区域</div>', `${initialState}
+  return shell(embeddedState + container + '<div style="height:1800px">合成测试分页区域</div>', `${initialState}${stalledFailure}
     let batch=1,busy=false;const source=${JSON.stringify(source)};
     const snippets=${JSON.stringify(Array.from({ length: 8 }, (_, i) => records(source, i + 1, size).map(job => card(source, job)).join('')))};
     async function load(){if(busy||batch>7)return;busy=true;try{const r=await fetch(${JSON.stringify(dataUrl)}+'?page='+batch+'&query='+encodeURIComponent(${JSON.stringify(keyword)}));const d=await r.json();document.getElementById('cards').insertAdjacentHTML('beforeend',snippets[batch-1]);${source === 'ZHAOPIN' ? 'if(window.__INITIAL_STATE__){if(batch>1)window.__INITIAL_STATE__.positionList.push(...d.data.list);window.__INITIAL_STATE__.pageIndex=batch;}' : ''}batch++;}finally{busy=false;}}
@@ -80,6 +82,8 @@ await context.route('**/*', async route => {
   requests.push({ source, method: request.method(), path: url.pathname, page: url.searchParams.get('page') || url.searchParams.get('currentPage') })
   if (request.method() !== 'GET' && !url.pathname.endsWith('/positions')) return route.abort('blockedbyclient')
   if (url.pathname === '/wapi/zpgeek/search/joblist.json') {
+    const failure = (url.searchParams.get('query') || '').match(/合成翻页失败 (401|403|429|500)/)
+    if (failure && Number(url.searchParams.get('page')) > 1) return route.fulfill({ status: Number(failure[1]), body: '合成失败正文，不得读取 secret' })
     const empty = (url.searchParams.get('query') || '').includes('空结果')
     const jobs = empty ? [] : bossItems(records('BOSS', Number(url.searchParams.get('page') || '1'), 15))
     return route.fulfill({ json: { code: 0, zpData: { hasMore: !empty, jobList: jobs } } })

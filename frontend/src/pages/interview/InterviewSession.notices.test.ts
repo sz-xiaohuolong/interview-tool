@@ -40,6 +40,14 @@ async function show(value = fixture()) {
   return { wrapper, writes, fetcher }
 }
 
+it.each(['QUICK', 'COMPREHENSIVE'] as const)('%s 作答区首次听写前即可阅读语音告知', async sessionType => {
+  const { wrapper, writes } = await show(fixture({ sessionType, status: 'IN_PROGRESS', error: '', allowedActions: ['answers', 'finish'] }))
+  const notice = wrapper.findAll('.composer p').find(p => p.text() === '浏览器可能在线处理语音；本工具不保存音频')
+  expect(notice?.exists()).toBe(true)
+  expect(notice?.element.closest('.sr-only, [hidden], [aria-hidden="true"]')).toBeNull()
+  expect(writes).toEqual([])
+})
+
 it('重复过程提示合并并保留次数，默认收起，当前错误留在恢复操作旁', async () => {
   const { wrapper } = await show()
   const records = wrapper.get<HTMLDetailsElement>('.interview-session-notices')

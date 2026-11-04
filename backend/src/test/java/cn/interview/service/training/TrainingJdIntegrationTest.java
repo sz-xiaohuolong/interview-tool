@@ -163,7 +163,7 @@ class TrainingJdIntegrationTest {
         assertThat(s.path("actions").get(0).path("sourceDiagnosticId").asText()).isEqualTo(did1);
         s=call("/api/v2/sprints/"+sid+"/actions",Map.of("requestId","reopen","expectedVersion",s.path("revision").asInt(),"action","REOPEN","actionId",aid));
         var a=s.path("actions").get(0);assertThat(a.path("sourceDiagnosticId").asText()).isEqualTo(did2);assertThat(a.path("originalSourceDiagnosticId").asText()).isEqualTo(did1);assertThat(a.path("completionEvidence")).isEqualTo(evidence);
-        var link=db.object().put("requestId",Models.id()).put("sourceKind","JD").put("sourceId",did2).put("sprintId",sid).put("actionId",aid);link.putArray("requirementIds").add(rid);assertThat(links.link(link).path("sourceId").asText()).isEqualTo(did2);
+        var link=db.object().put("requestId",Models.id()).put("sourceKind","JD").put("sourceId",did2).put("sprintId",sid).put("actionId",aid);link.putArray("requirementIds").add(rid);assertThat(links.link(link).body().path("sourceId").asText()).isEqualTo(did2);
     }
 
 }

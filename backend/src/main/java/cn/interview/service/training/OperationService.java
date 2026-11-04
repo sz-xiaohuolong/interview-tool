@@ -1,6 +1,7 @@
 package cn.interview.service.training;
 
 import cn.interview.exception.RecoveryException;
+import cn.interview.common.CreationResult;
 import cn.interview.mapper.TrainingStore;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,10 +26,13 @@ public class OperationService {
         return op;
     }
     ObjectNode write(String kind,String scope,JsonNode request,Supplier<ObjectNode> action) {
+        return create(kind,scope,request,action).body();
+    }
+    CreationResult create(String kind,String scope,JsonNode request,Supplier<ObjectNode> action) {
         return db.atomic(()->{
-            var old=replay(kind,scope,request);if(old!=null)return (ObjectNode)old.path("result").deepCopy();
+            var old=replay(kind,scope,request);if(old!=null)return new CreationResult((ObjectNode)old.path("result").deepCopy(),false);
             var result=action.get();
-            record(kind,scope,request,result,"SUCCEEDED");return result;
+            record(kind,scope,request,result,"SUCCEEDED");return new CreationResult(result,true);
         });
     }
     public ObjectNode record(String kind,String scope,JsonNode request,ObjectNode result,String state) {
@@ -36,7 +40,6 @@ public class OperationService {
                 .put("resourceId",result.path("id").asText("LOCAL_USER")).put("requestId",required(request,"requestId",120))
                 .put("inputHash",db.hash(request)).put("state",state).put("generation",0).put("expectedRevision",result.path("revision").asInt());
         op.set("result",result.deepCopy());db.insert("v2_operations",op);
-        var attributes=org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();if(attributes!=null)attributes.setAttribute("v2.created:"+kind+":"+scope,request.path("requestId").asText(),0);
         return op;
     }
     ObjectNode history(String table,String scope,String cursor,int limit){
